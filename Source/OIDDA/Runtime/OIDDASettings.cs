@@ -11,6 +11,9 @@ public class OIDDASettings
 {
     [EditorOrder(0), EditorDisplay("OIDDA Config")]
     public GameplayGlobals Globals;
+
     [EditorOrder(1), EditorDisplay("ORS Config")]
     public Dictionary<string, IORSAgent> StaticORS;
+    [EditorOrder(1), Range(0,1) , EditorDisplay("ORS Config")]
+    public float Delay;
 }
