@@ -19,7 +19,6 @@ public class ORSUtils
 
     public static string GeneratedID => GenerateID();
 
-
     static string GenerateID()
     {
         const string Characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";

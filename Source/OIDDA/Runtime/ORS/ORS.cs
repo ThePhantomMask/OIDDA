@@ -14,7 +14,6 @@ namespace OIDDA;
 /// class.</remarks>
 public abstract class ORSAgent
 {
-
     public abstract void ConnectORSAgent(Script script, ORSUtils.ORSType type);
 
     public abstract void ConnectORSAgent(ORSUtils.ORSType type);
@@ -38,6 +37,14 @@ public abstract class ORSAgent
 public class ORS : ORSAgent
 {
     string ORSID;
+
+    public static ORS Instance = new ORS();
+
+    OIDDAManager OIDDAManager => Level.FindActor<OIDDAManager>();
+
+    public bool IsStaticConnected;
+
+    public bool IsDynamicConnected;
 
     /// <summary>
     /// Initializes the ORS agent connection using the specified script and agent type (Static ORS Agent).
@@ -78,25 +85,43 @@ public class ORS : ORSAgent
 
     }
 
-    public bool IsConnected;
-
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
+        if (IsDynamicConnected || IsStaticConnected)
+        {
+            result = default; return true;
+        }
+
         result = default; return false;
     }
 
     public override T ReceiverValue<T>(string nameValue)
     {
+        if (IsDynamicConnected || IsStaticConnected)
+        {
+            throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
+        }
+
         throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
     }
 
     public override void SenderValue(string nameValue, object senderValue)
     {
+        if (IsDynamicConnected || IsStaticConnected)
+        {
+
+        }
+
 
     }
 
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
+        if (IsDynamicConnected || IsStaticConnected)
+        {
+            return true;
+        }
+
         return false;
     }
 
