@@ -7,7 +7,7 @@ namespace OIDDA;
 /// <summary>
 /// OIDDA Manager Actor
 /// </summary>
-[ActorContextMenu("New/OIDDA/OIDDA Manager"), ActorToolbox("Other")]
+[ActorContextMenu("New/Other/OIDDA Manager"), ActorToolbox("Other")]
 public class OIDDAManager : Actor
 {
     /// <inheritdoc/>
