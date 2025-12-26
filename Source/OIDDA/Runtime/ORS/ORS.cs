@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace OIDDA;
 
 /// <summary>
-/// Represents an abstract base class for an ORS (Object Routing System) agent, providing methods for connecting,
+/// Represents an abstract base class for an ORS (OIDDA Receiver Sender) agent, providing methods for connecting,
 /// disconnecting, and exchanging values with an ORS system.
 /// </summary>
 /// <remarks>This class defines the core contract for interacting with ORS agents, including connection management
@@ -32,7 +32,7 @@ public abstract class ORSAgent
 }
 
 /// <summary>
-/// OIDDA Receiver Sender Agent
+///  Agent
 /// </summary>
 public class ORS : ORSAgent
 {
