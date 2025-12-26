@@ -38,7 +38,7 @@ public class ORS : ORSAgent
 {
     string ORSID;
 
-    public static ORS Instance = new ORS();
+    public static ORS Instance = new();
 
     OIDDAManager OIDDAManager => Level.FindActor<OIDDAManager>();
 
