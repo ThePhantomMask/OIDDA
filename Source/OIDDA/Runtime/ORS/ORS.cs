@@ -42,7 +42,7 @@ public class ORS : ORSAgent
 
     OIDDAManager OIDDAManager => Level.FindActor<OIDDAManager>();
 
-    public bool IsConnected;
+    public bool IsConnected => OIDDAManager.OMA.ORSIsConnected(ORSID) || OIDDAManager.OMA.ORSIsConnected();
 
     /// <summary>
     /// Initializes the ORS agent connection using the specified script and agent type (Static ORS Agent).
@@ -83,12 +83,16 @@ public class ORS : ORSAgent
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
-        result = (IsConnected) ? OIDDAManager.OMA.GetGlobal<T>(nameValue) : default; return (IsConnected);
+        if (IsConnected && (OIDDAManager.OMA.VerifyIsReceiver(ORSID) || OIDDAManager.OMA.VerifyIsReceiver()))
+        {
+            result = OIDDAManager.OMA.GetGlobal<T>(nameValue); return true;
+        }
+        result = default; return false;
     }
 
     public override T ReceiverValue<T>(string nameValue)
     {
-        if (IsConnected)
+        if (IsConnected && (OIDDAManager.OMA.VerifyIsReceiver(ORSID) || OIDDAManager.OMA.VerifyIsReceiver()))
         {
             return OIDDAManager.OMA.GetGlobal<T>(nameValue);
         }
@@ -97,7 +101,7 @@ public class ORS : ORSAgent
 
     public override void SenderValue(string nameValue, object senderValue)
     {
-        if (IsConnected)
+        if (IsConnected && (OIDDAManager.OMA.VerifyIsSender(ORSID) || OIDDAManager.OMA.VerifyIsSender()))
         {
             OIDDAManager.OMA.SetGlobal(nameValue, senderValue);
         }
@@ -105,12 +109,11 @@ public class ORS : ORSAgent
 
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
-        if (IsConnected)
+        if (IsConnected && (OIDDAManager.OMA.VerifyIsSender(ORSID) || OIDDAManager.OMA.VerifyIsSender()))
         {
             OIDDAManager.OMA.SetGlobal(nameValue, senderValue);
             return true;
         }
-
         return false;
     }
 }

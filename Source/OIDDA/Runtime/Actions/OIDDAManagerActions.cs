@@ -1,8 +1,11 @@
 ﻿using FlaxEditor.Content.Settings;
 using FlaxEngine;
 using FlaxEngine.Utilities;
-using System.Collections.Generic;
 using SimpleCoroutines;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Xml.Linq;
 
 namespace OIDDA;
 
@@ -19,10 +22,10 @@ public class OIDDAManagerActions : Script
 
     public override void OnStart()
     {
-        var Brain = GameSettings.Load<OIDDASettings>();
-        GameplayValues = Brain.Globals;
-        StaticORSDB.AddRange(Brain.StaticORS);
-        Delay = Brain.Delay;
+        var OIDDASettings = GameSettings.Load<OIDDASettings>();
+        GameplayValues = OIDDASettings.Globals;
+        StaticORSDB.AddRange(OIDDASettings.StaticORS);
+        Delay = OIDDASettings.Delay;
     }
     
     public override void OnEnable()
@@ -40,6 +43,10 @@ public class OIDDAManagerActions : Script
         GameplayValues.ResetValues();
         ORSAgentDB.Clear(); StaticORSDB.Clear();
     }
+
+
+
+    #region ORS Functions
 
     public bool Connect(Script script, ORSUtils.ORSType type)
     {
@@ -89,11 +96,23 @@ public class OIDDAManagerActions : Script
         return false;
     }
 
+    public bool ORSIsConnected(string ID) => ORSAgentDB.ContainsKey(ID);
+
+    public bool ORSIsConnected() => StaticORSDB.Values.Any(agent => agent.IsActive is true);
+
+    public bool VerifyIsReceiver(string ID) => ORSAgentDB[ID].ORSType == ORSUtils.ORSType.ReceiverSender || ORSAgentDB[ID].ORSType == ORSUtils.ORSType.Receiver;
+
+    public bool VerifyIsReceiver() => StaticORSDB.Values.Any(agent => agent.ORSType == ORSUtils.ORSType.ReceiverSender || agent.ORSType == ORSUtils.ORSType.Receiver);
+
+    public bool VerifyIsSender(string ID) => ORSAgentDB[ID].ORSType == ORSUtils.ORSType.ReceiverSender || ORSAgentDB[ID].ORSType == ORSUtils.ORSType.Sender;
+
+    public bool VerifyIsSender() => StaticORSDB.Values.Any(agent => agent.ORSType == ORSUtils.ORSType.ReceiverSender || agent.ORSType == ORSUtils.ORSType.Sender);
+
     public void SetGlobal(string name, object value) => SimpleCoroutine.Invoke(() => GameplayValues.SetValue(name, value), Delay, Actor);
 
     public T GetGlobal<T>(string name) => GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
 
-
+    #endregion
 
     public override void OnUpdate()
     {
