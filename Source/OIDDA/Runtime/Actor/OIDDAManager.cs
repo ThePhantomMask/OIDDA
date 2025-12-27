@@ -24,16 +24,15 @@ public class OIDDAManager : EmptyActor
     public override void OnEndPlay()
     {
         base.OnEndPlay();
+        OMA.OIDDAReset();
     }
     
-    /// <inheritdoc/>
     public override void OnEnable()
     {
         base.OnEnable();
         // Here you can add code that needs to be called when Actor is enabled (eg. register for events). This is called during edit time as well.
     }
 
-    /// <inheritdoc/>
     public override void OnDisable()
     {
         base.OnDisable();

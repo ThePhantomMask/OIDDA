@@ -3,6 +3,7 @@ using FlaxEngine;
 using FlaxEngine.Utilities;
 using SimpleCoroutines;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,13 +15,15 @@ namespace OIDDA;
 /// </summary>
 public class OIDDAManagerActions : Script
 {
+    [Tooltip("Metrics update interval (seconds)")]
+    public float UpdateInterval = 1f;
+
     GameSettings Settings;
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
+    Dictionary<string, object> _currentMetrics = new();
     GameplayGlobals GameplayValues;
-    float Delay;
-
-    public string ORSAgentName;
+    float Delay, _timerBeforeUpdate;
 
     public override void OnStart()
     {
@@ -40,23 +43,31 @@ public class OIDDAManagerActions : Script
         // Here you can add code that needs to be called when script is disabled (eg. unregister from events)
     }
 
-    public override void OnDestroy()
-    {
-        GameplayValues.ResetValues();
-        ORSAgentDB.Clear(); StaticORSDB.Clear();
-    }
-
     internal void OIDDAInit()
     {
         var OIDDA = Settings.CustomSettings["OIDDA"].CreateInstance<OIDDASettings>();
         GameplayValues = OIDDA.Globals;
         StaticORSDB.AddRange(OIDDA.StaticORS);
+        _currentMetrics.AddRange(GameplayValues.Values);
         Delay = OIDDA.Delay;
     }
 
-    void UpdateOIDDAInRealTime()
+    public void OIDDAReset()
     {
+        GameplayValues.ResetValues(); _timerBeforeUpdate = 0;
+        _currentMetrics.Clear(); ORSAgentDB.Clear(); StaticORSDB.Clear();
+    }
 
+    void OIDDAUpdate()
+    {
+        _timerBeforeUpdate += Time.DeltaTime;
+
+        if (_timerBeforeUpdate >= UpdateInterval)
+        {
+            _currentMetrics.ForEach(metric => GameplayValues.SetValue(metric.Key, metric.Value));
+            Debug.Log("OIDDA metrics updated");
+            _timerBeforeUpdate = 0;
+        }
     }
 
     #region ORS Functions
@@ -121,7 +132,7 @@ public class OIDDAManagerActions : Script
 
     public bool VerifyIsSender() => StaticORSDB.Values.Any(agent => agent.ORSType == ORSUtils.ORSType.ReceiverSender || agent.ORSType == ORSUtils.ORSType.Sender);
 
-    public void SetGlobal(string name, object value) => SimpleCoroutine.Invoke(() => GameplayValues.SetValue(name, value), Delay, Actor);
+    public void SetGlobal(string name, object value) => SimpleCoroutine.Invoke(() => _currentMetrics[name] = value, Delay, Actor);
 
     public T GetGlobal<T>(string name) => GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
 
@@ -129,6 +140,6 @@ public class OIDDAManagerActions : Script
 
     public override void OnUpdate()
     {
-        UpdateOIDDAInRealTime();
+        OIDDAUpdate();
     }
 }
