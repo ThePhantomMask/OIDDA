@@ -109,7 +109,7 @@ public class OIDDAManagerActions : Script
         return false;
     }
 
-    public bool ORSIsConnected(string ID) => ORSAgentDB.ContainsKey(ID);
+    public bool ORSIsConnected(string ID = "") => ORSAgentDB.ContainsKey(ID);
 
     public bool ORSIsConnected() => StaticORSDB.Values.Any(agent => agent.IsActive is true);
 
