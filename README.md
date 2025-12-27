@@ -11,4 +11,11 @@ OIDDA (Organic Intelligent Dynamic Difficulty Adjustment) is an intelligent diff
 To add this plugin project to your game, follow the instructions in the [Flax Engine documentation](https://docs.flaxengine.com/manual/scripting/plugins/plugin-project.html#automated-git-cloning) for adding a plugin project automatically using git or manually.
 
 # Setup
-1. 
+1. Install the plugin into the Flax Engine game project.
+2. Assign the relevant GameplayGlobals within OIDDA Settings.
+3. Assign any static agents you feel you are using with a name and then script, agent type.
+4. Add in the scene, the OIDDA Manager actor.
+
+
+
+# Support
