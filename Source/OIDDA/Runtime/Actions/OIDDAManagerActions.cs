@@ -12,7 +12,7 @@ namespace OIDDA;
 /// </summary>
 public class OIDDAManagerActions : Script
 {
-
+    GameSettings Settings;
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
     GameplayGlobals GameplayValues;
@@ -20,10 +20,8 @@ public class OIDDAManagerActions : Script
 
     public override void OnStart()
     {
-        var OIDDASettings = GameSettings.Load<OIDDASettings>();
-        GameplayValues = OIDDASettings.Globals;
-        StaticORSDB.AddRange(OIDDASettings.StaticORS);
-        Delay = OIDDASettings.Delay;
+        Settings = GameSettings.Load();
+        OIDDAInit();
     }
     
     public override void OnEnable()
@@ -42,7 +40,13 @@ public class OIDDAManagerActions : Script
         ORSAgentDB.Clear(); StaticORSDB.Clear();
     }
 
-
+    internal void OIDDAInit()
+    {
+        var OIDDA = Settings.CustomSettings["OIDDA"].CreateInstance<OIDDASettings>();
+        GameplayValues = OIDDA.Globals;
+        StaticORSDB.AddRange(OIDDA.StaticORS);
+        Delay = OIDDA.Delay;
+    }
 
     #region ORS Functions
 

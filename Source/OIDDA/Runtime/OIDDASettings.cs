@@ -7,7 +7,7 @@ namespace OIDDA;
 /// <summary>
 /// OIDDA Settings
 /// </summary>
-public class OIDDASettings : FlaxEditor.Content.Settings.SettingsBase
+public class OIDDASettings : SettingsBase
 {
     [EditorOrder(0), EditorDisplay("OIDDA Config")]
     public GameplayGlobals Globals;
