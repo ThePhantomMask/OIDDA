@@ -22,7 +22,9 @@
 	"Localization": null,
 	"GameCooking": null,
 	"Streaming": null,
-	"CustomSettings": null,
+	"CustomSettings": {
+		"OIDDA": null
+	},
 	"WindowsPlatform": null,
 	"UWPPlatform": null,
 	"LinuxPlatform": null,

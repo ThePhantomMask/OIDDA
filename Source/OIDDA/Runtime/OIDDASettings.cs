@@ -13,7 +13,7 @@ public class OIDDASettings
     public GameplayGlobals Globals;
 
     [EditorOrder(1), EditorDisplay("ORS Config")]
-    public Dictionary<string, IORSAgent> StaticORS;
+    public Dictionary<string, IORSAgentS> StaticORS;
     [EditorOrder(1), Range(0,1) , EditorDisplay("ORS Config")]
     public float Delay;
 }

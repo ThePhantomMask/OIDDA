@@ -53,7 +53,7 @@ public class ORS : ORSAgent
     /// <param name="type">The type of ORS agent to connect to. Specifies the agent category or behavior.</param>
     public override void ConnectORSAgent(Script script, ORSUtils.ORSType type)
     {
-
+        OIDDAManager.Connect(script, type);
     }
 
     /// <summary>
@@ -62,7 +62,8 @@ public class ORS : ORSAgent
     /// <param name="type">The ORS type to use for the agent connection. Determines the configuration and behavior of the agent.</param>
     public override void ConnectORSAgent(ORSUtils.ORSType type)
     {
-        ORSID = ORSUtils.GeneratedID;
+        var Dynamic = new IORSAgentD(); Dynamic.ORSType = type;
+        OIDDAManager.Connect(ORSID = ORSUtils.GeneratedID, Dynamic);
     }
 
     /// <summary>
@@ -71,10 +72,7 @@ public class ORS : ORSAgent
     /// <param name="script">The script that identifies the ORS agent to disconnect. Cannot be null.</param>
     public override void DisconnectORSAgent(Script script = null)
     {
-        if (script)
-        {
-
-        }
+        if (script) OIDDAManager.Disconnect(script);
     }
 
     /// <summary>
@@ -82,17 +80,12 @@ public class ORS : ORSAgent
     /// </summary>
     public override void DisconnectORSAgent()
     {
-
+        if(!string.IsNullOrEmpty(ORSID)) OIDDAManager.Disconnect(ORSID);
     }
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
-        if (IsDynamicConnected || IsStaticConnected)
-        {
-            result = default; return true;
-        }
-
-        result = default; return false;
+        result = default; return (IsDynamicConnected || IsStaticConnected);
     }
 
     public override T ReceiverValue<T>(string nameValue)

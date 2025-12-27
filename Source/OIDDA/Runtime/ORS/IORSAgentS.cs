@@ -5,11 +5,15 @@ using FlaxEngine;
 namespace OIDDA;
 
 /// <summary>
-/// ORS Agent struct.
+/// Static ORS Agent struct.
 /// </summary>
-public struct IORSAgent
+public struct IORSAgentS
 {
     public Script ORSScript;
     public string ORSID { get => ORSUtils.GeneratedID; }
     public ORSUtils.ORSType ORSType;
+    public bool IsActive { get; private set; }
+
+    public void SetIsActive(bool status) => IsActive = status;
+
 }
