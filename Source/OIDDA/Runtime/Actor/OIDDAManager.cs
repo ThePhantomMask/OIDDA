@@ -10,6 +10,7 @@ namespace OIDDA;
 [ActorContextMenu("New/Other/OIDDA Manager"), ActorToolbox("Other")]
 public class OIDDAManager : EmptyActor
 {
+    [HideInEditor]
     public OIDDAManagerActions OMA;
 
     /// <inheritdoc/>
