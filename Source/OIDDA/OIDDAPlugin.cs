@@ -14,10 +14,10 @@ public class OIDDAPlugin : GamePlugin
         _description = new PluginDescription()
         {
             Name = "OIDDA",
-            Category = "Utility",
+            Category = "Other",
             Author = "The Phantom Mask",
             RepositoryUrl = "https://github.com/ThePhantomMask/OIDDA",
-            Description = "",
+            Description = "A plugin that adds DDA, which intelligently and organically manages the experience in a simple, out-of-the-box way.",
             Version = new Version(0, 1, 0),
             IsAlpha = true,
             IsBeta = false,

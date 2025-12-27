@@ -1,7 +1,6 @@
-﻿using System;
+﻿using FlaxEngine;
+using System;
 using System.Collections.Generic;
-using FlaxEngine;
-using FlaxEditor.Content.Settings;
 
 namespace OIDDA;
 
