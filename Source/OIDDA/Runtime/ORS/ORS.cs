@@ -36,7 +36,7 @@ public abstract class ORSAgent
 /// </summary>
 public class ORS : ORSAgent
 {
-    string ORSID;
+    string ORSID, ORSName;
 
     public static ORS Instance = new();
 
@@ -51,7 +51,8 @@ public class ORS : ORSAgent
     /// <param name="type">The type of ORS agent to connect to. Specifies the agent category or behavior.</param>
     public override void ConnectORSAgent(Script script, ORSUtils.ORSType type)
     {
-        OIDDAManager.OMA.Connect(script, type);
+        ORSName = OIDDAManager.OMA.NameORSAgent(script, type);
+        OIDDAManager.OMA.Connect(ORSName);
     }
 
     /// <summary>
@@ -65,10 +66,10 @@ public class ORS : ORSAgent
     }
 
     /// <summary>
-    /// Disconnects the specified ORS agent represented by the provided script (Static ORS Agent).
+    ///  Disconnects the specified ORS agent represented by the provided script (Static ORS Agent).
     /// </summary>
     /// <param name="script">The script that identifies the ORS agent to disconnect. Cannot be null.</param>
-    public override void DisconnectORSAgent(Script script = null)
+    public override void DisconnectORSAgent(Script script)
     {
         if (script) OIDDAManager.OMA.Disconnect(script);
     }

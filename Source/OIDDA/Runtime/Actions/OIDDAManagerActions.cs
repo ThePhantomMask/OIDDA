@@ -2,7 +2,9 @@
 using FlaxEngine;
 using FlaxEngine.Utilities;
 using SimpleCoroutines;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace OIDDA;
@@ -18,9 +20,13 @@ public class OIDDAManagerActions : Script
     GameplayGlobals GameplayValues;
     float Delay;
 
+    public string ORSAgentName;
+
     public override void OnStart()
     {
         Settings = GameSettings.Load();
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Settings.CompanyName, Settings.ProductName, "OIDDA");
+        if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         OIDDAInit();
     }
     
@@ -48,18 +54,25 @@ public class OIDDAManagerActions : Script
         Delay = OIDDA.Delay;
     }
 
+    void UpdateOIDDAInRealTime()
+    {
+
+    }
+
     #region ORS Functions
 
-    public bool Connect(Script script, ORSUtils.ORSType type)
+    string NameORSAgent(Script script = null) => StaticORSDB.FirstOrDefault(kvp => kvp.Value.ORSScript == script).Key;
+
+    public string NameORSAgent(Script script, ORSUtils.ORSType type) => 
+        StaticORSDB.FirstOrDefault(kvp => kvp.Value.ORSScript == script && kvp.Value.ORSType == type).Key;
+
+    public bool Connect(string NameStatic)
     {
-        foreach (var ORS in StaticORSDB)
+        if(StaticORSDB.ContainsKey(NameStatic))
         {
-            if (ORS.Value.ORSScript == script && ORS.Value.ORSType == type)
-            {
-                ORS.Value.SetIsActive(true);
-                Debug.Log($"ORS: {ORS.Key} Connection Status: {ORS.Value.IsActive}");
-                return true;
-            }
+            StaticORSDB[NameStatic].SetIsActive(true);
+            Debug.Log($"ORS: {NameStatic} Connection Status: {StaticORSDB[NameStatic].IsActive}");
+            return true; 
         }
         return false;
     }
@@ -76,14 +89,12 @@ public class OIDDAManagerActions : Script
 
     public bool Disconnect(Script script)
     {
-        foreach (var ORS in StaticORSDB)
+        var name = NameORSAgent(script);
+        if (StaticORSDB.ContainsKey(name))
         {
-            if (ORS.Value.ORSScript == script)
-            {
-                ORS.Value.SetIsActive(false);
-                Debug.Log($"ORS: {ORS.Key} Connection Status: {ORS.Value.IsActive}");
-                return true;
-            }
+            StaticORSDB[name].SetIsActive(true);
+            Debug.Log($"ORS: {name} Connection Status: {StaticORSDB[name].IsActive}");
+            return true;
         }
         return false;
     }
@@ -118,6 +129,6 @@ public class OIDDAManagerActions : Script
 
     public override void OnUpdate()
     {
-        // Here you can add code that needs to be called every frame
+        UpdateOIDDAInRealTime();
     }
 }
