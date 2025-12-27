@@ -42,9 +42,7 @@ public class ORS : ORSAgent
 
     OIDDAManager OIDDAManager => Level.FindActor<OIDDAManager>();
 
-    public bool IsStaticConnected;
-
-    public bool IsDynamicConnected;
+    public bool IsConnected;
 
     /// <summary>
     /// Initializes the ORS agent connection using the specified script and agent type (Static ORS Agent).
@@ -53,7 +51,7 @@ public class ORS : ORSAgent
     /// <param name="type">The type of ORS agent to connect to. Specifies the agent category or behavior.</param>
     public override void ConnectORSAgent(Script script, ORSUtils.ORSType type)
     {
-        OIDDAManager.Connect(script, type);
+        OIDDAManager.OMA.Connect(script, type);
     }
 
     /// <summary>
@@ -63,7 +61,7 @@ public class ORS : ORSAgent
     public override void ConnectORSAgent(ORSUtils.ORSType type)
     {
         var Dynamic = new IORSAgentD(); Dynamic.ORSType = type;
-        OIDDAManager.Connect(ORSID = ORSUtils.GeneratedID, Dynamic);
+        OIDDAManager.OMA.Connect(ORSID = ORSUtils.GeneratedID, Dynamic);
     }
 
     /// <summary>
@@ -72,7 +70,7 @@ public class ORS : ORSAgent
     /// <param name="script">The script that identifies the ORS agent to disconnect. Cannot be null.</param>
     public override void DisconnectORSAgent(Script script = null)
     {
-        if (script) OIDDAManager.Disconnect(script);
+        if (script) OIDDAManager.OMA.Disconnect(script);
     }
 
     /// <summary>
@@ -80,42 +78,39 @@ public class ORS : ORSAgent
     /// </summary>
     public override void DisconnectORSAgent()
     {
-        if(!string.IsNullOrEmpty(ORSID)) OIDDAManager.Disconnect(ORSID);
+        if(!string.IsNullOrEmpty(ORSID)) OIDDAManager.OMA.Disconnect(ORSID);
     }
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
-        result = default; return (IsDynamicConnected || IsStaticConnected);
+        result = (IsConnected) ? OIDDAManager.OMA.GetGlobal<T>(nameValue) : default; return (IsConnected);
     }
 
     public override T ReceiverValue<T>(string nameValue)
     {
-        if (IsDynamicConnected || IsStaticConnected)
+        if (IsConnected)
         {
-            throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
+            return OIDDAManager.OMA.GetGlobal<T>(nameValue);
         }
-
         throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
     }
 
     public override void SenderValue(string nameValue, object senderValue)
     {
-        if (IsDynamicConnected || IsStaticConnected)
+        if (IsConnected)
         {
-
+            OIDDAManager.OMA.SetGlobal(nameValue, senderValue);
         }
-
-
     }
 
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
-        if (IsDynamicConnected || IsStaticConnected)
+        if (IsConnected)
         {
+            OIDDAManager.OMA.SetGlobal(nameValue, senderValue);
             return true;
         }
 
         return false;
     }
-
 }

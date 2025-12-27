@@ -8,8 +8,12 @@
 	"References": [
 		{
 			"Name": "$(EnginePath)/Flax.flaxproj"
+		},
+		{
+			"Name": "$(ProjectPath)/Plugins/FlaxSimpleCoroutines/SimpleCoroutines.flaxproj"
 		}
 	],
+	"DefaultScene": null,
 	"DefaultSceneSpawn": {
 		"Position": {
 			"X": 0.0,

@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using FlaxEngine;
+using FlaxEditor.Content.Settings;
 
 namespace OIDDA;
 
 /// <summary>
 /// OIDDA Settings
 /// </summary>
-public class OIDDASettings
+public class OIDDASettings : FlaxEditor.Content.Settings.SettingsBase
 {
     [EditorOrder(0), EditorDisplay("OIDDA Config")]
     public GameplayGlobals Globals;

@@ -18,7 +18,7 @@ public class OIDDAPlugin : GamePlugin
             Author = "The Phantom Mask",
             RepositoryUrl = "https://github.com/ThePhantomMask/OIDDA",
             Description = "",
-            Version = new Version(0, 0, 1),
+            Version = new Version(0, 1, 0),
             IsAlpha = true,
             IsBeta = false,
         };
