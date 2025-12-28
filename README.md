@@ -15,7 +15,7 @@ To add this plugin project to your game, follow the instructions in the [Flax En
 2. Assign the variables that are indispensable in GameplayGlobals.
 3. Assign the relevant GameplayGlobals within OIDDA Settings.
 4. Assign any static agents you feel you are using with a name and then script, agent type.
-5. Add in the scene, the OIDDA Manager actor.
+5. Add in the scene on an actor the OIDDA Manager script.
 
 # ORS
 ORS (OIDDA Receiver Senders) are agents that can easily assign/receive variables.
