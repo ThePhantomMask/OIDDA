@@ -17,6 +17,7 @@ public class OIDDAManager : EmptyActor
     public override void OnBeginPlay()
     {
         base.OnBeginPlay();
+        OMA = GetScript<OIDDAManagerActions>();
         if (!OMA) OMA = AddScript<OIDDAManagerActions>();
     }
 
