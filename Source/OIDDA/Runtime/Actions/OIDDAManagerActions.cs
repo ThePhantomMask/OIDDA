@@ -52,8 +52,11 @@ public class OIDDAManagerActions : Script
 
     public void OIDDAReset()
     {
-        GameplayValues.ResetValues(); _timerBeforeUpdate = 0;
-        _currentMetrics.Clear(); ORSAgentDB.Clear(); StaticORSDB.Clear();
+        if (GameplayValues) GameplayValues.ResetValues(); 
+        if(_currentMetrics.Capacity != 0) _currentMetrics.Clear(); 
+        if (ORSAgentDB.Capacity != 0) ORSAgentDB.Clear(); 
+        if (StaticORSDB.Capacity != 0) StaticORSDB.Clear();
+        _timerBeforeUpdate = 0;
     }
 
     void OIDDAUpdate()

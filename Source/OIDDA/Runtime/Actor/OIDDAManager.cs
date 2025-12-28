@@ -17,14 +17,14 @@ public class OIDDAManager : EmptyActor
     public override void OnBeginPlay()
     {
         base.OnBeginPlay();
-        OMA = AddScript<OIDDAManagerActions>();
+        if (!OMA) OMA = AddScript<OIDDAManagerActions>();
     }
 
     /// <inheritdoc/>
     public override void OnEndPlay()
     {
         base.OnEndPlay();
-        OMA.OIDDAReset();
+        if (OMA) OMA.OIDDAReset();
     }
     
     public override void OnEnable()
