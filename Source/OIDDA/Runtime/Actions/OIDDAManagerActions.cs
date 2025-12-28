@@ -45,7 +45,7 @@ public class OIDDAManagerActions : Script
     {
         var OIDDA = Settings.CustomSettings["OIDDA"].CreateInstance<OIDDASettings>();
         GameplayValues = OIDDA.Globals;
-        StaticORSDB.AddRange(OIDDA.StaticORS);
+        if (StaticORSDB.Capacity != 0) StaticORSDB.AddRange(OIDDA.StaticORS);
         _currentMetrics.AddRange(GameplayValues.Values);
         Delay = OIDDA.Delay;
     }
