@@ -17,8 +17,8 @@ public class OIDDAManager : Actor
     public override void OnBeginPlay()
     {
         base.OnBeginPlay();
-        OMA = this.GetScript<OIDDAManagerActions>();
-        if (!OMA) OMA = this.AddScript<OIDDAManagerActions>();
+        OMA = base.GetScript<OIDDAManagerActions>();
+        if (!OMA) OMA = base.AddScript<OIDDAManagerActions>();
     }
 
     /// <inheritdoc/>
