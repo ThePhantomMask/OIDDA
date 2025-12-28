@@ -11,14 +11,12 @@ namespace OIDDA;
 public class OIDDAManager : Actor
 {
     [HideInEditor]
-    public OIDDAManagerActions OMA;
+    public OIDDAManagerActions OMA => GetScript<OIDDAManagerActions>();
 
     /// <inheritdoc/>
     public override void OnBeginPlay()
     {
         base.OnBeginPlay();
-        OMA = base.GetScript<OIDDAManagerActions>();
-        if (!OMA) OMA = base.AddScript<OIDDAManagerActions>();
     }
 
     /// <inheritdoc/>
