@@ -8,7 +8,7 @@ namespace OIDDA;
 /// OIDDA Manager Actor
 /// </summary>
 [ActorContextMenu("New/Other/OIDDA Manager"), ActorToolbox("Other")]
-public class OIDDAManager : EmptyActor
+public class OIDDAManager : Actor
 {
     [HideInEditor]
     public OIDDAManagerActions OMA;
@@ -17,8 +17,8 @@ public class OIDDAManager : EmptyActor
     public override void OnBeginPlay()
     {
         base.OnBeginPlay();
-        OMA = GetScript<OIDDAManagerActions>();
-        if (!OMA) OMA = AddScript<OIDDAManagerActions>();
+        OMA = this.GetScript<OIDDAManagerActions>();
+        if (!OMA) OMA = this.AddScript<OIDDAManagerActions>();
     }
 
     /// <inheritdoc/>
