@@ -9,7 +9,6 @@ public class OIDDAEditor : GameEditorModule
         base.Setup(options);
 
         options.PublicDependencies.Add("OIDDA");
-        options.PublicDependencies.Add("SimpleCoroutines");
 
         // Here you can modify the build options for your game module
         // To reference another module use: options.PublicDependencies.Add("Audio");

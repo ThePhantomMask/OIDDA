@@ -1,9 +1,7 @@
 ﻿using FlaxEditor.Content.Settings;
 using FlaxEngine;
 using FlaxEngine.Utilities;
-using SimpleCoroutines;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,7 +21,7 @@ public class OIDDAManagerActions : Script
     Dictionary<string, IORSAgentS> StaticORSDB = new();
     Dictionary<string, object> _currentMetrics = new();
     GameplayGlobals GameplayValues;
-    float Delay, _timerBeforeUpdate;
+    float Delay, _timerBeforeUpdate, _timerSender;
 
     public override void OnStart()
     {
@@ -124,6 +122,16 @@ public class OIDDAManagerActions : Script
 
     public bool ORSIsConnected() => StaticORSDB.Values.Any(agent => agent.IsActive is true);
 
+    void DelaySender(string name, object value)
+    {
+        _timerSender += Time.DeltaTime;
+        if (_timerSender >= Delay)
+        {
+            _currentMetrics[name] = value;
+            _timerSender = 0;
+        }
+    }
+
     public bool VerifyIsReceiver(string ID) => ORSAgentDB[ID].ORSType == ORSUtils.ORSType.ReceiverSender || ORSAgentDB[ID].ORSType == ORSUtils.ORSType.Receiver;
 
     public bool VerifyIsReceiver() => StaticORSDB.Values.Any(agent => agent.ORSType == ORSUtils.ORSType.ReceiverSender || agent.ORSType == ORSUtils.ORSType.Receiver);
@@ -132,7 +140,7 @@ public class OIDDAManagerActions : Script
 
     public bool VerifyIsSender() => StaticORSDB.Values.Any(agent => agent.ORSType == ORSUtils.ORSType.ReceiverSender || agent.ORSType == ORSUtils.ORSType.Sender);
 
-    public void SetGlobal(string name, object value) => SimpleCoroutine.Invoke(() => _currentMetrics[name] = value, Delay, Actor);
+    public void SetGlobal(string name, object value) => (Delay != 0f ? (Action)(() => DelaySender(name, value)) : () => _currentMetrics[name] = value)();
 
     public T GetGlobal<T>(string name) => GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
 
