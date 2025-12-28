@@ -43,7 +43,7 @@ public class OIDDAManagerActions : Script
 
     internal void OIDDAInit()
     {
-        var OIDDA = Settings.CustomSettings["OIDDA"].CreateInstance<OIDDASettings>();
+        var OIDDA = Settings.CustomSettings["OIDDASettings"].CreateInstance<OIDDASettings>();
         GameplayValues = OIDDA.Globals;
         if (StaticORSDB.Capacity != 0) StaticORSDB.AddRange(OIDDA.StaticORS);
         _currentMetrics.AddRange(GameplayValues.Values);
