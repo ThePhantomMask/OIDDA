@@ -9,9 +9,9 @@ using System.Linq;
 namespace OIDDA;
 
 /// <summary>
-/// OIDDA Manager Actions
+/// OIDDA Manager
 /// </summary>
-public class OIDDAManagerActions : Script
+public class OIDDAManager : Script
 {
     [Tooltip("Metrics update interval (seconds)")]
     public float UpdateInterval = 1f;
@@ -43,7 +43,7 @@ public class OIDDAManagerActions : Script
 
     internal void OIDDAInit()
     {
-        var OIDDA = Settings.CustomSettings["OIDDASettings"].CreateInstance<OIDDASettings>();
+        var OIDDA = Settings.CustomSettings.GetValueOrDefault("OIDDASettings").CreateInstance<OIDDASettings>();
         GameplayValues = OIDDA.Globals;
         if (StaticORSDB.Capacity != 0) StaticORSDB.AddRange(OIDDA.StaticORS);
         _currentMetrics.AddRange(GameplayValues.Values);
