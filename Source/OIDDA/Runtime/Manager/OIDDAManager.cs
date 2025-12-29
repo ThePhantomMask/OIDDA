@@ -20,6 +20,8 @@ public class OIDDAManager : Script
     GameplayGlobals GameplayValues;
     float UpdateInterval, Delay, _timerBeforeUpdate, _timerSender, _timerReceiver;
 
+    bool InstantMetricsUpdated;
+
     public override void OnStart()
     {
         var Settings = GameSettings.Load();
@@ -61,11 +63,12 @@ public class OIDDAManager : Script
     {
         _timerBeforeUpdate += Time.DeltaTime;
 
-        if (_timerBeforeUpdate >= UpdateInterval)
+        if (_timerBeforeUpdate >= UpdateInterval || InstantMetricsUpdated)
         {
             _currentMetrics.ForEach(metric => GameplayValues.SetValue(metric.Key, metric.Value));
             Debug.Log("OIDDA metrics updated");
-            _timerBeforeUpdate = 0;
+            InstantMetricsUpdated = false; _timerBeforeUpdate = 0;
+            _previousMetrics = _currentMetrics.DeepClone();
         }
     }
 
