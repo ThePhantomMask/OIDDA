@@ -12,7 +12,6 @@ public struct IORSAgentS
     public string GlobalVariable;
     public string ORSID { get => ORSUtils.GeneratedID; }
     public ORSUtils.ORSType ORSType;
-    [ShowInEditor]
     public ORSUtils.ORSStatus ORSStatus => TotalORSAgentsConnected > 0 ? ORSUtils.ORSStatus.Connected : ORSUtils.ORSStatus.Disconnected;
-    public int TotalORSAgentsConnected;
+    [HideInEditor] public int TotalORSAgentsConnected;
 }
