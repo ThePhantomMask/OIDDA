@@ -86,16 +86,17 @@ public class OIDDAManager : Script
     {
         if (StaticORSDB.ContainsKey(AgentName))
         {
-            var agent = StaticORSDB[AgentName]; 
-            if (!agent.IsActive) agent.IsActive = true; 
+            var agent = StaticORSDB[AgentName];
+            if(agent.ORSStatus is ORSUtils.ORSStatus.Disconnected) agent.ORSStatus = ORSUtils.ORSStatus.Connected;
             Debug.Log($"{AgentName} {IsStaticConnected(StaticORSDB[AgentName])} connected!");
+            if (agent.ORSStatus is ORSUtils.ORSStatus.Connected) agent.TotalORSAgentsConnected++;
             StaticORSDB[AgentName] = agent;
             return true; 
         }
         return false;
     }
 
-    string IsStaticConnected(IORSAgentS agent) => agent.IsActive ? "already" : "is";
+    string IsStaticConnected(IORSAgentS agent) => agent.ORSStatus is ORSUtils.ORSStatus.Connected ? "already" : "is";
 
     public bool Connect(string ID, IORSAgentD agentD)
     {
@@ -111,8 +112,15 @@ public class OIDDAManager : Script
     {
         if (StaticORSDB.ContainsKey(AgentName))
         {
-            var agent = StaticORSDB[AgentName]; 
-            if (agent.IsActive) agent.IsActive = false; 
+            var agent = StaticORSDB[AgentName];
+            if (agent.TotalORSAgentsConnected > 1)
+            {
+                agent.TotalORSAgentsConnected--;
+                StaticORSDB[AgentName] = agent;
+                return true;
+            }
+            agent.TotalORSAgentsConnected--;
+            agent.ORSStatus = ORSUtils.ORSStatus.Disconnected;
             StaticORSDB[AgentName] = agent;
             Debug.Log($"{AgentName} is disconnected !");
             return true;
@@ -130,14 +138,9 @@ public class OIDDAManager : Script
         return false;
     }
 
-    public void SetIsStaticConnected(string name)
-    {
-        var agent = StaticORSDB[name]; agent.IsActive = true; StaticORSDB[name] = agent;
-    }
-
     public bool ORSIsConnected(string ID) => ORSAgentDB.ContainsKey(ID);
 
-    public bool ORSIsConnected() => StaticORSDB.Values.Any(agent => agent.IsActive is true);
+    public bool ORSIsConnected() => StaticORSDB.Values.Any(agent => agent.ORSStatus is ORSUtils.ORSStatus.Connected);
 
     void DelaySender(string name, object value)
     {

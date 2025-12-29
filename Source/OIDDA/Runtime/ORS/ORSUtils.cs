@@ -17,6 +17,12 @@ public class ORSUtils
         Sender
     }
 
+    public enum ORSStatus
+    {
+        Disconnected,
+        Connected,
+    }
+
     public static string GeneratedID => GenerateID();
 
     static string GenerateID()
