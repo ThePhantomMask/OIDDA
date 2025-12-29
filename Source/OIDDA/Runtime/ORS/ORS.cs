@@ -71,7 +71,8 @@ public class ORS : ORSAgent
     public override void DisconnectORSAgent()
     {
         if (!OIDDAManager) return;
-        if (!string.IsNullOrEmpty(ORSName)) OIDDAManager.Disconnect(ORSName);
+        Debug.Log(ORSName);
+        OIDDAManager.Disconnect(ORSName);
     }
 
     /// <summary>
@@ -81,7 +82,7 @@ public class ORS : ORSAgent
     public override void DisconnectORSAgent(ORSUtils.ORSType type)
     {
         if (!OIDDAManager) return;
-        if (!string.IsNullOrEmpty(ORSID)) OIDDAManager.Disconnect(ORSID, type);
+        OIDDAManager.Disconnect(ORSID, type);
     }
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
