@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 
 namespace OIDDA;
 
@@ -13,19 +14,15 @@ namespace OIDDA;
 /// </summary>
 public class OIDDAManager : Script
 {
-    [Tooltip("Metrics update interval (seconds)")]
-    public float UpdateInterval = 1f;
-
-    GameSettings Settings;
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
     Dictionary<string, object> _currentMetrics = new();
     GameplayGlobals GameplayValues;
-    float Delay, _timerBeforeUpdate, _timerSender;
+    float UpdateInterval, Delay, _timerBeforeUpdate, _timerSender;
 
     public override void OnStart()
     {
-        Settings = GameSettings.Load();
+        var Settings = GameSettings.Load();
         var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Settings.CompanyName, Settings.ProductName, "OIDDA");
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         OIDDAInit();
@@ -38,19 +35,20 @@ public class OIDDAManager : Script
 
     public override void OnDisable()
     {
-        // Here you can add code that needs to be called when script is disabled (eg. unregister from events)
+        OIDDAReset();
     }
 
     internal void OIDDAInit()
     {
-        var OIDDA = Settings.CustomSettings.GetValueOrDefault("OIDDASettings").CreateInstance<OIDDASettings>();
+        var OIDDA = Engine.GetCustomSettings("OIDDASettings").CreateInstance<OIDDASettings>();
         GameplayValues = OIDDA.Globals;
         if (StaticORSDB.Capacity != 0) StaticORSDB.AddRange(OIDDA.StaticORS);
         _currentMetrics.AddRange(GameplayValues.Values);
+        UpdateInterval = OIDDA.UpdateInterval;
         Delay = OIDDA.Delay;
     }
 
-    public void OIDDAReset()
+    void OIDDAReset()
     {
         if (GameplayValues) GameplayValues.ResetValues(); 
         if(_currentMetrics.Capacity != 0) _currentMetrics.Clear(); 
@@ -59,7 +57,7 @@ public class OIDDAManager : Script
         _timerBeforeUpdate = 0;
     }
 
-    void OIDDAUpdate()
+    void MetricsUpdate()
     {
         _timerBeforeUpdate += Time.DeltaTime;
 
@@ -71,19 +69,24 @@ public class OIDDAManager : Script
         }
     }
 
+    void OIDDAUpdate()
+    {
+        MetricsUpdate();
+    }
+
     #region ORS Functions
 
-    string NameORSAgent(Script script = null) => StaticORSDB.FirstOrDefault(kvp => kvp.Value.ORSScript == script).Key;
-
-    public string NameORSAgent(Script script, ORSUtils.ORSType type) => 
-        StaticORSDB.FirstOrDefault(kvp => kvp.Value.ORSScript == script && kvp.Value.ORSType == type).Key;
-
-    public bool Connect(string NameStatic)
+    public bool Connect(string AgentName)
     {
-        if(StaticORSDB.ContainsKey(NameStatic))
+        if(StaticORSDB.ContainsKey(AgentName))
         {
-            StaticORSDB[NameStatic].SetIsActive(true);
-            Debug.Log($"ORS: {NameStatic} Connection Status: {StaticORSDB[NameStatic].IsActive}");
+            if (!StaticORSDB[AgentName].IsActive)
+            {
+                StaticORSDB[AgentName].SetIsActive(true);
+                Debug.Log($"ORS: {AgentName} Connection Status: {StaticORSDB[AgentName].IsActive}");
+                return true;
+            }
+            Debug.Log($"{AgentName} already connected!");
             return true; 
         }
         return false;
@@ -99,19 +102,18 @@ public class OIDDAManager : Script
         return false;
     }
 
-    public bool Disconnect(Script script)
+    public bool Disconnect(string AgentName)
     {
-        var name = NameORSAgent(script);
-        if (StaticORSDB.ContainsKey(name))
+        if (StaticORSDB.ContainsKey(AgentName))
         {
-            StaticORSDB[name].SetIsActive(true);
-            Debug.Log($"ORS: {name} Connection Status: {StaticORSDB[name].IsActive}");
+            StaticORSDB[AgentName].SetIsActive(false);
+            Debug.Log($"ORS: {ID} Connection Status: {StaticORSDB[AgentName].IsActive}");
             return true;
         }
         return false;
     }
 
-    public bool Disconnect(string ID)
+    public bool Disconnect(string ID, ORSUtils.ORSType type)
     {
         if (ORSAgentDB.ContainsKey(ID))
         {
@@ -145,7 +147,11 @@ public class OIDDAManager : Script
 
     public void SetGlobal(string name, object value) => (Delay != 0f ? (Action)(() => DelaySender(name, value)) : () => _currentMetrics[name] = value)();
 
+    public void SetStaticGlobal(string NameAgent, object value) => (Delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => _currentMetrics[StaticORSDB[NameAgent].GlobalVariable] = value)();
+
     public T GetGlobal<T>(string name) => GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
+
+    public T GetStaticGlobal<T>(string NameAgent) => GameplayValues.GetValue(StaticORSDB[NameAgent].GlobalVariable) is T typeValue ? typeValue : default(T);
 
     #endregion
 

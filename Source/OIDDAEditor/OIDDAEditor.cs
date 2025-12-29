@@ -23,7 +23,7 @@ public class OIDDAEditor : EditorPlugin
         _settingsPath = Path.Combine(Globals.ProjectContentFolder, "Settings", $"{_settingName}.json");
         if (!File.Exists(_settingsPath))
         {
-            FlaxEditor.Editor.SaveJsonAsset(_settingsPath, new OIDDASettings());
+            Editor.SaveJsonAsset(_settingsPath, new OIDDASettings());
         }
         _jsonAsset = Engine.GetCustomSettings(_settingName);
         if (!_jsonAsset)

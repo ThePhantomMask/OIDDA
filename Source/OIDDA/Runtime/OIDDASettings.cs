@@ -11,6 +11,10 @@ public class OIDDASettings : SettingsBase
 {
     [EditorOrder(0), EditorDisplay("OIDDA Config")]
     public GameplayGlobals Globals;
+    [EditorOrder(0), EditorDisplay("OIDDA Config")]
+    public Dictionary<string, JsonAssetReference<OIDDAConfig>> Configs;
+    [EditorOrder(0), EditorDisplay("OIDDA Config"), Tooltip("Metrics update interval (seconds)")]
+    public float UpdateInterval = 1.0f;
 
     [EditorOrder(1), EditorDisplay("ORS Config")]
     public Dictionary<string, IORSAgentS> StaticORS;

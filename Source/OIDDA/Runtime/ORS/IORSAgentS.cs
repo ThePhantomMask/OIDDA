@@ -9,7 +9,7 @@ namespace OIDDA;
 /// </summary>
 public struct IORSAgentS
 {
-    public Script ORSScript;
+    public string GlobalVariable;
     public string ORSID { get => ORSUtils.GeneratedID; }
     public ORSUtils.ORSType ORSType;
     public bool IsActive { get; private set; }

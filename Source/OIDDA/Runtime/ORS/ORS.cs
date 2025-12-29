@@ -14,13 +14,13 @@ namespace OIDDA;
 /// class.</remarks>
 public abstract class ORSAgent
 {
-    public abstract void ConnectORSAgent(Script script, ORSUtils.ORSType type);
+    public abstract void ConnectORSAgent(string AgentName);
 
     public abstract void ConnectORSAgent(ORSUtils.ORSType type);
 
-    public abstract void DisconnectORSAgent(Script script);
-
     public abstract void DisconnectORSAgent();
+
+    public abstract void DisconnectORSAgent(ORSUtils.ORSType type);
 
     public abstract bool TryReceiverValue<T>(string nameValue, out T result);
 
@@ -32,7 +32,7 @@ public abstract class ORSAgent
 }
 
 /// <summary>
-///  Agent
+///  OIDDA Receiver Sender Agent
 /// </summary>
 public class ORS : ORSAgent
 {
@@ -47,12 +47,10 @@ public class ORS : ORSAgent
     /// <summary>
     /// Initializes the ORS agent connection using the specified script and agent type (Static ORS Agent).
     /// </summary>
-    /// <param name="script">The script instance that defines the connection parameters and logic for the ORS agent.</param>
-    /// <param name="type">The type of ORS agent to connect to. Specifies the agent category or behavior.</param>
-    public override void ConnectORSAgent(Script script, ORSUtils.ORSType type)
+    /// <param name="AgentName">The script instance that defines the connection parameters and logic for the ORS agent.</param>
+    public override void ConnectORSAgent(string AgentName)
     {
-        ORSName = OIDDAManager.NameORSAgent(script, type);
-        OIDDAManager.Connect(ORSName);
+        OIDDAManager.Connect(ORSName = AgentName);
     }
 
     /// <summary>
@@ -68,23 +66,28 @@ public class ORS : ORSAgent
     /// <summary>
     ///  Disconnects the specified ORS agent represented by the provided script (Static ORS Agent).
     /// </summary>
-    /// <param name="script">The script that identifies the ORS agent to disconnect. Cannot be null.</param>
-    public override void DisconnectORSAgent(Script script)
+    public override void DisconnectORSAgent()
     {
-        if (script) OIDDAManager.Disconnect(script);
+        if (!string.IsNullOrEmpty(ORSName)) OIDDAManager.Disconnect(ORSName);
     }
 
     /// <summary>
     /// Disconnects the ORS agent from the current session (Dynamic ORS Agent).
     /// </summary>
-    public override void DisconnectORSAgent()
+    /// /// <param name="type">The type of ORS agent to connect to. Specifies the agent category or behavior.</param>
+    public override void DisconnectORSAgent(ORSUtils.ORSType type)
     {
-        if(!string.IsNullOrEmpty(ORSID)) OIDDAManager.Disconnect(ORSID);
+        if(!string.IsNullOrEmpty(ORSID)) OIDDAManager.Disconnect(ORSID, type);
     }
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
-        if (IsConnected && (OIDDAManager.VerifyIsReceiver(ORSID) || OIDDAManager.VerifyIsReceiver()))
+        if (IsConnected && OIDDAManager.VerifyIsReceiver() && string.IsNullOrEmpty(nameValue))
+        {
+            result = OIDDAManager.GetStaticGlobal<T>(ORSName); return true;
+        }
+
+        if (IsConnected && OIDDAManager.VerifyIsReceiver(ORSID))
         {
             result = OIDDAManager.GetGlobal<T>(nameValue); return true;
         }
@@ -93,7 +96,12 @@ public class ORS : ORSAgent
 
     public override T ReceiverValue<T>(string nameValue)
     {
-        if (IsConnected && (OIDDAManager.VerifyIsReceiver(ORSID) || OIDDAManager.VerifyIsReceiver()))
+        if (IsConnected && OIDDAManager.VerifyIsReceiver() && string.IsNullOrEmpty(nameValue))
+        {
+            return OIDDAManager.GetStaticGlobal<T>(ORSName);
+        }
+
+        if (IsConnected && OIDDAManager.VerifyIsReceiver(ORSID))
         {
             return OIDDAManager.GetGlobal<T>(nameValue);
         }
@@ -102,7 +110,13 @@ public class ORS : ORSAgent
 
     public override void SenderValue(string nameValue, object senderValue)
     {
-        if (IsConnected && (OIDDAManager.VerifyIsSender(ORSID) || OIDDAManager.VerifyIsSender()))
+        if (IsConnected && OIDDAManager.VerifyIsSender() && string.IsNullOrEmpty(nameValue))
+        {
+            OIDDAManager.SetStaticGlobal(ORSName, senderValue);
+            return;
+        }
+
+        if (IsConnected && OIDDAManager.VerifyIsSender(ORSID))
         {
             OIDDAManager.SetGlobal(nameValue, senderValue);
         }
@@ -110,7 +124,13 @@ public class ORS : ORSAgent
 
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
-        if (IsConnected && (OIDDAManager.VerifyIsSender(ORSID) || OIDDAManager.VerifyIsSender()))
+        if(IsConnected && OIDDAManager.VerifyIsSender() && string.IsNullOrEmpty(nameValue))
+        {
+            OIDDAManager.SetStaticGlobal(ORSName, senderValue);
+            return true;
+        }
+
+        if (IsConnected && OIDDAManager.VerifyIsSender(ORSID))
         {
             OIDDAManager.SetGlobal(nameValue, senderValue);
             return true;
