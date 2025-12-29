@@ -15,7 +15,7 @@ namespace OIDDA;
 public class OIDDAManager : Script
 {
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
-    Dictionary<string, IORSAgentS> StaticORSDB = new();
+    public Dictionary<string, IORSAgentS> StaticORSDB = new();
     Dictionary<string, object> _currentMetrics = new(), _previousMetrics = new();
     GameplayGlobals GameplayValues;
     float UpdateInterval, Delay, _timerBeforeUpdate, _timerSender, _timerReceiver;
@@ -88,8 +88,8 @@ public class OIDDAManager : Script
         {
             var agent = StaticORSDB[AgentName]; 
             if (!agent.IsActive) agent.IsActive = true; 
-            StaticORSDB[AgentName] = agent;
             Debug.Log($"{AgentName} {IsStaticConnected(StaticORSDB[AgentName])} connected!");
+            StaticORSDB[AgentName] = agent;
             return true; 
         }
         return false;
