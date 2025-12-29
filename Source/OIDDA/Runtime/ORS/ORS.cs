@@ -102,6 +102,9 @@ public class ORS : ORSAgent
     public override T ReceiverValue<T>(string nameValue)
     {
         if (!OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
+
+        if (!IsConnected) OIDDAManager.SetIsStaticConnected(ORSName);
+
         if (IsConnected && OIDDAManager.VerifyIsStaticReceiver(ORSName) && string.IsNullOrEmpty(nameValue))
         {
             return OIDDAManager.GetStaticGlobal<T>(ORSName);

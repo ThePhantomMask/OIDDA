@@ -130,7 +130,12 @@ public class OIDDAManager : Script
         return false;
     }
 
-    public bool ORSIsConnected(string ID = "") => ORSAgentDB.ContainsKey(ID);
+    public void SetIsStaticConnected(string name)
+    {
+        var agent = StaticORSDB[name]; agent.IsActive = true; StaticORSDB[name] = agent;
+    }
+
+    public bool ORSIsConnected(string ID) => ORSAgentDB.ContainsKey(ID);
 
     public bool ORSIsConnected() => StaticORSDB.Values.Any(agent => agent.IsActive is true);
 
