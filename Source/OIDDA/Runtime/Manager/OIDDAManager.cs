@@ -86,15 +86,12 @@ public class OIDDAManager : Script
         if (StaticORSDB.ContainsKey(AgentName))
         {
             var agent = StaticORSDB[AgentName];
-            Debug.Log($"{AgentName} {IsStaticConnected(StaticORSDB[AgentName])} connected!");
             agent.TotalORSAgentsConnected++;
             StaticORSDB[AgentName] = agent;
             return true; 
         }
         return false;
     }
-
-    string IsStaticConnected(IORSAgentS agent) => agent.ORSStatus is ORSUtils.ORSStatus.Connected ? "already" : "is";
 
     public bool Connect(string ID, IORSAgentD agentD)
     {
@@ -113,7 +110,6 @@ public class OIDDAManager : Script
             var agent = StaticORSDB[AgentName];
             agent.TotalORSAgentsConnected--;
             StaticORSDB[AgentName] = agent;
-            Debug.Log($"{AgentName} is disconnected !");
             return true;
         }
         return false;
