@@ -38,19 +38,24 @@ There are three types of agents:
 
 ```csharp
 // Static Connection:
-ORS.Instance.ConnectORSAgent(this, ORSUtils.ORSType.Sender);
+ORS.Instance.ConnectORSAgent("Difficulty Level");
 // Dynamic Connection:
 ORS.Instance.ConnectORSAgent(ORSUtils.ORSType.ReceiverSender);
 
-// Receive difficulty data as a float
+// Receive difficulty data as a float (Dynamic)
 var difficulty = ORS.Instance.ReceiverValue<float>("Difficulty");
+// Receive difficulty data as a float (Static)
+var difficulty = ORS.Instance.ReceiverValue<float>("Difficulty Level");
 
-// Send the aggression level data to the OIDDA Manager
-int aggressiveLevel= 10;
+int aggressiveLevel = 10;
+// Send the aggression level data to the OIDDA Manager (Dynamic)
 ORS.Instance.SenderValue("Aggressive Level", aggressiveLevel);
+// Send the difficulty data changed to the OIDDA Manager (Static)
+float difficultyChanged = difficulty * 0.2f;
+ORS.Instance.SenderValue("Difficulty Level", aggressiveLevel);
 
 // Static Disconnection:
-ORS.Instance.DisconnectORSAgent(this);
+ORS.Instance.DisconnectORSAgent("Difficulty Level");
 // Dynamic Disconnection:
 ORS.Instance.DisconnectORSAgent();
 ```
