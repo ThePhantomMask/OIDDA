@@ -69,7 +69,6 @@ public class OIDDAManager : Script
         if (_timerBeforeUpdate >= UpdateInterval || InstantMetricsUpdated)
         {
             _currentMetrics.ForEach(metric => GameplayValues.SetValue(metric.Key, metric.Value));
-            Debug.Log("OIDDA metrics updated");
             InstantMetricsUpdated = false; _timerBeforeUpdate = 0;
             _previousMetrics = _currentMetrics.DeepClone();
         }
@@ -87,9 +86,8 @@ public class OIDDAManager : Script
         if (StaticORSDB.ContainsKey(AgentName))
         {
             var agent = StaticORSDB[AgentName];
-            if(agent.ORSStatus is ORSUtils.ORSStatus.Disconnected) agent.ORSStatus = ORSUtils.ORSStatus.Connected;
             Debug.Log($"{AgentName} {IsStaticConnected(StaticORSDB[AgentName])} connected!");
-            if (agent.ORSStatus is ORSUtils.ORSStatus.Connected) agent.TotalORSAgentsConnected++;
+            agent.TotalORSAgentsConnected++;
             StaticORSDB[AgentName] = agent;
             return true; 
         }
@@ -113,14 +111,7 @@ public class OIDDAManager : Script
         if (StaticORSDB.ContainsKey(AgentName))
         {
             var agent = StaticORSDB[AgentName];
-            if (agent.TotalORSAgentsConnected > 1)
-            {
-                agent.TotalORSAgentsConnected--;
-                StaticORSDB[AgentName] = agent;
-                return true;
-            }
             agent.TotalORSAgentsConnected--;
-            agent.ORSStatus = ORSUtils.ORSStatus.Disconnected;
             StaticORSDB[AgentName] = agent;
             Debug.Log($"{AgentName} is disconnected !");
             return true;
