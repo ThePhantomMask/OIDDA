@@ -77,7 +77,7 @@ public class OIDDAManager : Script
         MetricsUpdate();
     }
 
-    #region ORS Functions
+    #region ORS Agent Management
 
     public bool Connect(string AgentName)
     {
@@ -86,7 +86,7 @@ public class OIDDAManager : Script
             if (!StaticORSDB[AgentName].IsActive)
             {
                 StaticORSDB[AgentName].SetIsActive(true);
-                Debug.Log($"ORS: {AgentName} Connection Status: {StaticORSDB[AgentName].IsActive}");
+                Debug.Log($"{AgentName} is connected! ");
                 return true;
             }
             Debug.Log($"{AgentName} already connected!");
@@ -110,7 +110,7 @@ public class OIDDAManager : Script
         if (StaticORSDB.ContainsKey(AgentName))
         {
             StaticORSDB[AgentName].SetIsActive(false);
-            Debug.Log($"ORS: {ID} Connection Status: {StaticORSDB[AgentName].IsActive}");
+            Debug.Log($"{AgentName} is disconnected !");
             return true;
         }
         return false;
