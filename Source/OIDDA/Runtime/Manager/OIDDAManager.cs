@@ -15,8 +15,8 @@ namespace OIDDA;
 public class OIDDAManager : Script
 {
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
-    Dictionary<string, IORSAgentS> StaticORSDB = new();
-    Dictionary<string, object> _currentMetrics = new(), _previousMetrics = new();
+    public Dictionary<string, IORSAgentS> StaticORSDB = new();
+    public Dictionary<string, object> _currentMetrics = new(), _previousMetrics = new();
     GameplayGlobals GameplayValues;
     float UpdateInterval, Delay, _timerBeforeUpdate, _timerSender, _timerReceiver;
 
@@ -43,11 +43,14 @@ public class OIDDAManager : Script
     internal void OIDDAInit()
     {
         var OIDDA = Engine.GetCustomSettings("OIDDASettings").CreateInstance<OIDDASettings>();
-        GameplayValues = OIDDA.Globals;
-        if (StaticORSDB.Capacity != 0) StaticORSDB.AddRange(OIDDA.StaticORS);
-        _currentMetrics.AddRange(GameplayValues.Values);
-        UpdateInterval = OIDDA.UpdateInterval;
-        Delay = OIDDA.Delay;
+        if (OIDDA != null)
+        {
+            GameplayValues = OIDDA.Globals;
+            StaticORSDB = OIDDA.StaticORS.DeepClone();
+            _currentMetrics = GameplayValues.Values.DeepClone();
+            UpdateInterval = OIDDA.UpdateInterval;
+            Delay = OIDDA.Delay;
+        }
     }
 
     void OIDDAReset()
