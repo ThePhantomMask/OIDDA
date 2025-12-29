@@ -71,7 +71,6 @@ public class ORS : ORSAgent
     public override void DisconnectORSAgent()
     {
         if (!OIDDAManager) return;
-        Debug.Log(ORSName);
         OIDDAManager.Disconnect(ORSName);
     }
 

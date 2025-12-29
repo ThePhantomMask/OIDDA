@@ -84,16 +84,18 @@ public class OIDDAManager : Script
 
     public bool Connect(string AgentName)
     {
-        if(StaticORSDB.ContainsKey(AgentName))
+        if (StaticORSDB.ContainsKey(AgentName))
         {
-            if (!StaticORSDB[AgentName].IsActive) StaticORSDB[AgentName].SetIsActive(true);
-            Debug.Log($"{AgentName} {IsConneted(AgentName)} connected!");
+            var agent = StaticORSDB[AgentName]; 
+            if (!agent.IsActive) agent.IsActive = true; 
+            StaticORSDB[AgentName] = agent;
+            Debug.Log($"{AgentName} {IsStaticConnected(StaticORSDB[AgentName])} connected!");
             return true; 
         }
         return false;
     }
 
-    string IsConneted(string name) => StaticORSDB[name].IsActive ? "already" : "is";
+    string IsStaticConnected(IORSAgentS agent) => agent.IsActive ? "already" : "is";
 
     public bool Connect(string ID, IORSAgentD agentD)
     {
@@ -109,7 +111,9 @@ public class OIDDAManager : Script
     {
         if (StaticORSDB.ContainsKey(AgentName))
         {
-            StaticORSDB[AgentName].SetIsActive(false);
+            var agent = StaticORSDB[AgentName]; 
+            if (agent.IsActive) agent.IsActive = false; 
+            StaticORSDB[AgentName] = agent;
             Debug.Log($"{AgentName} is disconnected !");
             return true;
         }
