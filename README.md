@@ -8,7 +8,7 @@
 * **Progression patterns**
 
 > [!WARNING]
-> It is still in development and in the alpha phase, so certain things may change.
+> **It is still in development and in the alpha phase, so certain things may change.**
 
 # Installation
 To add this plugin project to your game, follow the instructions in the [Flax Engine documentation](https://docs.flaxengine.com/manual/scripting/plugins/plugin-project.html#automated-git-cloning) for adding a plugin project automatically using git or manually.
