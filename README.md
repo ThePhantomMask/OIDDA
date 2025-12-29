@@ -47,8 +47,8 @@ var difficulty = ORS.Instance.ReceiverValue<float>("Difficulty");
 // Receive difficulty data as a float (Static)
 var difficulty = ORS.Instance.ReceiverValue<float>("Difficulty Level");
 
-int aggressiveLevel = 10;
 // Send the aggression level data to the OIDDA Manager (Dynamic)
+int aggressiveLevel = 10;
 ORS.Instance.SenderValue("Aggressive Level", aggressiveLevel);
 // Send the difficulty data changed to the OIDDA Manager (Static)
 float difficultyChanged = difficulty * 0.2f;
