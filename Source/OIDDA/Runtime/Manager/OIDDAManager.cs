@@ -18,7 +18,7 @@ public class OIDDAManager : Script
     Dictionary<string, IORSAgentS> StaticORSDB = new();
     Dictionary<string, object> _currentMetrics = new();
     GameplayGlobals GameplayValues;
-    float UpdateInterval, Delay, _timerBeforeUpdate, _timerSender;
+    float UpdateInterval, Delay, _timerBeforeUpdate, _timerSender, _timerReceiver;
 
     public override void OnStart()
     {
@@ -137,21 +137,32 @@ public class OIDDAManager : Script
         }
     }
 
+    T DelayReceiver<T>(string name)
+    {
+        _timerReceiver += Time.DeltaTime;
+        if (_timerReceiver >= Delay)
+        {
+            _timerReceiver = 0;
+            return GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
+        }
+        return default(T);
+    }
+
     public bool VerifyIsReceiver(string ID) => ORSAgentDB[ID].ORSType == ORSUtils.ORSType.ReceiverSender || ORSAgentDB[ID].ORSType == ORSUtils.ORSType.Receiver;
 
-    public bool VerifyIsReceiver() => StaticORSDB.Values.Any(agent => agent.ORSType == ORSUtils.ORSType.ReceiverSender || agent.ORSType == ORSUtils.ORSType.Receiver);
+    public bool VerifyIsStaticReceiver(string Name) => StaticORSDB[Name].ORSType == ORSUtils.ORSType.ReceiverSender || StaticORSDB[Name].ORSType == ORSUtils.ORSType.Receiver;
 
     public bool VerifyIsSender(string ID) => ORSAgentDB[ID].ORSType == ORSUtils.ORSType.ReceiverSender || ORSAgentDB[ID].ORSType == ORSUtils.ORSType.Sender;
 
-    public bool VerifyIsSender() => StaticORSDB.Values.Any(agent => agent.ORSType == ORSUtils.ORSType.ReceiverSender || agent.ORSType == ORSUtils.ORSType.Sender);
+    public bool VerifyIsStaticSender(string Name) => StaticORSDB[Name].ORSType == ORSUtils.ORSType.ReceiverSender || StaticORSDB[Name].ORSType == ORSUtils.ORSType.Sender;
 
     public void SetGlobal(string name, object value) => (Delay != 0f ? (Action)(() => DelaySender(name, value)) : () => _currentMetrics[name] = value)();
 
     public void SetStaticGlobal(string NameAgent, object value) => (Delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => _currentMetrics[StaticORSDB[NameAgent].GlobalVariable] = value)();
 
-    public T GetGlobal<T>(string name) => GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
+    public T GetGlobal<T>(string name) => (Delay != 0f) ? DelayReceiver<T>(name) : GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
 
-    public T GetStaticGlobal<T>(string NameAgent) => GameplayValues.GetValue(StaticORSDB[NameAgent].GlobalVariable) is T typeValue ? typeValue : default(T);
+    public T GetStaticGlobal<T>(string NameAgent) => (Delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : GameplayValues.GetValue(StaticORSDB[NameAgent].GlobalVariable) is T typeValue ? typeValue : default(T);
 
     #endregion
 
