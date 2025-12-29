@@ -16,7 +16,7 @@ public class OIDDAManager : Script
 {
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
-    Dictionary<string, object> _currentMetrics = new();
+    Dictionary<string, object> _currentMetrics = new(), _previousMetrics = new();
     GameplayGlobals GameplayValues;
     float UpdateInterval, Delay, _timerBeforeUpdate, _timerSender, _timerReceiver;
 
