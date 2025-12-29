@@ -86,17 +86,14 @@ public class OIDDAManager : Script
     {
         if(StaticORSDB.ContainsKey(AgentName))
         {
-            if (!StaticORSDB[AgentName].IsActive)
-            {
-                StaticORSDB[AgentName].SetIsActive(true);
-                Debug.Log($"{AgentName} is connected! ");
-                return true;
-            }
-            Debug.Log($"{AgentName} already connected!");
+            if (!StaticORSDB[AgentName].IsActive) StaticORSDB[AgentName].SetIsActive(true);
+            Debug.Log($"{AgentName} {IsConneted(AgentName)} connected!");
             return true; 
         }
         return false;
     }
+
+    string IsConneted(string name) => StaticORSDB[name].IsActive ? "already" : "is";
 
     public bool Connect(string ID, IORSAgentD agentD)
     {
