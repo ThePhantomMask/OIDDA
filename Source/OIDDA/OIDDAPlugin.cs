@@ -18,7 +18,7 @@ public class OIDDAPlugin : GamePlugin
             Author = "The Phantom Mask",
             RepositoryUrl = "https://github.com/ThePhantomMask/OIDDA",
             Description = "A plugin that adds intelligent difficulty adaptation system designed to create personalised and seamless gaming experiences in a simple, out-of-the-box way.",
-            Version = new Version(0, 1, 0),
+            Version = new Version(0, 5, 5),
             IsAlpha = true,
             IsBeta = false,
         };
