@@ -26,9 +26,13 @@ public abstract class ORSAgent
 
     public abstract T ReceiverValue<T>(string nameValue);
 
-    public abstract void SenderValue(string nameValue, object senderValue);
+    public abstract T QuickReceiver<T>(string NameValue);
 
     public abstract bool TrySenderValue(string nameValue, object senderValue);
+
+    public abstract void SenderValue(string nameValue, object senderValue);
+
+    public abstract void QuickSender(string nameValue, object senderValue);
 }
 
 /// <summary>
@@ -99,6 +103,12 @@ public class ORS : ORSAgent
         result = default; return false;
     }
 
+    public override T QuickReceiver<T>(string NameValue)
+    {
+        if (!OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
+        return OIDDAManager.QuickReceiver<T>(NameValue);
+    }
+
     public override T ReceiverValue<T>(string nameValue)
     {
         if (!OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
@@ -113,21 +123,6 @@ public class ORS : ORSAgent
             return OIDDAManager.GetGlobal<T>(nameValue);
         }
         throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
-    }
-
-    public override void SenderValue(string nameValue, object senderValue)
-    {
-        if (!OIDDAManager) return;
-        if (IsConnected && OIDDAManager.VerifyIsStaticSender(ORSName) && string.IsNullOrEmpty(nameValue))
-        {
-            OIDDAManager.SetStaticGlobal(ORSName, senderValue);
-            return;
-        }
-
-        if (IsConnected && OIDDAManager.VerifyIsSender(ORSID))
-        {
-            OIDDAManager.SetGlobal(nameValue, senderValue);
-        }
     }
 
     public override bool TrySenderValue(string nameValue, object senderValue)
@@ -145,5 +140,26 @@ public class ORS : ORSAgent
             return true;
         }
         return false;
+    }
+
+    public override void SenderValue(string nameValue, object senderValue)
+    {
+        if (!OIDDAManager) return;
+        if (IsConnected && OIDDAManager.VerifyIsStaticSender(ORSName) && string.IsNullOrEmpty(nameValue))
+        {
+            OIDDAManager.SetStaticGlobal(ORSName, senderValue);
+            return;
+        }
+
+        if (IsConnected && OIDDAManager.VerifyIsSender(ORSID))
+        {
+            OIDDAManager.SetGlobal(nameValue, senderValue);
+        }
+    }
+
+    public override void QuickSender(string nameValue, object senderValue)
+    {
+        if (!OIDDAManager) return;
+        OIDDAManager.QuickSender(nameValue,senderValue);
     }
 }

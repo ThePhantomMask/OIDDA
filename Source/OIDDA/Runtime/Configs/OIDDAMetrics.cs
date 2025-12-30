@@ -10,8 +10,11 @@ namespace OIDDA;
 public class OIDDAMetrics
 {
     public string MetricName;
-    [Range(0,1)] public float Weight;
+    [Range(0, 1)] public float Weight;
     public float ThresholdMin;
     public float ThresholdMax;
     public bool InverseLogic;
+
+
+
 }

@@ -16,18 +16,21 @@ public class OIDDAManager : Script
 {
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
-    Dictionary<string, object> _currentMetrics = new(), _previousMetrics = new();
+    Dictionary<string, object> _currentMetrics = new();
     GameplayGlobals GameplayValues;
     float UpdateInterval, Delay, _timerBeforeUpdate, _timerSender, _timerReceiver;
+
+    OIDDAConfig _currentConfig;
 
     bool InstantMetricsUpdated;
 
     public override void OnStart()
     {
+        var OIDDA = Engine.GetCustomSettings("OIDDASettings").CreateInstance<OIDDASettings>();
         var Settings = GameSettings.Load();
         var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Settings.CompanyName, Settings.ProductName, "OIDDA");
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
-        OIDDAInit();
+        OIDDAInit(OIDDA);
     }
     
     public override void OnEnable()
@@ -40,17 +43,14 @@ public class OIDDAManager : Script
         OIDDAReset();
     }
 
-    internal void OIDDAInit()
+    internal void OIDDAInit(OIDDASettings settings)
     {
-        var OIDDA = Engine.GetCustomSettings("OIDDASettings").CreateInstance<OIDDASettings>();
-        if (OIDDA != null)
-        {
-            GameplayValues = OIDDA.Globals;
-            StaticORSDB = OIDDA.StaticORS.DeepClone();
-            _currentMetrics = GameplayValues.Values.DeepClone();
-            UpdateInterval = OIDDA.UpdateInterval;
-            Delay = OIDDA.Delay;
-        }
+        if (settings is null) return;
+        GameplayValues = settings.Globals;
+        StaticORSDB = settings.StaticORS.DeepClone();
+        _currentMetrics = GameplayValues.Values.DeepClone();
+        UpdateInterval = settings.UpdateInterval;
+        Delay = settings.Delay;
     }
 
     void OIDDAReset()
@@ -62,21 +62,32 @@ public class OIDDAManager : Script
         _timerBeforeUpdate = 0;
     }
 
-    void MetricsUpdate()
+    void AnalyzeAndApply()
     {
-        _timerBeforeUpdate += Time.DeltaTime;
+        if (_currentConfig == null || _currentConfig.Rules.Count is 0 || _currentConfig.Metrics.Count is 0) return;
 
-        if (_timerBeforeUpdate >= UpdateInterval || InstantMetricsUpdated)
-        {
-            _currentMetrics.ForEach(metric => GameplayValues.SetValue(metric.Key, metric.Value));
-            InstantMetricsUpdated = false; _timerBeforeUpdate = 0;
-            _previousMetrics = _currentMetrics.DeepClone();
-        }
+        // foreach(var metrics in _currentConfig.Metrics)
+        foreach(var rule in _currentConfig.Rules) rule.Apply(_currentMetrics);
     }
+
+    void MetricsToGlobals() => _currentMetrics.ForEach(metric => GameplayValues.SetValue(metric.Key, metric.Value));
 
     void OIDDAUpdate()
     {
-        MetricsUpdate();
+        _timerBeforeUpdate += Time.DeltaTime;
+
+        if (InstantMetricsUpdated)
+        {
+            MetricsToGlobals();
+            InstantMetricsUpdated = false; _timerBeforeUpdate = 0;
+            return;
+        }
+
+        if (_timerBeforeUpdate >= UpdateInterval)
+        {
+            AnalyzeAndApply(); MetricsToGlobals();
+            _timerBeforeUpdate = 0;
+        }
     }
 
     #region ORS Agent Management
@@ -162,10 +173,13 @@ public class OIDDAManager : Script
 
     public void SetStaticGlobal(string NameAgent, object value) => (Delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => _currentMetrics[StaticORSDB[NameAgent].GlobalVariable] = value)();
 
+    public void QuickSender(string name, object value) => _currentMetrics[name] = value;
+
     public T GetGlobal<T>(string name) => (Delay != 0f) ? DelayReceiver<T>(name) : GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
 
     public T GetStaticGlobal<T>(string NameAgent) => (Delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : GameplayValues.GetValue(StaticORSDB[NameAgent].GlobalVariable) is T typeValue ? typeValue : default(T);
 
+    public T QuickReceiver<T>(string name) => GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
     #endregion
 
     public override void OnUpdate()
