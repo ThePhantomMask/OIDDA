@@ -12,23 +12,34 @@ public struct GameplayValue
 {
     public ValueType Type;
 
-    [VisibleIf(nameof(Type), nameof(Type) == "Float")]
+    bool IsFloat => Type is ValueType.Float;
+    bool IsInt => Type is ValueType.Int;
+    bool IsBool => Type is ValueType.Bool;
+    bool IsVector2 => Type is ValueType.Vector2;
+    bool IsVector3 => Type is ValueType.Vector3;
+    bool IsVector4 => Type is ValueType.Vector4;
+    bool IsColor => Type is ValueType.Color;
+    bool IsString => Type is ValueType.String;
+    bool IsQuaternion => Type is ValueType.Quaternion;
+
+
+    [VisibleIf(nameof(IsFloat))]
     public float FloatValue;
-    [VisibleIf(nameof(Type), nameof(Type) == "Int")]
+    [VisibleIf(nameof(IsInt))]
     public int IntValue;
-    [VisibleIf(nameof(Type), nameof(Type) == "Bool")]
+    [VisibleIf(nameof(IsBool))]
     public bool BoolValue;
-    [VisibleIf(nameof(Type), nameof(Type) == "Vector2")]
+    [VisibleIf(nameof(IsVector2))]
     public Vector2 Vector2Value;
-    [VisibleIf(nameof(Type), nameof(Type) == "Vector3")]
+    [VisibleIf(nameof(IsVector3))]
     public Vector3 Vector3Value;
-    [VisibleIf(nameof(Type), nameof(Type) == "Vector4")]
+    [VisibleIf(nameof(IsVector4))]
     public Vector4 Vector4Value;
-    [VisibleIf(nameof(Type), nameof(Type) == "Color")]
+    [VisibleIf(nameof(IsColor))]
     public Color ColorValue;
-    [VisibleIf(nameof(Type), nameof(Type) == "String")]
+    [VisibleIf(nameof(IsString))]
     public string StringValue;
-    [VisibleIf(nameof(Type), nameof(Type) == "Quaternion")]
+    [VisibleIf(nameof(IsQuaternion))]
     public Quaternion QuaternionValue;
 
 
