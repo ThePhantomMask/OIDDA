@@ -25,24 +25,14 @@ public class ConditionClause
 {
     public string MetricName;
     public ComparisonOperator Operator;
-    public float CompareValue;
+    public GameplayValue CompareValue;
 
     public bool Evaluate(Dictionary<string, object> metrics)
     {
         if (!metrics.ContainsKey(MetricName)) return false;
 
-        float value = Convert.ToSingle(metrics[MetricName]);
-
-        return Operator switch
-        {
-            ComparisonOperator.Greater => value > CompareValue,
-            ComparisonOperator.Less => value < CompareValue,
-            ComparisonOperator.GreaterOrEqual => value >= CompareValue,
-            ComparisonOperator.LessOrEqual => value <= CompareValue,
-            ComparisonOperator.Equal => Math.Abs(value - CompareValue) < 0.001f,
-            ComparisonOperator.NotEqual => Math.Abs(value - CompareValue) >= 0.001f,
-            _ => false
-        };
+        var metricValue = GameplayValue.FromObject(metrics[MetricName]);
+        return GameplayValueOperations.Compare(metricValue, CompareValue, Operator);
     }
 
     public enum ComparisonOperator
@@ -52,6 +42,7 @@ public class ConditionClause
         GreaterOrEqual,   // >=
         LessOrEqual,      // <=
         Equal,            // ==
-        NotEqual          // !=
+        NotEqual,          // !=
+        Contains
     }
 }

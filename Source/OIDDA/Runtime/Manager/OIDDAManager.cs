@@ -66,8 +66,9 @@ public class OIDDAManager : Script
     {
         if (_currentConfig == null || _currentConfig.Rules.Count is 0 || _currentConfig.Metrics.Count is 0) return;
 
-        // foreach(var metrics in _currentConfig.Metrics)
-        foreach(var rule in _currentConfig.Rules) rule.Apply(_currentMetrics);
+        var speed = _currentConfig.SmoothingSpeed;
+        // _currentConfig.Metrics.ForEach(metrics => metrics);
+        _currentConfig.Rules.ForEach(rule => rule.Apply(_currentMetrics));
     }
 
     void MetricsToGlobals() => _currentMetrics.ForEach(metric => GameplayValues.SetValue(metric.Key, metric.Value));

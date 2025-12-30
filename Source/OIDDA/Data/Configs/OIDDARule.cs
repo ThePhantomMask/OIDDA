@@ -10,9 +10,10 @@ namespace OIDDA;
 public class OIDDARule
 {
     public string TargetGlobalVariable;
-    public float AdjustmentAmount;
-    public float MinValue = float.MinValue;
-    public float MaxValue = float.MaxValue;
+    public AdjustmentOperator Operator;
+    public GameplayValue AdjustmentValue;
+    public GameplayValue MinValue;
+    public GameplayValue MaxValue;
     public OIDDACondition Condition;
     public List<OIDDARuleException> Exceptions;
 
@@ -47,11 +48,20 @@ public class OIDDARule
 
     protected virtual void ApplyToGlobalsVariables()
     {
-        ORS.Instance.ConnectORSAgent(ORSUtils.ORSType.ReceiverSender);
-        var currentValue = ORS.Instance.ReceiverValue<float>(TargetGlobalVariable);
-        var newValue = currentValue + AdjustmentAmount;
-        newValue = Mathf.Clamp(newValue, MinValue, MaxValue);
-        ORS.Instance.SenderValue(TargetGlobalVariable, newValue);
-        ORS.Instance.DisconnectORSAgent(ORSUtils.ORSType.ReceiverSender);
+        var currentValue = GameplayValue.FromObject(ORS.Instance.QuickReceiver<object>(TargetGlobalVariable));
+        var newValue = GameplayValueOperations.Apply(currentValue, new GameplayValue(), Operator);
+        newValue = GameplayValueOperations.Clamp(newValue, MinValue, MaxValue);
+        ORS.Instance.QuickSender(TargetGlobalVariable, newValue.GetValue());
     }
+}
+
+public enum AdjustmentOperator
+{
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Set,
+    Toggle,    // Bool only
+    Append     // String only
 }
