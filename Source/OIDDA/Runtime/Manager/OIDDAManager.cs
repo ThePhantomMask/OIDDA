@@ -139,11 +139,10 @@ public class OIDDAManager : Script
     {
         try
         {
-            var targetValue = GameplayValue.FromObject(GameplayValues.GetValue(rule.TargetGlobalVariable));
+            var targetValue = GameplayValue.FromObject(currentValues[rule.TargetGlobalVariable]);
             var newValue = GameplayValueOperations.Apply(targetValue, rule.AdjustmentValue, rule.Operator);
             newValue = GameplayValueOperations.Clamp(newValue, rule.MinValue, rule.MaxValue);
             _smoothingManager.SetTarget(rule.TargetGlobalVariable, newValue, _currentConfig.SmoothingSpeed);
-            GameplayValues.SetValue(rule.TargetGlobalVariable,newValue.GetValue());
 
             if (DebugMode)
             {
