@@ -14,12 +14,6 @@ namespace OIDDA;
 /// </summary>
 public class OIDDAManager : Script
 {
-    Dictionary<string, IORSAgentD> ORSAgentDB = new();
-    Dictionary<string, IORSAgentS> StaticORSDB = new();
-    Dictionary<string, object> _currentMetrics = new();
-    GameplayGlobals GameplayValues;
-    float UpdateInterval, Delay, _timerSender, _timerReceiver;
-
     public string CurrentSceneTag;
 
     [Range(0, 2)]
@@ -31,8 +25,15 @@ public class OIDDAManager : Script
     [Tooltip("Enable debug logging")]
     public bool DebugMode = false;
 
+    Dictionary<string, IORSAgentD> ORSAgentDB = new();
+    Dictionary<string, IORSAgentS> StaticORSDB = new();
+    Dictionary<string, object> _currentMetrics = new();
+    GameplayGlobals GameplayValues;
+    float UpdateInterval, Delay, _timerSender, _timerReceiver;
+
     OIDDAConfig _currentConfig;
 
+    float _timeSinceLastUpdate = 0f;
     bool InstantMetricsUpdated;
 
     public override void OnStart()
@@ -77,15 +78,31 @@ public class OIDDAManager : Script
     {
         if (_currentConfig == null || _currentConfig.Rules.Count is 0 || _currentConfig.Metrics.Count is 0) return;
 
-        var analysis = MetricsAggregator.Analyze(_currentConfig.Metrics, _currentMetrics);
+        float debugOverallScore = 0f;
 
-        if (DebugMode) LogAnalysis(analysis);
+        if (DebugMode)
+        {
+           var analyze = MetricsAggregator.Analyze(_currentConfig.Metrics, _currentMetrics);
+           debugOverallScore = analyze.OverallScore;
+           LogAnalysis(analyze);
+        }
 
+        var overallScore = (DebugMode) ? debugOverallScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, _currentMetrics);
+        int rulesApplied = ApplyRules(_currentMetrics, overallScore);
+        if (DebugMode && rulesApplied > 0) Debug.Log($"OIDDA applied {rulesApplied} rules.");
+    }
+
+    int ApplyRules(Dictionary<string, object> currentValues, float overallScore)
+    {
+        int rulesApplied = 0;
         foreach (var rule in _currentConfig.Rules)
         {
-            if (ShouldApplyRule(analysis.OverallScore, rule))
-                rule.Apply(_currentMetrics);
+            if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
+            if (!ShouldApplyRule(overallScore, rule)) continue;
+            rule.Apply(currentValues);
+            rulesApplied++;
         }
+        return rulesApplied;
     }
 
     bool ShouldApplyRule(float overallScore, OIDDARule rule)
@@ -127,16 +144,19 @@ public class OIDDAManager : Script
 
     void OIDDAUpdate()
     {
+        _timeSinceLastUpdate += Time.DeltaTime;
+
         if (InstantMetricsUpdated)
         {
             MetricsToGlobals();
-            InstantMetricsUpdated = false;
+            InstantMetricsUpdated = false; _timeSinceLastUpdate = 0f;
             return;
         }
 
-        if (Time.TimeSinceStartup % UpdateInterval < Time.DeltaTime)
+        if (_timeSinceLastUpdate >= Time.DeltaTime)
         {
             AnalyzeAndApply(); MetricsToGlobals();
+            _timeSinceLastUpdate = 0f;
         }
     }
 
