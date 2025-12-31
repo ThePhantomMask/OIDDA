@@ -32,10 +32,10 @@ public class OIDDAManager : Script
 
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
-    public GameplayGlobals GameplayValues;
+    GameplayGlobals GameplayValues;
     float UpdateInterval, Delay, _timerSender, _timerReceiver, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
 
-    public OIDDAConfig _currentConfig;
+    OIDDAConfig _currentConfig;
     SmoothingManager _smoothingManager = new();
     bool InstantMetricsUpdated;
 
