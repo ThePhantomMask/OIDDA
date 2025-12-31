@@ -9,7 +9,7 @@ namespace OIDDA;
 /// </summary>
 public class OIDDAConfig
 {
-    public List<OIDDAMetrics> Metrics;
-    public List<OIDDARule> Rules;
+    public List<OIDDAMetrics> Metrics = new();
+    public List<OIDDARule> Rules = new();
     public float SmoothingSpeed = 0.1f;
 }
