@@ -63,7 +63,7 @@ public class OIDDAManager : Script
         if (settings is null) return;
         GameplayValues = settings.Globals[CurrentIndex];
         settings.StaticORS.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
-        _currentConfig = settings.Configs[CurrentIndex].Instance;
+        _currentConfig = settings.Configs[CurrentIndex].Asset.CreateInstance<OIDDAConfig>();
         UpdateInterval = settings.UpdateInterval;
         Delay = settings.Delay;
     }
