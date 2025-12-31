@@ -32,7 +32,6 @@ public class OIDDAManager : Script
 
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
-    Dictionary<string, object> _currentMetrics = new();
     GameplayGlobals GameplayValues;
     float UpdateInterval, Delay, _timerSender, _timerReceiver, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
 
@@ -64,7 +63,6 @@ public class OIDDAManager : Script
         if (settings is null) return;
         GameplayValues = !string.IsNullOrEmpty(CurrentSceneTag) ? settings.Globals[CurrentSceneTag] : settings.Globals.Values.FirstOrDefault();
         StaticORSDB = settings.StaticORS.DeepClone();
-        _currentMetrics = GameplayValues.Values.DeepClone();
         _currentConfig = settings.Configs.Values.FirstOrDefault().Instance.DeepClone();
         UpdateInterval = settings.UpdateInterval;
         Delay = settings.Delay;
@@ -72,8 +70,7 @@ public class OIDDAManager : Script
 
     void OIDDAReset()
     {
-        if (GameplayValues) GameplayValues.ResetValues(); 
-        if(_currentMetrics.Capacity != 0) _currentMetrics.Clear(); 
+        if (GameplayValues) GameplayValues.ResetValues();  
         if (ORSAgentDB.Capacity != 0) ORSAgentDB.Clear(); 
         if (StaticORSDB.Capacity != 0) StaticORSDB.Clear();
     }
@@ -88,17 +85,19 @@ public class OIDDAManager : Script
 
         if (DebugMode)
         {
-           var analyze = MetricsAggregator.Analyze(_currentConfig.Metrics, _currentMetrics);
+           var analyze = MetricsAggregator.Analyze(_currentConfig.Metrics, GameplayValues.Values);
            debugOverallScore = analyze.OverallScore;
            LogAnalysis(analyze);
         }
 
-        var overallScore = (DebugMode) ? debugOverallScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, _currentMetrics);
-        int rulesApplied = ApplyRules(_currentMetrics, overallScore);
+        var overallScore = (DebugMode) ? debugOverallScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, GameplayValues.Values);
+
+        if (_timeSinceLastAdjustment < dynamicCooldown(overallScore)) return; 
+
+        int rulesApplied = ApplyRules(GameplayValues.Values, overallScore);
         
         if (rulesApplied > 0)
         {
-            MetricsToGlobals();
             _timeSinceLastAdjustment = 0f;
 
             if (DebugMode)
@@ -112,6 +111,8 @@ public class OIDDAManager : Script
             }
         }
     }
+
+    float dynamicCooldown(float score) => score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.5f : AdjustmentCooldown;
 
     int ApplyRules(Dictionary<string, object> currentValues, float overallScore)
     {
@@ -142,7 +143,7 @@ public class OIDDAManager : Script
             var newValue = GameplayValueOperations.Apply(targetValue, rule.AdjustmentValue, rule.Operator);
             newValue = GameplayValueOperations.Clamp(newValue, rule.MinValue, rule.MaxValue);
             _smoothingManager.SetTarget(rule.TargetGlobalVariable, newValue, _currentConfig.SmoothingSpeed);
-            currentValues[rule.TargetGlobalVariable] = newValue.GetValue();
+            GameplayValues.SetValue(rule.TargetGlobalVariable,newValue.GetValue());
 
             if (DebugMode)
             {
@@ -176,8 +177,6 @@ public class OIDDAManager : Script
             (overallScore < EasyThreshold) ? rule.Operator is AdjustmentOperator.Add || rule.Operator is AdjustmentOperator.Multiply : false;
     }
 
-    void MetricsToGlobals() => _currentMetrics.ForEach(metric => GameplayValues.SetValue(metric.Key, metric.Value));
-
     void LogAnalysis(MetricsAnalysis analysis)
     {
         Debug.Log($"=== OIDDA Analysis ===");
@@ -187,7 +186,7 @@ public class OIDDAManager : Script
         analysis.MetricInfos.ForEach(info => Debug.Log($"[{info.State}] {info.MetricName}: {info.NormalizedScore: F3}" +
             $"(weighted: {info.WeightedScore: F3}, value: {info.CurrentValue})"));
 
-        var problematic = MetricsAggregator.GetProblematicMetrics(_currentConfig.Metrics, _currentMetrics, DifficultThreshold);
+        var problematic = MetricsAggregator.GetProblematicMetrics(_currentConfig.Metrics, GameplayValues.Values, DifficultThreshold);
         if (problematic.Count > 0)
         {
             Debug.Log($"Problematic Metrics ({problematic.Count}):");
@@ -207,7 +206,6 @@ public class OIDDAManager : Script
 
         if (InstantMetricsUpdated)
         {
-            MetricsToGlobals();
             InstantMetricsUpdated = false; _timeSinceLastUpdate = 0f;
             return;
         }
@@ -274,8 +272,8 @@ public class OIDDAManager : Script
         _timerSender += Time.DeltaTime;
         if (_timerSender >= Delay)
         {
-            _currentMetrics[name] = value;
             AnalyzeAndApply();
+            GameplayValues.SetValue(name, value);
             _timerSender = 0;
         }
     }
@@ -299,11 +297,11 @@ public class OIDDAManager : Script
 
     public bool VerifyIsStaticSender(string Name) => StaticORSDB[Name].ORSType == ORSUtils.ORSType.ReceiverSender || StaticORSDB[Name].ORSType == ORSUtils.ORSType.Sender;
 
-    public void SetGlobal(string name, object value) => (Delay != 0f ? (Action)(() => DelaySender(name, value)) : () => _currentMetrics[name] = value)();
+    public void SetGlobal(string name, object value) => (Delay != 0f ? (Action)(() => DelaySender(name, value)) : () => GameplayValues.SetValue(name, value))();
 
-    public void SetStaticGlobal(string NameAgent, object value) => (Delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => { _currentMetrics[StaticORSDB[NameAgent].GlobalVariable] = value; AnalyzeAndApply(); })();
+    public void SetStaticGlobal(string NameAgent, object value) => (Delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => { AnalyzeAndApply(); GameplayValues.SetValue(StaticORSDB[NameAgent].GlobalVariable, value); })();
 
-    public void QuickSender(string name, object value) { _currentMetrics[name] = value; AnalyzeAndApply(); }
+    public void QuickSender(string name, object value) { GameplayValues.SetValue(name, value); AnalyzeAndApply(); }
 
     public T GetGlobal<T>(string name) => (Delay != 0f) ? DelayReceiver<T>(name) : GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
 
