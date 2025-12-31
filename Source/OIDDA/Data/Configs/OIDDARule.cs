@@ -17,6 +17,7 @@ public class OIDDARule
     public RuleApplicationContext ApplicationContext = RuleApplicationContext.Always;
     public OIDDACondition Condition;
     public List<OIDDARuleException> Exceptions;
+    public int Priority;
 
     public virtual void Apply(Dictionary<string, object> metrics)
     {
@@ -24,6 +25,12 @@ public class OIDDARule
 
         if (HasActiveException(metrics, out var exception))
         {
+            if (HasRulePriority(exception))
+            {
+                ApplyToGlobalsVariables();
+                return;
+            }
+
             exception.Apply(metrics);
             return;
         }
@@ -46,6 +53,8 @@ public class OIDDARule
         }
         return false;
     }
+
+    protected bool HasRulePriority(OIDDARule rule) => Priority > rule.Priority;
 
     protected virtual void ApplyToGlobalsVariables()
     {
