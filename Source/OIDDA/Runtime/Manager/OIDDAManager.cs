@@ -63,7 +63,7 @@ public class OIDDAManager : Script
         if (settings is null) return;
         GameplayValues = !string.IsNullOrEmpty(CurrentSceneTag) ? settings.Globals[CurrentSceneTag] : settings.Globals.Values.FirstOrDefault();
         StaticORSDB = settings.StaticORS.DeepClone();
-        _currentConfig = settings.Configs.Values.FirstOrDefault().Instance.DeepClone();
+        _currentConfig = settings.Configs.Values.FirstOrDefault().Instance;
         UpdateInterval = settings.UpdateInterval;
         Delay = settings.Delay;
     }
