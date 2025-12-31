@@ -77,36 +77,39 @@ public class OIDDAManager : Script
 
     void AnalyzeAndApply()
     {
-        if (_currentConfig == null || _currentConfig.Rules.Count is 0 || _currentConfig.Metrics.Count is 0) return;
+        if (_currentConfig == null) return;
 
-        if (_timeSinceLastAdjustment < AdjustmentCooldown) return;
-
-        float debugOverallScore = 0f;
-
-        if (DebugMode)
+        if (_currentConfig.Rules.Count != 0 || _currentConfig.Metrics.Count != 0)
         {
-           var analyze = MetricsAggregator.Analyze(_currentConfig.Metrics, GameplayValues.Values);
-           debugOverallScore = analyze.OverallScore;
-           LogAnalysis(analyze);
-        }
+            if (_timeSinceLastAdjustment < AdjustmentCooldown) return;
 
-        var overallScore = (DebugMode) ? debugOverallScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, GameplayValues.Values);
-
-        if (_timeSinceLastAdjustment < dynamicCooldown(overallScore)) return; 
-
-        int rulesApplied = ApplyRules(GameplayValues.Values, overallScore);
-        
-        if (rulesApplied > 0)
-        {
-            _timeSinceLastAdjustment = 0f;
+            float debugOverallScore = 0f;
 
             if (DebugMode)
             {
-                Debug.Log($"OIDDA applied {rulesApplied} rules.");
+                var analyze = MetricsAggregator.Analyze(_currentConfig.Metrics, GameplayValues.Values);
+                debugOverallScore = analyze.OverallScore;
+                LogAnalysis(analyze);
+            }
 
-                if (EnableSmoothing && _smoothingManager.HasActiveSmoothings)
+            var overallScore = (DebugMode) ? debugOverallScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, GameplayValues.Values);
+
+            if (_timeSinceLastAdjustment < dynamicCooldown(overallScore)) return;
+
+            int rulesApplied = ApplyRules(GameplayValues.Values, overallScore);
+
+            if (rulesApplied > 0)
+            {
+                _timeSinceLastAdjustment = 0f;
+
+                if (DebugMode)
                 {
-                    Debug.Log($"[OIDDA] Smoothing {_smoothingManager.ActiveSmoothingCount} value(s)");
+                    Debug.Log($"OIDDA applied {rulesApplied} rules.");
+
+                    if (EnableSmoothing && _smoothingManager.HasActiveSmoothings)
+                    {
+                        Debug.Log($"[OIDDA] Smoothing {_smoothingManager.ActiveSmoothingCount} value(s)");
+                    }
                 }
             }
         }
