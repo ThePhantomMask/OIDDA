@@ -77,7 +77,7 @@ public class OIDDAManager : Script
 
     void AnalyzeAndApply()
     {
-        if (_currentConfig == null || _currentConfig.Rules.Count < 0 || _currentConfig.Metrics.Count < 0) return;
+        if (_currentConfig == null || _currentConfig.Rules.Count <= 0 || _currentConfig.Metrics.Count <= 0) return;
 
         if (_timeSinceLastAdjustment < AdjustmentCooldown) return;
 
