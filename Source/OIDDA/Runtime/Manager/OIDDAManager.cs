@@ -35,7 +35,7 @@ public class OIDDAManager : Script
     public GameplayGlobals GameplayValues;
     float UpdateInterval, Delay, _timerSender, _timerReceiver, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
 
-    OIDDAConfig _currentConfig;
+    public OIDDAConfig _currentConfig;
     SmoothingManager _smoothingManager = new();
     bool InstantMetricsUpdated;
 
