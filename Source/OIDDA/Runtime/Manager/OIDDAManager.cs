@@ -35,7 +35,7 @@ public class OIDDAManager : Script
     public GameplayGlobals GameplayValues;
     float UpdateInterval, Delay, _timerSender, _timerReceiver, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
 
-    public OIDDAConfig _currentConfig = new();
+    public OIDDAConfig _currentConfig;
     SmoothingManager _smoothingManager = new();
     bool InstantMetricsUpdated;
 
@@ -63,7 +63,7 @@ public class OIDDAManager : Script
         if (settings is null) return;
         GameplayValues = settings.Globals[CurrentIndex];
         settings.StaticORS.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
-        _currentConfig = settings.Configs[CurrentIndex].Asset.CreateInstance<OIDDAConfig>();
+        _currentConfig = (settings.Configs[CurrentIndex].Instance.Rules.Count != 0 && settings.Configs[CurrentIndex].Instance.Metrics.Count != 0) ? settings.Configs[CurrentIndex].Instance : new();
         UpdateInterval = settings.UpdateInterval;
         Delay = settings.Delay;
     }
