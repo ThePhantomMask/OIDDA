@@ -91,7 +91,7 @@ public class ORS : ORSAgent
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
         if (!OIDDAManager) { result = default; return false; }
-        if (IsConnected && OIDDAManager.VerifyIsStaticReceiver(ORSName) && string.IsNullOrEmpty(nameValue))
+        if (IsConnected && OIDDAManager.VerifyIsStaticReceiver(ORSName) && ORSName == nameValue)
         {
             result = OIDDAManager.GetStaticGlobal<T>(ORSName); return true;
         }
@@ -113,7 +113,7 @@ public class ORS : ORSAgent
     {
         if (!OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
 
-        if (IsConnected && OIDDAManager.VerifyIsStaticReceiver(ORSName) && string.IsNullOrEmpty(nameValue))
+        if (IsConnected && OIDDAManager.VerifyIsStaticReceiver(ORSName) && ORSName == nameValue)
         {
             return OIDDAManager.GetStaticGlobal<T>(ORSName);
         }
@@ -128,7 +128,7 @@ public class ORS : ORSAgent
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
         if (!OIDDAManager) return false;
-        if (IsConnected && OIDDAManager.VerifyIsStaticSender(ORSName) && string.IsNullOrEmpty(nameValue))
+        if (IsConnected && OIDDAManager.VerifyIsStaticSender(ORSName) && ORSName == nameValue)
         {
             OIDDAManager.SetStaticGlobal(ORSName, senderValue);
             return true;
@@ -145,7 +145,7 @@ public class ORS : ORSAgent
     public override void SenderValue(string nameValue, object senderValue)
     {
         if (!OIDDAManager) return;
-        if (IsConnected && OIDDAManager.VerifyIsStaticSender(ORSName) && string.IsNullOrEmpty(nameValue))
+        if (IsConnected && OIDDAManager.VerifyIsStaticSender(ORSName) && ORSName == nameValue)
         {
             OIDDAManager.SetStaticGlobal(ORSName, senderValue);
             return;
