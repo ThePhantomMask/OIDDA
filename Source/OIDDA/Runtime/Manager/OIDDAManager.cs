@@ -264,7 +264,7 @@ public class OIDDAManager : Script
 
     public bool ORSIsConnected(string ID) => ORSAgentDB.ContainsKey(ID);
 
-    public bool ORSIsConnected() => StaticORSDB.Values.Any(agent => agent.ORSStatus is ORSUtils.ORSStatus.Connected);
+    public bool StaticORSIsConnected(string name) => StaticORSDB.ContainsKey(name) && StaticORSDB[name].ORSStatus is ORSUtils.ORSStatus.Connected;
 
     void DelaySender(string name, object value)
     {
