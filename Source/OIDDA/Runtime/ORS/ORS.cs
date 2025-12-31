@@ -24,7 +24,7 @@ public abstract class ORSAgent
 
     public abstract bool TryReceiverValue<T>(string nameValue, out T result);
 
-    public abstract T ReceiverValue<T>(string nameValue);
+    public abstract T ReceiverValue<T>(string nameValue = "");
 
     public abstract T QuickReceiver<T>(string NameValue);
 
@@ -109,7 +109,7 @@ public class ORS : ORSAgent
         return OIDDAManager.QuickReceiver<T>(NameValue);
     }
 
-    public override T ReceiverValue<T>(string nameValue)
+    public override T ReceiverValue<T>(string nameValue = "")
     {
         if (!OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
 
