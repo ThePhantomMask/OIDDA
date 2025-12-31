@@ -14,6 +14,7 @@ public class OIDDARule
     public GameplayValue AdjustmentValue;
     public GameplayValue MinValue;
     public GameplayValue MaxValue;
+    public RuleApplicationContext ApplicationContext = RuleApplicationContext.Always;
     public OIDDACondition Condition;
     public List<OIDDARuleException> Exceptions;
 
@@ -64,4 +65,13 @@ public enum AdjustmentOperator
     Set,
     Toggle,    // Bool only
     Append     // String only
+}
+
+public enum RuleApplicationContext
+{
+    Always,
+    WhenTooDifficult,
+    WhenTooEasy,
+    WhenBalanced,
+    None
 }

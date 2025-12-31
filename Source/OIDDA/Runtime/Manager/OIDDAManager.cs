@@ -18,7 +18,16 @@ public class OIDDAManager : Script
     Dictionary<string, IORSAgentS> StaticORSDB = new();
     Dictionary<string, object> _currentMetrics = new();
     GameplayGlobals GameplayValues;
-    float UpdateInterval, Delay, _timerBeforeUpdate, _timerSender, _timerReceiver;
+    float UpdateInterval, Delay, _timerSender, _timerReceiver;
+
+    [Range(0, 2)]
+    public float DifficultThreshold = 1.7f;
+
+    [Range(0, 2)]
+    public float EasyThreshold = 0.3f;
+
+    [Tooltip("Enable debug logging")]
+    public bool DebugMode = false;
 
     OIDDAConfig _currentConfig;
 
@@ -59,35 +68,72 @@ public class OIDDAManager : Script
         if(_currentMetrics.Capacity != 0) _currentMetrics.Clear(); 
         if (ORSAgentDB.Capacity != 0) ORSAgentDB.Clear(); 
         if (StaticORSDB.Capacity != 0) StaticORSDB.Clear();
-        _timerBeforeUpdate = 0;
     }
 
     void AnalyzeAndApply()
     {
         if (_currentConfig == null || _currentConfig.Rules.Count is 0 || _currentConfig.Metrics.Count is 0) return;
 
-        var speed = _currentConfig.SmoothingSpeed;
-        // _currentConfig.Metrics.ForEach(metrics => metrics);
-        _currentConfig.Rules.ForEach(rule => rule.Apply(_currentMetrics));
+        var analysis = MetricsAggregator.Analyze(_currentConfig.Metrics, _currentMetrics);
+
+        if (DebugMode) LogAnalysis(analysis);
+
+        foreach (var rule in _currentConfig.Rules)
+        {
+            if (ShouldApplyRule(analysis.OverallScore, rule))
+                rule.Apply(_currentMetrics);
+        }
+    }
+
+    bool ShouldApplyRule(float overallScore, OIDDARule rule)
+    {
+        if (rule is OIDDARuleException ruleException)
+        {
+            return ruleException.ApplicationContext switch
+            {
+                RuleApplicationContext.Always => true,
+                RuleApplicationContext.WhenTooDifficult => overallScore > DifficultThreshold,
+                RuleApplicationContext.WhenTooEasy => overallScore < EasyThreshold,
+                RuleApplicationContext.WhenBalanced => overallScore >= EasyThreshold && overallScore <= DifficultThreshold,
+                _ => false,
+            };
+        }
+
+        return (overallScore > DifficultThreshold) ? rule.Operator is AdjustmentOperator.Subtract || rule.Operator is AdjustmentOperator.Set :
+            (overallScore < EasyThreshold) ? rule.Operator is AdjustmentOperator.Add || rule.Operator is AdjustmentOperator.Multiply : false;
     }
 
     void MetricsToGlobals() => _currentMetrics.ForEach(metric => GameplayValues.SetValue(metric.Key, metric.Value));
 
+    void LogAnalysis(MetricsAnalysis analysis)
+    {
+        Debug.Log($"=== OIDDA Analysis ===");
+        Debug.Log($"Overall Score: {analysis.OverallScore:F3} ({analysis.OverallState})");
+        Debug.Log($"Individual Metrics:");
+
+        analysis.MetricInfos.ForEach(info => Debug.Log($"[{info.State}] {info.MetricName}: {info.NormalizedScore: F3}" +
+            $"(weighted: {info.WeightedScore: F3}, value: {info.CurrentValue})"));
+
+        var problematic = MetricsAggregator.GetProblematicMetrics(_currentConfig.Metrics, _currentMetrics, DifficultThreshold);
+        if (problematic.Count > 0)
+        {
+            Debug.Log($"Problematic Metrics ({problematic.Count}):");
+            problematic.ForEach(metric => Debug.LogWarning($"{metric.MetricName}: {metric.NormalizedScore:F3}"));
+        }
+    }
+
     void OIDDAUpdate()
     {
-        _timerBeforeUpdate += Time.DeltaTime;
-
         if (InstantMetricsUpdated)
         {
             MetricsToGlobals();
-            InstantMetricsUpdated = false; _timerBeforeUpdate = 0;
+            InstantMetricsUpdated = false;
             return;
         }
 
-        if (_timerBeforeUpdate >= UpdateInterval)
+        if (Time.TimeSinceStartup % UpdateInterval < Time.DeltaTime)
         {
             AnalyzeAndApply(); MetricsToGlobals();
-            _timerBeforeUpdate = 0;
         }
     }
 
