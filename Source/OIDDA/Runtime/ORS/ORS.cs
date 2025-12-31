@@ -177,7 +177,7 @@ public class ORS : ORSAgent
     public override void SenderValue(object senderValue)
     {
         if (!OIDDAManager) return;
-        if (IsConnected && OIDDAManager.VerifyIsStaticSender(ORSName) && string.IsNullOrEmpty(nameValue))
+        if (IsConnected && OIDDAManager.VerifyIsStaticSender(ORSName))
         {
             OIDDAManager.SetStaticGlobal(ORSName, senderValue);
             return;
