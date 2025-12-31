@@ -54,7 +54,7 @@ public class OIDDARule
         return false;
     }
 
-    protected bool HasRulePriority(OIDDARule rule) => Priority > rule.Priority;
+    protected bool HasRulePriority(OIDDARule rule) => Priority >= rule.Priority;
 
     protected virtual void ApplyToGlobalsVariables()
     {
