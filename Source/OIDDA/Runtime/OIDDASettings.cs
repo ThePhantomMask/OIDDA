@@ -10,9 +10,9 @@ namespace OIDDA;
 public class OIDDASettings : SettingsBase
 {
     [EditorOrder(0), EditorDisplay("OIDDA Config")]
-    public Dictionary<string,GameplayGlobals> Globals;
+    public List<GameplayGlobals> Globals;
     [EditorOrder(0), EditorDisplay("OIDDA Config")]
-    public Dictionary<string, JsonAssetReference<OIDDAConfig>> Configs;
+    public List<JsonAssetReference<OIDDAConfig>> Configs;
     [EditorOrder(0), EditorDisplay("OIDDA Config"), Tooltip("Metrics update interval (seconds)")]
     public float UpdateInterval = 1.0f;
 

@@ -13,7 +13,7 @@ namespace OIDDA;
 /// </summary>
 public class OIDDAManager : Script
 {
-    public string CurrentSceneTag;
+    public int CurrentIndex;
 
     [Range(0, 2)]
     public float DifficultThreshold = 1.7f;
@@ -61,9 +61,9 @@ public class OIDDAManager : Script
     internal void OIDDAInit(OIDDASettings settings)
     {
         if (settings is null) return;
-        GameplayValues = !string.IsNullOrEmpty(CurrentSceneTag) ? settings.Globals[CurrentSceneTag] : settings.Globals.Values.FirstOrDefault();
+        GameplayValues = settings.Globals[CurrentIndex];
         StaticORSDB = settings.StaticORS.DeepClone();
-        _currentConfig = settings.Configs.Values.FirstOrDefault().Instance;
+        _currentConfig = settings.Configs[CurrentIndex].Instance;
         UpdateInterval = settings.UpdateInterval;
         Delay = settings.Delay;
     }
