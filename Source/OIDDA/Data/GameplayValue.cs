@@ -305,4 +305,84 @@ public static class GameplayValueOperations
                 return false;
         }
     }
+
+    public static GameplayValue Lerp(GameplayValue current, GameplayValue target, float t)
+    {
+        t = Mathf.Clamp(t, 0f, 1f);
+
+        if (current.Type != target.Type) return target;
+
+        switch (current.Type)
+        {
+            case ValueType.Float:
+                return new GameplayValue(Mathf.Lerp(current.FloatValue, target.FloatValue, t));
+
+            case ValueType.Int:
+                return new GameplayValue((int)Math.Round((float)Mathf.Lerp(current.IntValue, target.IntValue, t)));
+            
+            case ValueType.Vector2:
+                return new GameplayValue(Vector2.Lerp(current.Vector2Value, target.Vector2Value, t));
+
+            case ValueType.Vector3:
+                return new GameplayValue(Vector3.Lerp(current.Vector3Value, target.Vector3Value, t));
+
+            case ValueType.Vector4:
+                return new GameplayValue(Vector4.Lerp(current.Vector4Value, target.Vector4Value, t));
+            
+            case ValueType.Color:
+                return new GameplayValue(Color.Lerp(current.ColorValue, target.ColorValue, t));
+
+            case ValueType.Bool:
+                return t > 0.5f ? target : current;
+
+            case ValueType.String:
+                return target;
+
+            case ValueType.Quaternion:
+                return new GameplayValue(Quaternion.Lerp(current.QuaternionValue,target.QuaternionValue, t));
+
+            default:
+                return target;
+        }
+
+    }
+
+    public static bool IsNearTarget(GameplayValue current, GameplayValue target, float threshold = 0.01f)
+    {
+        if (current.Type != target.Type) return false;
+
+        switch (current.Type)
+        {
+            case ValueType.Float:
+                return Math.Abs(current.FloatValue - target.FloatValue) < threshold;
+
+            case ValueType.Int:
+                return current.IntValue == target.IntValue;
+
+            case ValueType.Vector2:
+                return Vector2.Distance(current.Vector2Value, target.Vector2Value) < threshold;
+
+            case ValueType.Vector3:
+                return Vector3.Distance(current.Vector3Value, target.Vector3Value) < threshold;
+
+            case ValueType.Vector4:
+                return Vector4.Distance(current.Vector4Value, target.Vector4Value) < threshold;
+
+            case ValueType.Color:
+                return current.ColorValue == target.ColorValue;
+
+            case ValueType.Bool:
+                return current.BoolValue == target.BoolValue;
+
+            case ValueType.String:
+                return current.StringValue == target.StringValue;
+
+            case ValueType.Quaternion:
+                return Quaternion.Dot(current.QuaternionValue, target.QuaternionValue) > 1.0f - threshold;
+
+            default:
+                return true;
+        }
+    }
+
 }

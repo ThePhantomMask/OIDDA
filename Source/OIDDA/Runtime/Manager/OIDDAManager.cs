@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Xml.Linq;
 
 namespace OIDDA;
 
@@ -22,18 +21,23 @@ public class OIDDAManager : Script
     [Range(0, 2)]
     public float EasyThreshold = 0.3f;
 
+    [EditorDisplay("Smoothing"),Tooltip("Enable gradual value changes instead of instant")]
+    public bool EnableSmoothing = true;
+
     [Tooltip("Enable debug logging")]
     public bool DebugMode = false;
+
+    [Tooltip("Cooldown between adjustments (seconds)")]
+    public float AdjustmentCooldown = 10f;
 
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
     Dictionary<string, object> _currentMetrics = new();
     GameplayGlobals GameplayValues;
-    float UpdateInterval, Delay, _timerSender, _timerReceiver;
+    float UpdateInterval, Delay, _timerSender, _timerReceiver, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
 
     OIDDAConfig _currentConfig;
-
-    float _timeSinceLastUpdate = 0f;
+    SmoothingManager _smoothingManager = new();
     bool InstantMetricsUpdated;
 
     public override void OnStart()
@@ -78,6 +82,8 @@ public class OIDDAManager : Script
     {
         if (_currentConfig == null || _currentConfig.Rules.Count is 0 || _currentConfig.Metrics.Count is 0) return;
 
+        if (_timeSinceLastAdjustment < AdjustmentCooldown) return;
+
         float debugOverallScore = 0f;
 
         if (DebugMode)
@@ -89,7 +95,22 @@ public class OIDDAManager : Script
 
         var overallScore = (DebugMode) ? debugOverallScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, _currentMetrics);
         int rulesApplied = ApplyRules(_currentMetrics, overallScore);
-        if (DebugMode && rulesApplied > 0) Debug.Log($"OIDDA applied {rulesApplied} rules.");
+        
+        if (rulesApplied > 0)
+        {
+            MetricsToGlobals();
+            _timeSinceLastAdjustment = 0f;
+
+            if (DebugMode)
+            {
+                Debug.Log($"OIDDA applied {rulesApplied} rules.");
+
+                if (EnableSmoothing && _smoothingManager.HasActiveSmoothings)
+                {
+                    Debug.Log($"[OIDDA] Smoothing {_smoothingManager.ActiveSmoothingCount} value(s)");
+                }
+            }
+        }
     }
 
     int ApplyRules(Dictionary<string, object> currentValues, float overallScore)
@@ -99,10 +120,42 @@ public class OIDDAManager : Script
         {
             if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
             if (!ShouldApplyRule(overallScore, rule)) continue;
+
+            if (EnableSmoothing)
+            {
+                ApplyRuleSmooth(rule, currentValues);
+                rulesApplied++;
+                return rulesApplied;
+            }
+
             rule.Apply(currentValues);
             rulesApplied++;
         }
         return rulesApplied;
+    }
+
+    void ApplyRuleSmooth(OIDDARule rule, Dictionary<string, object> currentValues)
+    {
+        try
+        {
+            var targetValue = GameplayValue.FromObject(GameplayValues.GetValue(rule.TargetGlobalVariable));
+            var newValue = GameplayValueOperations.Apply(targetValue, rule.AdjustmentValue, rule.Operator);
+            newValue = GameplayValueOperations.Clamp(newValue, rule.MinValue, rule.MaxValue);
+            _smoothingManager.SetTarget(rule.TargetGlobalVariable, newValue, _currentConfig.SmoothingSpeed);
+            currentValues[rule.TargetGlobalVariable] = newValue.GetValue();
+
+            if (DebugMode)
+            {
+                Debug.Log($"[OIDDA] Smoothing: {rule.TargetGlobalVariable} " +
+                          $"{targetValue.GetValue()} → {newValue.GetValue()} " +
+                          $"(speed: {_currentConfig.SmoothingSpeed})");
+            }
+
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[OIDDA] Error in smooth apply: {e.Message}");
+        }
     }
 
     bool ShouldApplyRule(float overallScore, OIDDARule rule)
@@ -144,7 +197,13 @@ public class OIDDAManager : Script
 
     void OIDDAUpdate()
     {
+        if (EnableSmoothing)
+        {
+            _smoothingManager.SmoothUpdate(Time.DeltaTime);
+        }
+
         _timeSinceLastUpdate += Time.DeltaTime;
+        _timeSinceLastAdjustment += Time.DeltaTime;
 
         if (InstantMetricsUpdated)
         {
@@ -153,10 +212,10 @@ public class OIDDAManager : Script
             return;
         }
 
-        if (_timeSinceLastUpdate >= Time.DeltaTime)
+        if (_timeSinceLastUpdate >= UpdateInterval)
         {
-            AnalyzeAndApply(); MetricsToGlobals();
-            _timeSinceLastUpdate = 0f;
+            AnalyzeAndApply();
+            _timeSinceLastUpdate -= UpdateInterval;
         }
     }
 
@@ -216,6 +275,7 @@ public class OIDDAManager : Script
         if (_timerSender >= Delay)
         {
             _currentMetrics[name] = value;
+            AnalyzeAndApply();
             _timerSender = 0;
         }
     }
@@ -241,9 +301,9 @@ public class OIDDAManager : Script
 
     public void SetGlobal(string name, object value) => (Delay != 0f ? (Action)(() => DelaySender(name, value)) : () => _currentMetrics[name] = value)();
 
-    public void SetStaticGlobal(string NameAgent, object value) => (Delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => _currentMetrics[StaticORSDB[NameAgent].GlobalVariable] = value)();
+    public void SetStaticGlobal(string NameAgent, object value) => (Delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => { _currentMetrics[StaticORSDB[NameAgent].GlobalVariable] = value; AnalyzeAndApply(); })();
 
-    public void QuickSender(string name, object value) => _currentMetrics[name] = value;
+    public void QuickSender(string name, object value) { _currentMetrics[name] = value; AnalyzeAndApply(); }
 
     public T GetGlobal<T>(string name) => (Delay != 0f) ? DelayReceiver<T>(name) : GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
 
