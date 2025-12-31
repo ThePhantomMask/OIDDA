@@ -55,6 +55,7 @@ public class ORS : ORSAgent
     public override void ConnectORSAgent(string AgentName)
     {
         if (!OIDDAManager) return;
+        Debug.Log("Connecting to ORS Agent: " + AgentName);
         OIDDAManager.Connect(ORSName = AgentName);
     }
 
