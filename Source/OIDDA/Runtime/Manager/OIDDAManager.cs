@@ -20,6 +20,8 @@ public class OIDDAManager : Script
     GameplayGlobals GameplayValues;
     float UpdateInterval, Delay, _timerSender, _timerReceiver;
 
+    public string CurrentSceneTag;
+
     [Range(0, 2)]
     public float DifficultThreshold = 1.7f;
 
@@ -55,9 +57,10 @@ public class OIDDAManager : Script
     internal void OIDDAInit(OIDDASettings settings)
     {
         if (settings is null) return;
-        GameplayValues = settings.Globals;
+        GameplayValues = !string.IsNullOrEmpty(CurrentSceneTag) ? settings.Globals[CurrentSceneTag] : settings.Globals.Values.FirstOrDefault();
         StaticORSDB = settings.StaticORS.DeepClone();
         _currentMetrics = GameplayValues.Values.DeepClone();
+        _currentConfig = settings.Configs.Values.FirstOrDefault().Instance.DeepClone();
         UpdateInterval = settings.UpdateInterval;
         Delay = settings.Delay;
     }
