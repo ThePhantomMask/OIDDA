@@ -54,7 +54,7 @@ public class ORS : ORSAgent
 
     OIDDAManager OIDDAManager => Level.FindScript<OIDDAManager>();
 
-    public bool IsConnected => OIDDAManager.ORSIsConnected(ORSID) || OIDDAManager.StaticORSIsConnected(ORSName);
+    public bool IsConnected => !string.IsNullOrEmpty(ORSID) && OIDDAManager.ORSIsConnected(ORSID) || !string.IsNullOrEmpty(ORSName) && OIDDAManager.StaticORSIsConnected(ORSName);
 
     /// <summary>
     /// Initializes the ORS agent connection using the specified script and agent type (Static ORS Agent).
