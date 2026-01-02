@@ -10,6 +10,7 @@ namespace OIDDA;
 /// <summary>
 /// OIDDA Manager
 /// </summary>
+[Category(name: "OIDDA")]
 public class OIDDAManager : Script
 {
     public int CurrentIndex;

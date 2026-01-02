@@ -7,6 +7,7 @@ namespace OIDDA;
 /// <summary>
 /// OIDDA Rule
 /// </summary>
+[Category(name: "OIDDA Data")]
 public class OIDDARule
 {
     public string TargetGlobalVariable;
