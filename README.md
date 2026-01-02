@@ -28,9 +28,10 @@ To add this plugin project to your game, follow the instructions in the [Flax En
 # ORS
 ORS (OIDDA Receiver Senders) are agents that can easily assign/receive variables.
 
-They can be divided into two groups:
+They can be divided into three groups:
 * **Static:** Those that are used permanently during the game. 
 * **Dynamic:** These are the ones that can be used in anything the developer needs.
+* **Quick:** These used without wanting to send data quickly without needing to connect it and are of the ReceiverSender type.
 
 There are three types of agents:
 * **ReceiverSender** -> Can send and receive data
@@ -50,7 +51,9 @@ ORS.Instance.ConnectORSAgent(ORSUtils.ORSType.ReceiverSender);
 // Receive difficulty data as a float (Dynamic)
 var difficulty = ORS.Instance.ReceiverValue<float>("Difficulty");
 // Receive difficulty data as a float (Static)
-var difficulty = ORS.Instance.ReceiverValue<float>("Difficulty Level");
+var difficulty = ORS.Instance.ReceiverValue<float>();
+// Receive Enemy position data as a Vector3 (Quick)
+var EnemyPos = ORS.Instance.QuickReceiver<Vector3>("Enemy Pos");
 
 // Send the aggression level data to the OIDDA Manager (Dynamic)
 int aggressiveLevel = 10;
@@ -58,6 +61,9 @@ ORS.Instance.SenderValue("Aggressive Level", aggressiveLevel);
 // Send the difficulty data changed to the OIDDA Manager (Static)
 float difficultyChanged = difficulty * 0.2f;
 ORS.Instance.SenderValue("Difficulty Level", aggressiveLevel);
+// Send the Enemy position data  data to the OIDDA Manager (Quick)
+EnemyPos *= Vector3.One;
+ORS.Instance.QuickSender("Enemy Pos", EnemyPos);
 
 // Static Disconnection:
 ORS.Instance.DisconnectORSAgent("Difficulty Level");
@@ -72,5 +78,6 @@ Current development is laying the groundwork for the 2.0 release, which will int
 You are free to contribute to the plugin to improve it.
 You can also create forks with modifications dedicated exclusively to your project.
 Also creating ports for other ports such as **Unity**, **Unreal Engine**, **Godot**, etc.
+
 
 
