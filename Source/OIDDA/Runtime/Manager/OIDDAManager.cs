@@ -15,10 +15,10 @@ public class OIDDAManager : Script
 {
     public int CurrentIndex;
 
-    [Range(0, 2)]
-    public float DifficultThreshold = 1.7f;
+    [Range(0, 1)]
+    public float DifficultThreshold = 0.7f;
 
-    [Range(0, 2)]
+    [Range(0, 1)]
     public float EasyThreshold = 0.3f;
 
     [EditorDisplay("Smoothing"),Tooltip("Enable gradual value changes instead of instant")]
@@ -113,7 +113,7 @@ public class OIDDAManager : Script
         }
     }
 
-    float dynamicCooldown(float score) => score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.5f : AdjustmentCooldown;
+    float dynamicCooldown(float score) => score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.0f : AdjustmentCooldown;
 
     int ApplyRules(Dictionary<string, object> currentValues, float overallScore)
     {
@@ -148,7 +148,7 @@ public class OIDDAManager : Script
             if (DebugMode)
             {
                 Debug.Log($"[OIDDA] Smoothing: {rule.TargetGlobalVariable} " +
-                          $"{targetValue.GetValue()} → {newValue.GetValue()} " +
+                          $"{targetValue.GetValue()} -> {newValue.GetValue()} " +
                           $"(speed: {_currentConfig.SmoothingSpeed})");
             }
 

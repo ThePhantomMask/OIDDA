@@ -42,7 +42,7 @@ public class ConditionClause
         GreaterOrEqual,   // >=
         LessOrEqual,      // <=
         Equal,            // ==
-        NotEqual,          // !=
+        NotEqual,         // !=
         Contains
     }
 }
