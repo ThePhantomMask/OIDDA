@@ -8,6 +8,7 @@ namespace OIDDA;
 /// <summary>
 /// OIDDA Condition
 /// </summary>
+[Category(name: "OIDDA Data")]
 public class OIDDACondition
 {
     public List<ConditionClause> Clauses;

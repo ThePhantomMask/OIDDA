@@ -7,6 +7,7 @@ namespace OIDDA;
 /// <summary>
 /// OIDDA Settings
 /// </summary>
+[Category(name: "OIDDA Data")]
 public class OIDDASettings : SettingsBase
 {
     [EditorOrder(0), EditorDisplay("OIDDA Config")]
