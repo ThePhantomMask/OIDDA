@@ -20,10 +20,11 @@ To add this plugin project to your game, follow the instructions in the [Flax En
 
 # Setup
 1. Install the plugin into the Flax Engine game project.
-2. Assign the variables that are indispensable in GameplayGlobals.
-3. Assign the relevant GameplayGlobals within OIDDA Settings.
-4. Assign any static agents you feel you are using with a name and then script, agent type.
-5. Add in the scene on an actor the OIDDA Manager script.
+2. Create GameplayGlobals and assign the variables that are indispensable.
+3. Create a OODDAMetrics JsonAsset and assign the metrics and rules/exceptions.
+4. Assign the relevant GameplayGlobals and OODDAMetrics JsonAsset within OIDDA Settings.
+5. Assign any static agents you feel you are using with a name and then script, agent type.
+6. Add in the scene on an actor the OIDDA Manager script.
 
 # ORS
 ORS (OIDDA Receiver Senders) are agents that can easily assign/receive variables.
