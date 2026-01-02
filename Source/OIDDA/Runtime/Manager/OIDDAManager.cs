@@ -276,11 +276,6 @@ public class OIDDAManager : Script
 
     #region Pacing Director Agent Management
 
-    /// <summary>
-    /// Adds the specified amount of pacing intensity to the pacing director, optionally providing a reason for the adjustment.
-    /// </summary>
-    /// <param name="amount">The amount of pacing intensity to add. Positive values increase pacing intensity.</param>
-    /// <param name="reason">An optional description of the reason for the intensity adjustment. This value may be used for logging or debugging purposes.</param>
     public void AddPacingIntensity(float amount, string reason = "")
     {
         if (!EnablePacing) return;
@@ -292,22 +287,9 @@ public class OIDDAManager : Script
         }
     }
 
-    /// <summary>
-    /// Gets a value indicating whether an encounter should be spawned based on the current pacing settings.
-    /// </summary>
-    /// <remarks>If pacing is enabled, this property reflects the recommendation of the pacing director. If pacing is disabled, it always returns <see langword="true"/>.</remarks>
     public bool IsShouldSpawnEncounter => EnablePacing ? Director.ShouldSpawnEncounter() : true;
-    /// <summary>
-    /// Gets the current pacing state of the director.
-    /// </summary>
     public PacingDirector.PacingState DirectorState => Director.CurrentState;
-    /// <summary>
-    /// Gets the current stress level of the player as determined by the Pacing Director.
-    /// </summary>
     public float PlayerStress => Director.StressLevel;
-    /// <summary>
-    /// Gets the current fatigue level of the player.
-    /// </summary>
     public float PlayerFatigue => Director.FatigueLevel;
 
     #endregion
