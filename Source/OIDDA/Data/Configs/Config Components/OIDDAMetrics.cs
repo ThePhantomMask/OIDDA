@@ -10,7 +10,7 @@ namespace OIDDA;
 public class OIDDAMetrics
 {
     public string MetricName;
-    [Range(0, 2)] public float Weight = 1;
+    [Range(0, 1)] public float Weight = 0.5f;
     public float ThresholdMin;
     public float ThresholdMax;
     public bool InverseLogic;
@@ -33,12 +33,12 @@ public class OIDDAMetrics
     {
         float range = ThresholdMax - ThresholdMin;
 
-        if (range <= 0) return value > ThresholdMin ? 2f : 0f;
+        if (range <= 0) return value > ThresholdMin ? 1f : 0f;
 
         float normalized = (value - ThresholdMin) / range;
-        normalized = Mathf.Clamp(normalized, 0f, 2f);
+        normalized = Mathf.Clamp(normalized, 0f, 1f);
 
-        if (InverseLogic) normalized = 2f - normalized;
+        if (InverseLogic) normalized = 1f - normalized;
 
         return normalized;
     }
@@ -54,7 +54,7 @@ public class OIDDAMetrics
         return InverseLogic ? floatValue < ThresholdMin : floatValue > ThresholdMax;
     }
 
-    public bool IndicatesDifficulty(object currentValue, float threshold = 1.7f) => CalculateScore(currentValue) > threshold;
+    public bool IndicatesDifficulty(object currentValue, float threshold = 0.7f) => CalculateScore(currentValue) > threshold;
 
     public bool IndicatesEasy(object currentValue, float threshold = 0.3f) => CalculateScore(currentValue) < threshold;
 
@@ -81,7 +81,7 @@ public class OIDDAMetrics
             float f => f,
             int i => (float)i,
             double d => (float)d,
-            bool b => b ? 2f : 0f,
+            bool b => b ? 1f : 0f,
             Vector3 v3 => v3.Length,
             Vector2 v2 => v2.Length,
             _ => 0f
@@ -90,9 +90,9 @@ public class OIDDAMetrics
 
     MetricState DetermineState(float score) => score switch
     {
-        > 1.7f => MetricState.Critical,
-        > 1.5f => MetricState.Warning,
-        < 1.5f and > 0.3f => MetricState.Normal,
+        > 0.7f => MetricState.Critical,
+        > 0.5f => MetricState.Warning,
+        < 0.5f and > 0.3f => MetricState.Normal,
         _ => MetricState.Good
     };
 }
