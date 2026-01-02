@@ -4,7 +4,6 @@ using FlaxEngine.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace OIDDA;
 
@@ -16,12 +15,12 @@ public class OIDDAManager : Script
     public int CurrentIndex;
 
     [Range(0, 2)]
-    public float DifficultThreshold = 1.7f;
+    public float DifficultThreshold = 0.7f;
 
     [Range(0, 2)]
     public float EasyThreshold = 0.3f;
 
-    [EditorDisplay("Smoothing"),Tooltip("Enable gradual value changes instead of instant")]
+    [EditorDisplay("Smoothing"), Tooltip("Enable gradual value changes instead of instant")]
     public bool EnableSmoothing = true;
 
     [Tooltip("Enable debug logging")]
@@ -29,6 +28,14 @@ public class OIDDAManager : Script
 
     [Tooltip("Cooldown between adjustments (seconds)")]
     public float AdjustmentCooldown = 10f;
+
+    [EditorDisplay("Pacing Director"), Tooltip("Enable psychological pacing system")]
+    public bool EnablePacing = true;
+
+    [Range(0, 1), Tooltip("Influence of pacing on difficulty adjustments (0-1)")]
+    public float PacingInfluence = 0.7f;
+
+    public PacingDirector Director = new();
 
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
@@ -93,6 +100,8 @@ public class OIDDAManager : Script
 
         var overallScore = (DebugMode) ? debugOverallScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, GameplayValues.Values);
 
+        if (EnablePacing) overallScore = ApplyPacingInfluence(overallScore);
+
         if (_timeSinceLastAdjustment < dynamicCooldown(overallScore)) return; 
 
         int rulesApplied = ApplyRules(GameplayValues.Values, overallScore);
@@ -113,7 +122,45 @@ public class OIDDAManager : Script
         }
     }
 
-    float dynamicCooldown(float score) => score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.5f : AdjustmentCooldown;
+    /// <summary>
+    /// Calculates an adjusted score by applying the current pacing influence and difficulty multiplier to the specified base score.
+    /// </summary>
+    /// <remarks>The adjustment uses a linear interpolation between the base score and the base score
+    /// multiplied by the current difficulty multiplier, weighted by the pacing influence. The returned value reflects
+    /// dynamic game pacing and may change as pacing parameters are updated.</remarks>
+    /// <param name="baseScore">The original score to be modified based on pacing and difficulty. Must be a finite, non-negative value.</param>
+    /// <returns>A floating-point value representing the base score adjusted for pacing and difficulty. The result may be higher or lower than the input depending on the current pacing state.</returns>
+    float ApplyPacingInfluence(float baseScore)
+    {
+        var _pacingMultiplier = Director.DifficultyMultiplier;
+        var _adjustedScore = Mathf.Lerp(baseScore, baseScore * _pacingMultiplier, PacingInfluence);
+
+        if (DebugMode)
+        {
+            Debug.Log($"[Pacing] Base Score: {baseScore:F2} → Adjusted: {_adjustedScore:F2} " +
+                     $"(Multiplier: {_pacingMultiplier:F2}, State: {Director.CurrentState})");
+        }
+
+        return _adjustedScore;
+    }
+
+    float dynamicCooldown(float score)
+    {
+        var baseCooldown = score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.5f : AdjustmentCooldown;
+
+        // Change cooldown based on pacing status
+        if (EnablePacing)
+        {
+            baseCooldown *= Director.CurrentState switch
+            {
+                PacingDirector.PacingState.Peak => 0.7f,    // Più veloce durante picchi
+                PacingDirector.PacingState.Relax => 2.0f,   // Più lento durante riposo
+                _ => 1.0f
+            };
+        }
+
+        return baseCooldown;
+    }
 
     int ApplyRules(Dictionary<string, object> currentValues, float overallScore)
     {
@@ -192,6 +239,11 @@ public class OIDDAManager : Script
             Debug.Log($"Problematic Metrics ({problematic.Count}):");
             problematic.ForEach(metric => Debug.LogWarning($"{metric.MetricName}: {metric.NormalizedScore:F3}"));
         }
+
+        if (EnablePacing)
+        {
+            Debug.Log($"[Pacing] {Director.DebugInfo}");
+        }
     }
 
     void OIDDAUpdate()
@@ -199,6 +251,11 @@ public class OIDDAManager : Script
         if (EnableSmoothing)
         {
             _smoothingManager.SmoothUpdate(Time.DeltaTime);
+        }
+
+        if (EnablePacing)
+        {
+            Director.OnPacingDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
         }
 
         _timeSinceLastUpdate += Time.DeltaTime;
@@ -216,6 +273,44 @@ public class OIDDAManager : Script
             _timeSinceLastUpdate -= UpdateInterval;
         }
     }
+
+    #region Pacing Director Agent Management
+
+    /// <summary>
+    /// Adds the specified amount of pacing intensity to the pacing director, optionally providing a reason for the adjustment.
+    /// </summary>
+    /// <param name="amount">The amount of pacing intensity to add. Positive values increase pacing intensity.</param>
+    /// <param name="reason">An optional description of the reason for the intensity adjustment. This value may be used for logging or debugging purposes.</param>
+    public void AddPacingIntensity(float amount, string reason = "")
+    {
+        if (!EnablePacing) return;
+        Director.AddIntensity(amount, reason);
+
+        if (DebugMode)
+        {
+            Debug.Log($"[Pacing] Intensity added: + {amount} ({reason})");
+        }
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether an encounter should be spawned based on the current pacing settings.
+    /// </summary>
+    /// <remarks>If pacing is enabled, this property reflects the recommendation of the pacing director. If pacing is disabled, it always returns <see langword="true"/>.</remarks>
+    public bool IsShouldSpawnEncounter => EnablePacing ? Director.ShouldSpawnEncounter() : true;
+    /// <summary>
+    /// Gets the current pacing state of the director.
+    /// </summary>
+    public PacingDirector.PacingState DirectorState => Director.CurrentState;
+    /// <summary>
+    /// Gets the current stress level of the player as determined by the Pacing Director.
+    /// </summary>
+    public float PlayerStress => Director.StressLevel;
+    /// <summary>
+    /// Gets the current fatigue level of the player.
+    /// </summary>
+    public float PlayerFatigue => Director.FatigueLevel;
+
+    #endregion
 
     #region ORS Agent Management
 
@@ -309,6 +404,7 @@ public class OIDDAManager : Script
 
     public T QuickReceiver<T>(string name) => GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
     #endregion
+
 
     public override void OnUpdate()
     {
