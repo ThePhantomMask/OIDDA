@@ -5,9 +5,17 @@ using FlaxEngine;
 namespace OIDDA;
 
 /// <summary>
-/// PRS class.
+/// 
 /// </summary>
-public class PRS
+public class PRSAgent
+{
+
+}
+
+/// <summary>
+/// 
+/// </summary>
+public class PRS : PRSAgent
 {
 
 }
