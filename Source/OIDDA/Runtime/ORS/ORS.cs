@@ -46,6 +46,7 @@ public abstract class ORSAgent
 /// <summary>
 ///  OIDDA Receiver Sender Agent
 /// </summary>
+[Category(name: "OIDDA")]
 public class ORS : ORSAgent
 {
     string ORSID, ORSName;
