@@ -137,7 +137,7 @@ public class OIDDAManager : Script
 
         if (DebugMode)
         {
-            Debug.Log($"[Pacing] Base Score: {baseScore:F2} → Adjusted: {_adjustedScore:F2} " +
+            Debug.Log($"[Pacing] Base Score: {baseScore:F2} -> Adjusted: {_adjustedScore:F2} " +
                      $"(Multiplier: {_pacingMultiplier:F2}, State: {Director.CurrentState})");
         }
 
@@ -146,7 +146,7 @@ public class OIDDAManager : Script
 
     float dynamicCooldown(float score)
     {
-        var baseCooldown = score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.5f : AdjustmentCooldown;
+        var baseCooldown = score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.0f : AdjustmentCooldown;
 
         // Change cooldown based on pacing status
         if (EnablePacing)
