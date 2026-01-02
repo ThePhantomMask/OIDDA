@@ -14,10 +14,10 @@ public class OIDDAManager : Script
 {
     public int CurrentIndex;
 
-    [Range(0, 2)]
+    [Range(0, 1)]
     public float DifficultThreshold = 0.7f;
 
-    [Range(0, 2)]
+    [Range(0, 1)]
     public float EasyThreshold = 0.3f;
 
     [EditorDisplay("Smoothing"), Tooltip("Enable gradual value changes instead of instant")]
@@ -195,7 +195,7 @@ public class OIDDAManager : Script
             if (DebugMode)
             {
                 Debug.Log($"[OIDDA] Smoothing: {rule.TargetGlobalVariable} " +
-                          $"{targetValue.GetValue()} → {newValue.GetValue()} " +
+                          $"{targetValue.GetValue()} -> {newValue.GetValue()} " +
                           $"(speed: {_currentConfig.SmoothingSpeed})");
             }
 
