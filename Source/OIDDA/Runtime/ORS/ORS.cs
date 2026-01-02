@@ -52,9 +52,7 @@ public class ORS : ORSAgent
 
     public static ORS Instance = new();
 
-    OIDDAManager OIDDAManager => Level.FindScript<OIDDAManager>();
-
-    public bool IsConnected => !string.IsNullOrEmpty(ORSID) && OIDDAManager.ORSIsConnected(ORSID) || !string.IsNullOrEmpty(ORSName) && OIDDAManager.StaticORSIsConnected(ORSName);
+    public bool IsConnected => !string.IsNullOrEmpty(ORSID) && OIDDAUtils.OIDDAManager.ORSIsConnected(ORSID) || !string.IsNullOrEmpty(ORSName) && OIDDAUtils.OIDDAManager.StaticORSIsConnected(ORSName);
 
     /// <summary>
     /// Initializes the ORS agent connection using the specified script and agent type (Static ORS Agent).
@@ -62,8 +60,8 @@ public class ORS : ORSAgent
     /// <param name="AgentName">The script instance that defines the connection parameters and logic for the ORS agent.</param>
     public override void ConnectORSAgent(string AgentName)
     {
-        if (!OIDDAManager) return;
-        OIDDAManager.Connect(ORSName = AgentName);
+        if (!OIDDAUtils.OIDDAManager) return;
+        OIDDAUtils.OIDDAManager.Connect(ORSName = AgentName);
     }
 
     /// <summary>
@@ -72,9 +70,9 @@ public class ORS : ORSAgent
     /// <param name="type">The ORS type to use for the agent connection. Determines the configuration and behavior of the agent.</param>
     public override void ConnectORSAgent(ORSUtils.ORSType type)
     {
-        if (!OIDDAManager) return;
+        if (!OIDDAUtils.OIDDAManager) return;
         var Dynamic = new IORSAgentD(); Dynamic.ORSType = type;
-        OIDDAManager.Connect(ORSID = ORSUtils.GeneratedID, Dynamic);
+        OIDDAUtils.OIDDAManager.Connect(ORSID = ORSUtils.GeneratedID, Dynamic);
     }
 
     /// <summary>
@@ -82,8 +80,8 @@ public class ORS : ORSAgent
     /// </summary>
     public override void DisconnectORSAgent()
     {
-        if (!OIDDAManager) return;
-        OIDDAManager.Disconnect(ORSName);
+        if (!OIDDAUtils.OIDDAManager) return;
+        OIDDAUtils.OIDDAManager.Disconnect(ORSName);
     }
 
     /// <summary>
@@ -92,63 +90,63 @@ public class ORS : ORSAgent
     /// /// <param name="type">The type of ORS agent to connect to. Specifies the agent category or behavior.</param>
     public override void DisconnectORSAgent(ORSUtils.ORSType type)
     {
-        if (!OIDDAManager) return;
-        OIDDAManager.Disconnect(ORSID, type);
+        if (!OIDDAUtils.OIDDAManager) return;
+        OIDDAUtils.OIDDAManager.Disconnect(ORSID, type);
     }
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
-        if (!OIDDAManager) { result = default; return false; }
-        if (IsConnected && OIDDAManager.VerifyIsReceiver(ORSID))
+        if (!OIDDAUtils.OIDDAManager) { result = default; return false; }
+        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsReceiver(ORSID))
         {
-            result = OIDDAManager.GetGlobal<T>(nameValue); return true;
+            result = OIDDAUtils.OIDDAManager.GetGlobal<T>(nameValue); return true;
         }
         result = default; return false;
     }
 
     public override bool TryReceiverValue<T>(out T result)
     {
-        if (!OIDDAManager) { result = default; return false; }
-        if (IsConnected && OIDDAManager.VerifyIsStaticReceiver(ORSName))
+        if (!OIDDAUtils.OIDDAManager) { result = default; return false; }
+        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticReceiver(ORSName))
         {
-            result = OIDDAManager.GetStaticGlobal<T>(ORSName); return true;
+            result = OIDDAUtils.OIDDAManager.GetStaticGlobal<T>(ORSName); return true;
         }
         result = default; return false;
     }
 
     public override T QuickReceiver<T>(string NameValue)
     {
-        if (!OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
-        return OIDDAManager.QuickReceiver<T>(NameValue);
+        if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
+        return OIDDAUtils.OIDDAManager.QuickReceiver<T>(NameValue);
     }
 
     public override T ReceiverValue<T>()
     {
-        if (!OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
-        if (IsConnected && OIDDAManager.VerifyIsStaticReceiver(ORSName))
+        if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
+        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticReceiver(ORSName))
         {
-            return OIDDAManager.GetStaticGlobal<T>(ORSName);
+            return OIDDAUtils.OIDDAManager.GetStaticGlobal<T>(ORSName);
         }
         throw new InvalidCastException($"Value for static receiver '{ORSName}' is not of type {typeof(T).Name}");
     }
 
     public override T ReceiverValue<T>(string nameValue)
     {
-        if (!OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
+        if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
 
-        if (IsConnected && OIDDAManager.VerifyIsReceiver(ORSID))
+        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsReceiver(ORSID))
         {
-            return OIDDAManager.GetGlobal<T>(nameValue);
+            return OIDDAUtils.OIDDAManager.GetGlobal<T>(nameValue);
         }
         throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
     }
 
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
-        if (!OIDDAManager) return false;
-        if (IsConnected && OIDDAManager.VerifyIsSender(ORSID))
+        if (!OIDDAUtils.OIDDAManager) return false;
+        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsSender(ORSID))
         {
-            OIDDAManager.SetGlobal(nameValue, senderValue);
+            OIDDAUtils.OIDDAManager.SetGlobal(nameValue, senderValue);
             return true;
         }
         return false;
@@ -156,10 +154,10 @@ public class ORS : ORSAgent
 
     public override bool TrySenderValue(object senderValue)
     {
-        if (!OIDDAManager) return false;
-        if (IsConnected && OIDDAManager.VerifyIsStaticSender(ORSName))
+        if (!OIDDAUtils.OIDDAManager) return false;
+        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticSender(ORSName))
         {
-            OIDDAManager.SetStaticGlobal(ORSName, senderValue);
+            OIDDAUtils.OIDDAManager.SetStaticGlobal(ORSName, senderValue);
             return true;
         }
         return false;
@@ -167,26 +165,26 @@ public class ORS : ORSAgent
 
     public override void SenderValue(string nameValue, object senderValue)
     {
-        if (!OIDDAManager) return;
-        if (IsConnected && OIDDAManager.VerifyIsSender(ORSID))
+        if (!OIDDAUtils.OIDDAManager) return;
+        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsSender(ORSID))
         {
-            OIDDAManager.SetGlobal(nameValue, senderValue);
+            OIDDAUtils.OIDDAManager.SetGlobal(nameValue, senderValue);
         }
     }
 
     public override void SenderValue(object senderValue)
     {
-        if (!OIDDAManager) return;
-        if (IsConnected && OIDDAManager.VerifyIsStaticSender(ORSName))
+        if (!OIDDAUtils.OIDDAManager) return;
+        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticSender(ORSName))
         {
-            OIDDAManager.SetStaticGlobal(ORSName, senderValue);
+            OIDDAUtils.OIDDAManager.SetStaticGlobal(ORSName, senderValue);
             return;
         }
     }
 
     public override void QuickSender(string nameValue, object senderValue)
     {
-        if (!OIDDAManager) return;
-        OIDDAManager.QuickSender(nameValue,senderValue);
+        if (!OIDDAUtils.OIDDAManager) return;
+        OIDDAUtils.OIDDAManager.QuickSender(nameValue,senderValue);
     }
 }
