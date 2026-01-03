@@ -12,7 +12,7 @@
 > OIDDA is currently in its Beta phase. While the core architecture is stable and features advanced Dynamic Cooldown and Value Smoothing logic—fully optimized for native integration with Flax Engine's Gameplay Globals—the project is still evolving.
 > Although the system is production-ready for real-world gameplay implementation, this phase is dedicated to fine-tuning balancing algorithms and ensuring high-scale performance optimization. Developers should be aware of the following:
 > * API Stability: Minor breaking changes to the API may occur as we refine the framework toward the 1.0 "Stable" release.
-> * Pacing & Calibration: This phase focuses on gathering data to perfect the "feel" of the Emotional Director.
+> * Pacing & Calibration: This phase focuses on gathering data to perfect the "feel" of the Pacing Director.
 > * Feedback regarding player flow and balancing thresholds is highly encouraged.
 
 # Installation
