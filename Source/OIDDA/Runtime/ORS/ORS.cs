@@ -119,15 +119,14 @@ public class ORS : ORSAgent
     {
         if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
         return OIDDAUtils.OIDDAManager.QuickReceiver<T>(NameValue);
+        throw new InvalidCastException($"Value for static receiver '{ORSName}' is not of type {typeof(T).Name}");
     }
 
     public override T ReceiverValue<T>()
     {
         if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
         if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticReceiver(ORSName))
-        {
             return OIDDAUtils.OIDDAManager.GetStaticGlobal<T>(ORSName);
-        }
         throw new InvalidCastException($"Value for static receiver '{ORSName}' is not of type {typeof(T).Name}");
     }
 
@@ -136,9 +135,7 @@ public class ORS : ORSAgent
         if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
 
         if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsReceiver(ORSID))
-        {
             return OIDDAUtils.OIDDAManager.GetGlobal<T>(nameValue);
-        }
         throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
     }
 
@@ -168,19 +165,14 @@ public class ORS : ORSAgent
     {
         if (!OIDDAUtils.OIDDAManager) return;
         if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsSender(ORSID))
-        {
             OIDDAUtils.OIDDAManager.SetGlobal(nameValue, senderValue);
-        }
     }
 
     public override void SenderValue(object senderValue)
     {
         if (!OIDDAUtils.OIDDAManager) return;
         if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticSender(ORSName))
-        {
             OIDDAUtils.OIDDAManager.SetStaticGlobal(ORSName, senderValue);
-            return;
-        }
     }
 
     public override void QuickSender(string nameValue, object senderValue)
