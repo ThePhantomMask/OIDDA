@@ -5,13 +5,11 @@ using System.Collections.Generic;
 namespace OIDDA;
 
 /// <summary>
-/// Represents an abstract base class for an ORS (OIDDA Receiver Sender) agent, providing methods for connecting,
-/// disconnecting, and exchanging values with an ORS system.
+/// Represents an abstract base class for an ORS (OIDDA Receiver Sender) agent, providing methods for connecting, disconnecting, and exchanging values with an ORS system.
 /// </summary>
-/// <remarks>This class defines the core contract for interacting with ORS agents, including connection management
-/// and value transmission. Derived classes should implement the abstract connection methods to provide specific ORS
-/// agent behaviors. Thread safety and connection state management are the responsibility of the implementing
-/// class.</remarks>
+/// <remarks>This class defines the core contract for interacting with ORS agents, including connection management and value transmission. 
+/// Derived classes should implement the abstract connection methods to provide specific ORS agent behaviors. 
+/// Thread safety and connection state management are the responsibility of the implementing class.</remarks>
 public abstract class ORSAgent
 {
     public abstract void ConnectORSAgent(string AgentName);
@@ -72,8 +70,10 @@ public class ORS : ORSAgent
     public override void ConnectORSAgent(ORSUtils.ORSType type)
     {
         if (!OIDDAUtils.OIDDAManager) return;
-        var Dynamic = new IORSAgentD(); Dynamic.ORSType = type;
-        OIDDAUtils.OIDDAManager.Connect(ORSID = ORSUtils.GeneratedID, Dynamic);
+        OIDDAUtils.OIDDAManager.Connect(ORSID = ORSUtils.GeneratedID, new IORSAgentD
+        {
+            ORSType = type
+        });
     }
 
     /// <summary>
@@ -119,15 +119,14 @@ public class ORS : ORSAgent
     {
         if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
         return OIDDAUtils.OIDDAManager.QuickReceiver<T>(NameValue);
+        throw new InvalidCastException($"Value for static receiver '{ORSName}' is not of type {typeof(T).Name}");
     }
 
     public override T ReceiverValue<T>()
     {
         if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
         if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticReceiver(ORSName))
-        {
             return OIDDAUtils.OIDDAManager.GetStaticGlobal<T>(ORSName);
-        }
         throw new InvalidCastException($"Value for static receiver '{ORSName}' is not of type {typeof(T).Name}");
     }
 
@@ -136,9 +135,7 @@ public class ORS : ORSAgent
         if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
 
         if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsReceiver(ORSID))
-        {
             return OIDDAUtils.OIDDAManager.GetGlobal<T>(nameValue);
-        }
         throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
     }
 
@@ -168,19 +165,14 @@ public class ORS : ORSAgent
     {
         if (!OIDDAUtils.OIDDAManager) return;
         if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsSender(ORSID))
-        {
             OIDDAUtils.OIDDAManager.SetGlobal(nameValue, senderValue);
-        }
     }
 
     public override void SenderValue(object senderValue)
     {
         if (!OIDDAUtils.OIDDAManager) return;
         if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticSender(ORSName))
-        {
             OIDDAUtils.OIDDAManager.SetStaticGlobal(ORSName, senderValue);
-            return;
-        }
     }
 
     public override void QuickSender(string nameValue, object senderValue)
