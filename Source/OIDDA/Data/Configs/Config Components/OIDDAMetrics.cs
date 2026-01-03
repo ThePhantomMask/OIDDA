@@ -7,6 +7,7 @@ namespace OIDDA;
 /// <summary>
 /// OIDDA Metrics
 /// </summary>
+[Category(name: "OIDDA Data")]
 public class OIDDAMetrics
 {
     public string MetricName;

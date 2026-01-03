@@ -7,6 +7,7 @@ namespace OIDDA;
 /// <summary>
 /// OIDDA Rule Exception
 /// </summary>
+[Category(name: "OIDDA Data")]
 public class OIDDARuleException : OIDDARule
 {
     public string ExceptionName;
