@@ -5,19 +5,21 @@ using FlaxEngine;
 namespace OIDDA;
 
 /// <summary>
-/// Represents an agent capable of adjusting pacing intensity based on specified input.
+/// Represents an abstract base class for an DRS (Director Receiver Sender) agent, providing methods exchanging values with an DRS system.
 /// </summary>
-public abstract class PRSAgent
+/// <remarks>This class defines the core contract for interacting with DRS agents, including value transmission. Derived classes should implement the abstract connection methods to provide specific ORS
+/// agent behaviors. Thread safety and connection state management are the responsibility of the implementing class.</remarks>
+public abstract class DRSAgent
 {
     public abstract void AddPacingIntensity(float amount, string reason = "");
 }
 
 /// <summary>
-/// Pacing Director Receiver Sender Agent
+/// Director Receiver Sender Agent
 /// </summary>
-public class PRS : PRSAgent
+public class DRS : DRSAgent
 {
-    public static PRS Instance = new();
+    public static DRS Instance = new();
 
     /// <summary>
     /// Adds the specified amount of pacing intensity to the pacing director, optionally providing a reason for the adjustment.
