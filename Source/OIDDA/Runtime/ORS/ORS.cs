@@ -5,13 +5,11 @@ using System.Collections.Generic;
 namespace OIDDA;
 
 /// <summary>
-/// Represents an abstract base class for an ORS (OIDDA Receiver Sender) agent, providing methods for connecting,
-/// disconnecting, and exchanging values with an ORS system.
+/// Represents an abstract base class for an ORS (OIDDA Receiver Sender) agent, providing methods for connecting, disconnecting, and exchanging values with an ORS system.
 /// </summary>
-/// <remarks>This class defines the core contract for interacting with ORS agents, including connection management
-/// and value transmission. Derived classes should implement the abstract connection methods to provide specific ORS
-/// agent behaviors. Thread safety and connection state management are the responsibility of the implementing
-/// class.</remarks>
+/// <remarks>This class defines the core contract for interacting with ORS agents, including connection management and value transmission. 
+/// Derived classes should implement the abstract connection methods to provide specific ORS agent behaviors. 
+/// Thread safety and connection state management are the responsibility of the implementing class.</remarks>
 public abstract class ORSAgent
 {
     public abstract void ConnectORSAgent(string AgentName);
@@ -72,8 +70,10 @@ public class ORS : ORSAgent
     public override void ConnectORSAgent(ORSUtils.ORSType type)
     {
         if (!OIDDAUtils.OIDDAManager) return;
-        var Dynamic = new IORSAgentD(); Dynamic.ORSType = type;
-        OIDDAUtils.OIDDAManager.Connect(ORSID = ORSUtils.GeneratedID, Dynamic);
+        OIDDAUtils.OIDDAManager.Connect(ORSID = ORSUtils.GeneratedID, new IORSAgentD
+        {
+            ORSType = type
+        });
     }
 
     /// <summary>
