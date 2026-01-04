@@ -251,10 +251,7 @@ public class OIDDAManager : Script
     {
         if (EnableSmoothing) _smoothingManager.SmoothUpdate(Time.DeltaTime);
 
-        if (EnablePacing)
-        {
-            Director.OnPacingDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
-        }
+        if (EnablePacing) Director.OnPacingDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
 
         _timeSinceLastUpdate += Time.DeltaTime;
         _timeSinceLastAdjustment += Time.DeltaTime;
