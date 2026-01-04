@@ -15,6 +15,7 @@ namespace OIDDA;
 public class OIDDAManager : Script
 {
     public int CurrentIndex;
+    public bool InstantMetricsUpdated;
 
     [Range(0, 1)]
     public float DifficultThreshold = 0.7f;
@@ -34,11 +35,10 @@ public class OIDDAManager : Script
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
     GameplayGlobals GameplayValues;
-    float UpdateInterval, Delay, _timerSender, _timerReceiver, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
+    float _updateInterval, _delay, _timerSender, _timerReceiver, _score, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
 
     OIDDAConfig _currentConfig;
     SmoothingManager _smoothingManager = new();
-    bool InstantMetricsUpdated;
 
     public override void OnStart()
     {
@@ -65,8 +65,8 @@ public class OIDDAManager : Script
         GameplayValues = settings.Globals[CurrentIndex];
         settings.StaticORS.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
         if (settings.Configs.Count != 0) _currentConfig = settings.Configs[CurrentIndex].Instance;
-        UpdateInterval = settings.UpdateInterval;
-        Delay = settings.Delay;
+        _updateInterval = settings.UpdateInterval;
+        _delay = settings.Delay;
     }
 
     void OIDDAReset()
@@ -83,20 +83,20 @@ public class OIDDAManager : Script
 
         if (_timeSinceLastAdjustment < AdjustmentCooldown) return;
 
-        float debugOverallScore = 0f;
+        float _debugScore = 0f;
 
         if (DebugMode)
         {
            var analyze = MetricsAggregator.Analyze(_currentConfig.Metrics, GameplayValues.Values);
-           debugOverallScore = analyze.OverallScore;
+           _debugScore = analyze.OverallScore;
            LogAnalysis(analyze);
         }
 
-        var overallScore = (DebugMode) ? debugOverallScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, GameplayValues.Values);
+        _score = (DebugMode) ? _debugScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, GameplayValues.Values);
 
-        if (_timeSinceLastAdjustment < dynamicCooldown(overallScore)) return; 
+        if (_timeSinceLastAdjustment < dynamicCooldown(_score)) return; 
 
-        int rulesApplied = ApplyRules(GameplayValues.Values, overallScore);
+        int rulesApplied = ApplyRules(GameplayValues.Values, _score);
         
         if (rulesApplied > 0)
         {
@@ -197,10 +197,7 @@ public class OIDDAManager : Script
 
     void OIDDAUpdate()
     {
-        if (EnableSmoothing)
-        {
-            _smoothingManager.SmoothUpdate(Time.DeltaTime);
-        }
+        if (EnableSmoothing) _smoothingManager.SmoothUpdate(Time.DeltaTime);
 
         _timeSinceLastUpdate += Time.DeltaTime;
         _timeSinceLastAdjustment += Time.DeltaTime;
@@ -211,10 +208,10 @@ public class OIDDAManager : Script
             return;
         }
 
-        if (_timeSinceLastUpdate >= UpdateInterval)
+        if (_timeSinceLastUpdate >= _updateInterval)
         {
             AnalyzeAndApply();
-            _timeSinceLastUpdate -= UpdateInterval;
+            _timeSinceLastUpdate -= _updateInterval;
         }
     }
 
@@ -271,7 +268,7 @@ public class OIDDAManager : Script
     void DelaySender(string name, object value)
     {
         _timerSender += Time.DeltaTime;
-        if (_timerSender >= Delay)
+        if (_timerSender >= _delay)
         {
             AnalyzeAndApply();
             GameplayValues.SetValue(name, value);
@@ -282,7 +279,7 @@ public class OIDDAManager : Script
     T DelayReceiver<T>(string name)
     {
         _timerReceiver += Time.DeltaTime;
-        if (_timerReceiver >= Delay)
+        if (_timerReceiver >= _delay)
         {
             _timerReceiver = 0;
             return GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
@@ -298,15 +295,15 @@ public class OIDDAManager : Script
 
     public bool VerifyIsStaticSender(string Name) => StaticORSDB[Name].ORSType == ORSUtils.ORSType.ReceiverSender || StaticORSDB[Name].ORSType == ORSUtils.ORSType.Sender;
 
-    public void SetGlobal(string name, object value) => (Delay != 0f ? (Action)(() => DelaySender(name, value)) : () => GameplayValues.SetValue(name, value))();
+    public void SetGlobal(string name, object value) => (_delay != 0f ? (Action)(() => DelaySender(name, value)) : () => GameplayValues.SetValue(name, value))();
 
-    public void SetStaticGlobal(string NameAgent, object value) => (Delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => { AnalyzeAndApply(); GameplayValues.SetValue(StaticORSDB[NameAgent].GlobalVariable, value); })();
+    public void SetStaticGlobal(string NameAgent, object value) => (_delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => { AnalyzeAndApply(); GameplayValues.SetValue(StaticORSDB[NameAgent].GlobalVariable, value); })();
 
     public void QuickSender(string name, object value) { GameplayValues.SetValue(name, value); AnalyzeAndApply(); }
 
-    public T GetGlobal<T>(string name) => (Delay != 0f) ? DelayReceiver<T>(name) : GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
+    public T GetGlobal<T>(string name) => (_delay != 0f) ? DelayReceiver<T>(name) : GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
 
-    public T GetStaticGlobal<T>(string NameAgent) => (Delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : GameplayValues.GetValue(StaticORSDB[NameAgent].GlobalVariable) is T typeValue ? typeValue : default(T);
+    public T GetStaticGlobal<T>(string NameAgent) => (_delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : GameplayValues.GetValue(StaticORSDB[NameAgent].GlobalVariable) is T typeValue ? typeValue : default(T);
 
     public T QuickReceiver<T>(string name) => GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
     #endregion
