@@ -97,22 +97,20 @@ public class ORS : ORSAgent
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
-        if (!OIDDAUtils.OIDDAManager) { result = default; return false; }
-        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsReceiver(ORSID))
+        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsReceiver(ORSID))) 
         {
-            result = OIDDAUtils.OIDDAManager.GetGlobal<T>(nameValue); return true;
+            result = default; return false; 
         }
-        result = default; return false;
+        result = OIDDAUtils.OIDDAManager.GetGlobal<T>(nameValue); return true;
     }
 
     public override bool TryReceiverValue<T>(out T result)
     {
-        if (!OIDDAUtils.OIDDAManager) { result = default; return false; }
-        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticReceiver(ORSName))
+        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticReceiver(ORSName))) 
         {
-            result = OIDDAUtils.OIDDAManager.GetStaticGlobal<T>(ORSName); return true;
+            result = default; return false; 
         }
-        result = default; return false;
+        result = OIDDAUtils.OIDDAManager.GetStaticGlobal<T>(ORSName); return true;
     }
 
     public override T QuickReceiver<T>(string NameValue)
@@ -141,24 +139,16 @@ public class ORS : ORSAgent
 
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
-        if (!OIDDAUtils.OIDDAManager) return false;
-        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsSender(ORSID))
-        {
-            OIDDAUtils.OIDDAManager.SetGlobal(nameValue, senderValue);
-            return true;
-        }
-        return false;
+        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsSender(ORSID))) return false;
+        OIDDAUtils.OIDDAManager.SetGlobal(nameValue, senderValue);
+        return true;
     }
 
     public override bool TrySenderValue(object senderValue)
     {
-        if (!OIDDAUtils.OIDDAManager) return false;
-        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticSender(ORSName))
-        {
-            OIDDAUtils.OIDDAManager.SetStaticGlobal(ORSName, senderValue);
-            return true;
-        }
-        return false;
+        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticSender(ORSName))) return false;
+        OIDDAUtils.OIDDAManager.SetStaticGlobal(ORSName, senderValue);
+        return true;
     }
 
     public override void SenderValue(string nameValue, object senderValue)
