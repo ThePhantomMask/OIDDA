@@ -14,22 +14,24 @@ namespace OIDDA;
 [Category(name: "OIDDA")]
 public class OIDDAManager : Script
 {
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager")]
     public int CurrentIndex;
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager")]
     public bool InstantMetricsUpdated;
 
-    [Range(0, 1)]
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Range(0, 1)]
     public float DifficultThreshold = 0.7f;
 
-    [Range(0, 1)]
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Range(0, 1)]
     public float EasyThreshold = 0.3f;
 
-    [EditorDisplay("Smoothing"),Tooltip("Enable gradual value changes instead of instant")]
-    public bool EnableSmoothing = true;
-
-    [Tooltip("Enable debug logging")]
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Tooltip("Enable debug logging")]
     public bool DebugMode = false;
 
-    [Tooltip("Cooldown between adjustments (seconds)")]
+    [EditorDisplay("Smoothing"), Tooltip("Enable gradual value changes instead of instant")]
+    public bool EnableSmoothing = true;
+
+    [EditorDisplay("Smoothing"), Tooltip("Cooldown between adjustments (seconds)")]
     public float AdjustmentCooldown = 10f;
 
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
