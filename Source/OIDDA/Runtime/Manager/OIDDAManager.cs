@@ -101,9 +101,9 @@ public class OIDDAManager : Script
 
         _score = (DebugMode) ? _debugScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, GameplayValues.Values);
 
-        if (EnablePacing) overallScore = ApplyPacingInfluence(overallScore);
+        if (EnablePacing) _score = ApplyPacingInfluence(_score);
 
-        if (_timeSinceLastAdjustment < dynamicCooldown(overallScore)) return; 
+        if (_timeSinceLastAdjustment < dynamicCooldown(_score)) return; 
 
         int rulesApplied = ApplyRules(GameplayValues.Values, _score);
         
