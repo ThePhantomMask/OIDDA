@@ -8,7 +8,7 @@
 * **Progression patterns**
 
 > [!NOTE]
-> # Status: Beta (v0.8.7)
+> # Status: Beta (v0.8.8)
 > OIDDA is currently in its Beta phase. While the core architecture is stable and features advanced Dynamic Cooldown and Value Smoothing logic—fully optimized for native integration with Flax Engine's Gameplay Globals—the project is still evolving.
 > Although the system is production-ready for real-world gameplay implementation, this phase is dedicated to fine-tuning balancing algorithms and ensuring high-scale performance optimization. Developers should be aware of the following:
 > * API Stability: Minor breaking changes to the API may occur as we refine the framework toward the 1.0 "Stable" release.
@@ -79,6 +79,7 @@ Current development is laying the groundwork for the 2.0 release, which will int
 You are free to contribute to the plugin to improve it.
 You can also create forks with modifications dedicated exclusively to your project.
 Also creating ports for other ports such as **Unity**, **Unreal Engine**, **Godot**, etc.
+
 
 
 
