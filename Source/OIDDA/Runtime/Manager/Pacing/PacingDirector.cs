@@ -104,6 +104,8 @@ public class PacingDirector
     /// keys and value types depend on the implementation context.</param>
     void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
     {
+        if (values == null || values.Count is 0) return;
+
         var _stressChange = CurrentState switch
         {
             PacingState.Build => deltaTime * 2f,
