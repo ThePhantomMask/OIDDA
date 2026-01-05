@@ -30,7 +30,7 @@ public class OIDDASettings : SettingsBase
     /// The file name to use.
     /// </summary>
     [EditorOrder(1), EditorDisplay("File Config")]
-    public string FolderName;
+    public string FolderName = "OIDDA";
     /// <summary>
     /// Whether to encrypt the save data.
     /// </summary>
