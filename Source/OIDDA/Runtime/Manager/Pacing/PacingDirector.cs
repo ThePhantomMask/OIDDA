@@ -92,17 +92,15 @@ public class PacingDirector
     }
 
     /// <summary>
-    /// Updates the psychological metrics such as stress, fatigue, and engagement levels based on the elapsed time and
-    /// provided contextual values.
+    /// Updates the psychological metrics such as stress, fatigue, and engagement levels based on the elapsed time and provided contextual values.
     /// </summary>
-    /// <remarks>This method adjusts internal psychological state variables according to the current pacing
-    /// state and intensity. The specific effects on each metric depend on the current state and may be influenced by
-    /// the provided values. Call this method regularly to ensure psychological metrics remain up to date with the
-    /// simulation or game loop.</remarks>
+    /// <remarks>This method adjusts internal psychological state variables according to the current pacing state and intensity. 
+    /// The specific effects on each metric depend on the current state and may be influenced by the provided values. 
+    /// Call this method regularly to ensure psychological metrics remain up to date with the simulation or game loop.</remarks>
     /// <param name="deltaTime">The amount of time, in seconds, since the last update. Must be a non-negative value.</param>
     /// <param name="values">A dictionary containing contextual values that may influence the update of psychological metrics. The expected
     /// keys and value types depend on the implementation context.</param>
-    void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
+    internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
     {
         if (values == null || values.Count is 0) return;
 
@@ -131,11 +129,10 @@ public class PacingDirector
     /// <summary>
     /// Updates the pacing state based on the current intensity, fatigue, stress levels, and elapsed time.
     /// </summary>
-    /// <remarks>This method should be called regularly, such as once per frame or update cycle, to ensure the
-    /// pacing state transitions appropriately. State transitions may trigger side effects such as invoking state change
-    /// events.</remarks>
+    /// <remarks>This method should be called regularly, such as once per frame or update cycle, to ensure the pacing state transitions appropriately. 
+    /// State transitions may trigger side effects such as invoking state changem events.</remarks>
     /// <param name="deltaTime">The time, in seconds, since the last update. Used to advance the pacing state logic.</param>
-    void UpdatePacingState(float deltaTime)
+    internal void UpdatePacingState(float deltaTime)
     {
         PacingState _newState = CurrentState;
 
@@ -179,10 +176,10 @@ public class PacingDirector
     /// <summary>
     /// Applies a decay to the current intensity value based on the elapsed time and the current pacing state.
     /// </summary>
-    /// <remarks>The rate of intensity decay varies depending on the current pacing state. Calling this method
-    /// repeatedly will gradually reduce the intensity to zero.</remarks>
+    /// <remarks>The rate of intensity decay varies depending on the current pacing state. 
+    /// Calling this method repeatedly will gradually reduce the intensity to zero.</remarks>
     /// <param name="deltaTime">The time, in seconds, since the last update. Must be non-negative.</param>
-    void ApplyIntensityDecay(float deltaTime)
+    internal void ApplyIntensityDecay(float deltaTime)
     {
         var _decayRate = CurrentState switch
         {
@@ -211,7 +208,7 @@ public class PacingDirector
     /// <remarks>This method enforces a minimum interval of one second between recorded intensity events. 
     /// The intensity history is capped at 50 events; when this limit is exceeded, the oldest event is removed. 
     /// This helps maintain a recent history of intensity changes for further analysis or processing.</remarks>
-    void RecordIntensityEvent()
+    internal void RecordIntensityEvent()
     {
         if (_intensityHistory.Count > 0)
         {
