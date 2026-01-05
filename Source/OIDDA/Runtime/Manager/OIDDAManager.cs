@@ -47,7 +47,7 @@ public class OIDDAManager : Script
     {
         var OIDDA = Engine.GetCustomSettings("OIDDASettings").CreateInstance<OIDDASettings>();
         var Settings = GameSettings.Load();
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Settings.CompanyName, Settings.ProductName, "OIDDA");
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Settings.CompanyName, Settings.ProductName, OIDDA.FolderName);
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         OIDDAInit(OIDDA);
     }
