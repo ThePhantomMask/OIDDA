@@ -48,6 +48,7 @@ public class OIDDAManager : Script
 
     OIDDAConfig _currentConfig;
     SmoothingManager _smoothingManager = new();
+    MetricsAnalysis _analyze;
 
     public override void OnStart()
     {
@@ -92,16 +93,9 @@ public class OIDDAManager : Script
 
         if (_timeSinceLastAdjustment < AdjustmentCooldown) return;
 
-        float _debugScore = 0f;
+        if (DebugMode) LogAnalysis(_analyze = MetricsAggregator.Analyze(_currentConfig.Metrics, GameplayValues.Values));
 
-        if (DebugMode)
-        {
-           var analyze = MetricsAggregator.Analyze(_currentConfig.Metrics, GameplayValues.Values);
-           _debugScore = analyze.OverallScore;
-           LogAnalysis(analyze);
-        }
-
-        _score = (DebugMode) ? _debugScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, GameplayValues.Values);
+        _score = (DebugMode) ? _analyze.OverallScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, GameplayValues.Values);
 
         if (EnablePacing) _score = ApplyPacingInfluence(_score);
 
