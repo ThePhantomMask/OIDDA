@@ -12,10 +12,22 @@ public class PacingDirector
 {
     public enum PacingState
     {
-        Build,      // Tension build-up
-        Peak,       // Peak intensity
-        Fade,       // Tension decrease
-        Relax       // Recovery/rest
+        /// <summary>
+        /// Tension build-up
+        /// </summary>
+        Build,
+        /// <summary>
+        /// Peak intensity
+        /// </summary>
+        Peak,
+        /// <summary>
+        /// Tension decrease
+        /// </summary>
+        Fade,
+        /// <summary>
+        /// Recovery/rest
+        /// </summary>
+        Relax
     }
 
     // Configuration
