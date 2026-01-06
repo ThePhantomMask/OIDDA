@@ -75,8 +75,8 @@ public class OIDDAManager : Script
     void OIDDAReset()
     {
         if (GameplayValues) GameplayValues.ResetValues();  
-        if (ORSAgentDB.Capacity != 0) ORSAgentDB.Clear(); 
-        if (StaticORSDB.Capacity != 0) StaticORSDB.Clear();
+        if (ORSAgentDB.Count != 0) ORSAgentDB.Clear(); 
+        if (StaticORSDB.Count != 0) StaticORSDB.Clear();
     }
 
     void AnalyzeAndApply()
