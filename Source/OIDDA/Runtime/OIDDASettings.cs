@@ -27,10 +27,15 @@ public class OIDDASettings : SettingsBase
     public float UpdateInterval = 1.0f;
 
     /// <summary>
-    /// The file name to use.
+    /// The folder name that save the data file
     /// </summary>
     [EditorOrder(1), EditorDisplay("File Config")]
     public string FolderName = "OIDDA";
+    /// <summary>
+    /// The file name to use.
+    /// </summary>
+    [EditorOrder(1), EditorDisplay("File Config")]
+    public string OIDDASaveName = "Data";
     /// <summary>
     /// Whether to encrypt the save data.
     /// </summary>
