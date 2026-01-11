@@ -29,6 +29,7 @@ public class OIDDASettings : SettingsBase
     /// Folder name
     /// </summary>
     public string FolderName = "OIDDA";
+    /// <summary>
     /// File name to use
     /// </summary>
     public string SaveFileName = "Data";
