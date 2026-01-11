@@ -26,6 +26,10 @@ public class OIDDASettings : SettingsBase
     [EditorOrder(0), EditorDisplay("OIDDA Config"), Tooltip("Metrics update interval (seconds)")]
     public float UpdateInterval = 1.0f;
     /// <summary>
+    /// Folder name
+    /// </summary>
+    public string FolderName = "OIDDA";
+    /// <summary>
     /// Collection of Static ORS (OIDDA Receiver Sender) agents for managing the OIDDA data.
     /// </summary>
     [EditorOrder(2), EditorDisplay("ORS Config")]
