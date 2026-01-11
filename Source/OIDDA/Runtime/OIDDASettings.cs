@@ -26,6 +26,9 @@ public class OIDDASettings : SettingsBase
     [EditorOrder(0), EditorDisplay("OIDDA Config"), Tooltip("Metrics update interval (seconds)")]
     public float UpdateInterval = 1.0f;
     /// <summary>
+    /// Folder name
+    /// </summary>
+    public string FolderName = "OIDDA";
     /// File name to use
     /// </summary>
     public string SaveFileName = "Data";
