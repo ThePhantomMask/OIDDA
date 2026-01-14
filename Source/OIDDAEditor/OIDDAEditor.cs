@@ -1,6 +1,8 @@
 ﻿using FlaxEditor;
 using FlaxEditor.Content;
 using FlaxEditor.Content.Settings;
+using FlaxEditor.GUI;
+using FlaxEditor.GUI.ContextMenu;
 using FlaxEngine;
 using OIDDA;
 using System.IO;
@@ -15,6 +17,8 @@ public class OIDDAEditor : EditorPlugin
     string _settingsPath, _settingName= "OIDDASettings";
     JsonAsset _jsonAsset;
     CustomSettingsProxy _settingsProxy;
+    MainMenuButton _pluginButton;
+    ContextMenuButton _openButton;
 
     public override void InitializeEditor()
     {
@@ -35,12 +39,22 @@ public class OIDDAEditor : EditorPlugin
         _settingsProxy = new CustomSettingsProxy(typeof(OIDDASettings), _settingName);
         Editor.ContentDatabase.AddProxy(_settingsProxy);
 
+        _pluginButton = Editor.UI.MainMenu.GetButton("Plugins") ?? Editor.UI.MainMenu.AddButton("Plugins");
+        _openButton = _pluginButton.ContextMenu.AddButton("Open OIDDA Settings", () =>
+        {
+            Editor.ContentEditing.Open(_jsonAsset);
+        });
+
         Editor.ContentDatabase.Rebuild(true);
     }
 
     public override void DeinitializeEditor()
     {
         Editor.ContentDatabase.RemoveProxy(_settingsProxy);
+        _openButton.Dispose();
+        _openButton = null;
+        _pluginButton = null;
+        Content.UnloadAsset(_jsonAsset);
 
         base.DeinitializeEditor();
     }
