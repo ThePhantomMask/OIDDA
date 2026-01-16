@@ -27,9 +27,6 @@ public class OIDDAManager : Script
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Tooltip("Enable debug logging")]
     public bool DebugMode = false;
 
-    [EditorDisplay("Smoothing"), Tooltip("Enable gradual value changes instead of instant")]
-    public bool EnableSmoothing = true;
-
     [EditorDisplay("Smoothing"), Tooltip("Cooldown between adjustments (seconds)")]
     public float AdjustmentCooldown = 10f;
 
@@ -82,8 +79,8 @@ public class OIDDAManager : Script
     void OIDDAReset()
     {
         if (GameplayValues) GameplayValues.ResetValues();  
-        if (ORSAgentDB.Capacity != 0) ORSAgentDB.Clear(); 
-        if (StaticORSDB.Capacity != 0) StaticORSDB.Clear();
+        if (ORSAgentDB.Count != 0) ORSAgentDB.Clear(); 
+        if (StaticORSDB.Count != 0) StaticORSDB.Clear();
     }
 
     void AnalyzeAndApply()
@@ -111,7 +108,7 @@ public class OIDDAManager : Script
             {
                 Debug.Log($"OIDDA applied {rulesApplied} rules.");
 
-                if (EnableSmoothing && _smoothingManager.HasActiveSmoothings)
+                if (_smoothingManager.HasActiveSmoothings)
                 {
                     Debug.Log($"[OIDDA] Smoothing {_smoothingManager.ActiveSmoothingCount} value(s)");
                 }
@@ -167,13 +164,7 @@ public class OIDDAManager : Script
             if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
             if (!ShouldApplyRule(overallScore, rule)) continue;
 
-            if (EnableSmoothing)
-            {
-                ApplyRuleSmooth(rule, currentValues);
-                rulesApplied++;
-                return rulesApplied;
-            }
-
+            ApplyRuleSmooth(rule, currentValues);
             rule.Apply(currentValues);
             rulesApplied++;
         }
@@ -217,8 +208,8 @@ public class OIDDAManager : Script
             };
         }
 
-        return (overallScore > DifficultThreshold) ? rule.Operator is AdjustmentOperator.Subtract || rule.Operator is AdjustmentOperator.Set :
-            (overallScore < EasyThreshold) ? rule.Operator is AdjustmentOperator.Add || rule.Operator is AdjustmentOperator.Multiply : false;
+        return (overallScore > DifficultThreshold) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
+            (overallScore < EasyThreshold) ? rule.Operator == AdjustmentOperator.Add || rule.Operator == AdjustmentOperator.Multiply : false;
     }
 
     void LogAnalysis(MetricsAnalysis analysis)
@@ -245,10 +236,8 @@ public class OIDDAManager : Script
 
     void OIDDAUpdate()
     {
-        if (EnableSmoothing) _smoothingManager.SmoothUpdate(Time.DeltaTime);
-
+        _smoothingManager.SmoothUpdate(Time.DeltaTime);
         if (EnablePacing) Director.OnPacingDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
-
         _timeSinceLastUpdate += Time.DeltaTime;
         _timeSinceLastAdjustment += Time.DeltaTime;
 
