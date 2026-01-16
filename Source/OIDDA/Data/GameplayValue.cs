@@ -21,6 +21,11 @@ public struct GameplayValue
     bool IsColor => Type is ValueType.Color;
     bool IsString => Type is ValueType.String;
     bool IsQuaternion => Type is ValueType.Quaternion;
+    bool IsTransform => Type is ValueType.Transform;
+    bool IsBoundingBox => Type is ValueType.BoundingBox;
+    bool IsBoundingSphere => Type is ValueType.BoundingSphere;
+    bool IsRectangle => Type is ValueType.Rectangle;
+    bool IsMatrix => Type is ValueType.Matrix;
 
 
     [VisibleIf(nameof(IsFloat))]
@@ -41,6 +46,16 @@ public struct GameplayValue
     public string StringValue;
     [VisibleIf(nameof(IsQuaternion))]
     public Quaternion QuaternionValue;
+    [VisibleIf(nameof(IsTransform))]
+    public Transform TransformValue;
+    [VisibleIf(nameof(IsBoundingBox))]
+    public BoundingBox BoundingBoxValue;
+    [VisibleIf(nameof(IsBoundingSphere))]
+    public BoundingSphere BoundingSphereValue;
+    [VisibleIf(nameof(IsRectangle))]
+    public Rectangle RectangleValue;
+    [VisibleIf(nameof(IsMatrix))]
+    public Matrix MatrixValue;
 
 
     public GameplayValue(float value) : this()
@@ -97,6 +112,36 @@ public struct GameplayValue
         QuaternionValue = value;
     }
 
+    public GameplayValue(Transform value) : this()
+    {
+        Type = ValueType.Transform;
+        TransformValue = value;
+    }
+
+    public GameplayValue(BoundingBox value) : this()
+    {
+        Type = ValueType.BoundingBox;
+        BoundingBoxValue = value;
+    }
+
+    public GameplayValue(BoundingSphere value) : this()
+    {
+        Type = ValueType.BoundingSphere;
+        BoundingSphereValue = value;
+    }
+
+    public GameplayValue(Rectangle value) : this()
+    {
+        Type = ValueType.Rectangle;
+        RectangleValue = value;
+    }
+
+    public GameplayValue(Matrix value) : this()
+    {
+        Type = ValueType.Matrix;
+        MatrixValue = value;
+    }
+
     public object GetValue()
     {
         return Type switch
@@ -110,6 +155,11 @@ public struct GameplayValue
             ValueType.Color => ColorValue,
             ValueType.String => StringValue,
             ValueType.Quaternion => QuaternionValue,
+            ValueType.Transform => TransformValue,
+            ValueType.BoundingBox => BoundingBoxValue,
+            ValueType.BoundingSphere => BoundingSphereValue,
+            ValueType.Rectangle => RectangleValue,
+            ValueType.Matrix => MatrixValue,
             _ => null
         };
     }
@@ -127,6 +177,11 @@ public struct GameplayValue
             Color c => new GameplayValue(c),
             string s => new GameplayValue(s),
             Quaternion q => new GameplayValue(q),
+            Transform t => new GameplayValue(t),
+            BoundingBox bb => new GameplayValue(bb),
+            BoundingSphere bs => new GameplayValue(bs),
+            Rectangle r => new GameplayValue(r),
+            Matrix m => new GameplayValue(m),
             _ => default
         };
     }
@@ -140,6 +195,11 @@ public struct GameplayValue
     public string AsString() => Type == ValueType.String ? StringValue : string.Empty;
     public Color AsColor() => Type == ValueType.Color ? ColorValue : Color.White;
     public Quaternion AsQuaternion() => Type == ValueType.Quaternion ? QuaternionValue : Quaternion.Identity;
+    public Transform AsTransform() => Type == ValueType.Transform ? TransformValue : Transform.Default;
+    public BoundingBox AsBoundingBox() => Type == ValueType.BoundingBox ? BoundingBoxValue : BoundingBox.Default;
+    public BoundingSphere AsBoundingSphere() => Type == ValueType.BoundingSphere ? BoundingSphereValue : BoundingSphere.Default;
+
+
 }
 public enum ValueType
 {
@@ -151,7 +211,12 @@ public enum ValueType
     Vector4,
     Color,
     String,
-    Quaternion
+    Quaternion,
+    Transform,
+    BoundingBox,
+    BoundingSphere,
+    Rectangle,
+    Matrix
 }
 
 public static class GameplayValueOperations
@@ -200,16 +265,41 @@ public static class GameplayValueOperations
                 };
                 return new GameplayValue(resultBool);
 
+            case ValueType.Vector2:
+                Vector2 resultVec2 = op switch
+                {
+                    AdjustmentOperator.Add => current.Vector2Value + adjustment.Vector2Value,
+                    AdjustmentOperator.Subtract => current.Vector2Value - adjustment.Vector2Value,
+                    AdjustmentOperator.Multiply => current.Vector2Value * adjustment.Vector2Value,
+                    AdjustmentOperator.Divide => adjustment.Vector2Value != Vector2.Zero ? current.Vector2Value / adjustment.Vector2Value : current.Vector2Value,
+                    AdjustmentOperator.Set => adjustment.Vector2Value,
+                    _ => current.Vector2Value
+                };
+                return new GameplayValue(resultVec2);
+
             case ValueType.Vector3:
                 Vector3 resultVec3 = op switch
                 {
                     AdjustmentOperator.Add => current.Vector3Value + adjustment.Vector3Value,
                     AdjustmentOperator.Subtract => current.Vector3Value - adjustment.Vector3Value,
                     AdjustmentOperator.Multiply => current.Vector3Value * adjustment.Vector3Value,
+                    AdjustmentOperator.Divide => adjustment.Vector3Value != Vector3.Zero ? current.Vector3Value / adjustment.Vector3Value : current.Vector3Value,
                     AdjustmentOperator.Set => adjustment.Vector3Value,
                     _ => current.Vector3Value
                 };
                 return new GameplayValue(resultVec3);
+
+            case ValueType.Vector4:
+                Vector4 resultVec4 = op switch
+                {
+                    AdjustmentOperator.Add => current.Vector4Value + adjustment.Vector4Value,
+                    AdjustmentOperator.Subtract => current.Vector4Value - adjustment.Vector4Value,
+                    AdjustmentOperator.Multiply => current.Vector4Value * adjustment.Vector4Value,
+                    AdjustmentOperator.Divide => adjustment.Vector4Value != Vector4.Zero ? current.Vector4Value / adjustment.Vector4Value : current.Vector4Value,
+                    AdjustmentOperator.Set => adjustment.Vector4Value,
+                    _ => current.Vector4Value
+                };
+                return new GameplayValue(resultVec4);
 
             case ValueType.String:
                 string resultStr = op switch
@@ -220,7 +310,62 @@ public static class GameplayValueOperations
                 };
                 return new GameplayValue(resultStr);
 
-            // Altri tipi...
+            case ValueType.Quaternion:
+                Quaternion resultQuaternion = op switch 
+                {
+                    AdjustmentOperator.Add => current.QuaternionValue + adjustment.QuaternionValue,
+                    AdjustmentOperator.Subtract => current.QuaternionValue - adjustment.QuaternionValue,
+                    AdjustmentOperator.Multiply => current.QuaternionValue * adjustment.QuaternionValue,
+                    AdjustmentOperator.Set => adjustment.QuaternionValue,
+                    _ => current.QuaternionValue
+                };
+                return new GameplayValue(resultQuaternion);
+
+            case ValueType.Transform:
+                Transform resultTransform = op switch
+                {
+                    AdjustmentOperator.Add => current.TransformValue + adjustment.TransformValue,
+                    AdjustmentOperator.Subtract => current.TransformValue - adjustment.TransformValue,
+                    AdjustmentOperator.Set => adjustment.TransformValue,
+                    _ => current.TransformValue
+                };
+                return new GameplayValue(resultTransform);
+
+            case ValueType.BoundingBox:
+                BoundingBox resultBox = op switch
+                {
+                    AdjustmentOperator.Set => adjustment.BoundingBoxValue,
+                    _ => current.BoundingBoxValue
+                };
+                return new GameplayValue(resultBox);
+
+            case ValueType.BoundingSphere:
+                BoundingSphere resultSphere = op switch
+                {
+                    AdjustmentOperator.Set => adjustment.BoundingSphereValue,
+                    _ => current.BoundingSphereValue
+                };
+                return new GameplayValue(resultSphere);
+
+            case ValueType.Rectangle:
+                Rectangle resultRectangle = op switch
+                {
+                    AdjustmentOperator.Set => adjustment.RectangleValue,
+                    _ => current.RectangleValue
+                };
+                return new GameplayValue(resultRectangle);
+
+            case ValueType.Matrix:
+                Matrix resultMatrix = op switch
+                { 
+                   AdjustmentOperator.Add => current.MatrixValue + adjustment.MatrixValue,
+                   AdjustmentOperator.Subtract => current.MatrixValue - adjustment.MatrixValue,
+                   AdjustmentOperator.Multiply => current.MatrixValue * adjustment.MatrixValue,
+                   AdjustmentOperator.Divide => adjustment.MatrixValue != Matrix.Zero ? current.MatrixValue / adjustment.MatrixValue : current.MatrixValue,
+                   AdjustmentOperator.Set => adjustment.MatrixValue,
+                   _ => current.MatrixValue
+                };
+                return new GameplayValue(resultMatrix);
 
             default:
                 return current;
@@ -229,9 +374,10 @@ public static class GameplayValueOperations
 
     public static GameplayValue Clamp(GameplayValue value, GameplayValue min, GameplayValue max)
     {
+        // Type mismatch, no clamp
         if (value.Type != min.Type || value.Type != max.Type)
         {
-            return value;  // Type mismatch, no clamp
+            return value;
         }
 
         switch (value.Type)
@@ -242,11 +388,25 @@ public static class GameplayValueOperations
             case ValueType.Int:
                 return new GameplayValue(Mathf.Clamp(value.IntValue, min.IntValue, max.IntValue));
 
+            case ValueType.Vector2:
+                return new GameplayValue(new Vector2(
+                    Mathf.Clamp(value.Vector2Value.X, min.Vector2Value.X, max.Vector2Value.X),
+                    Mathf.Clamp(value.Vector2Value.Y, min.Vector2Value.Y, max.Vector2Value.Y)
+                ));
+
             case ValueType.Vector3:
                 return new GameplayValue(new Vector3(
                     Mathf.Clamp(value.Vector3Value.X, min.Vector3Value.X, max.Vector3Value.X),
                     Mathf.Clamp(value.Vector3Value.Y, min.Vector3Value.Y, max.Vector3Value.Y),
                     Mathf.Clamp(value.Vector3Value.Z, min.Vector3Value.Z, max.Vector3Value.Z)
+                ));
+
+            case ValueType.Vector4:
+                return new GameplayValue(new Vector4(
+                    Mathf.Clamp(value.Vector4Value.X, min.Vector4Value.X, max.Vector4Value.X),
+                    Mathf.Clamp(value.Vector4Value.Y, min.Vector4Value.Y, max.Vector4Value.Y),
+                    Mathf.Clamp(value.Vector4Value.Z, min.Vector4Value.Z, max.Vector4Value.Z),
+                    Mathf.Clamp(value.Vector4Value.W, min.Vector4Value.W, max.Vector4Value.W)
                 ));
 
             default:
