@@ -161,8 +161,8 @@ public class OIDDAManager : Script
             };
         }
 
-        return (overallScore > DifficultThreshold) ? rule.Operator is AdjustmentOperator.Subtract || rule.Operator is AdjustmentOperator.Set :
-            (overallScore < EasyThreshold) ? rule.Operator is AdjustmentOperator.Add || rule.Operator is AdjustmentOperator.Multiply : false;
+        return (overallScore > DifficultThreshold) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
+            (overallScore < EasyThreshold) ? rule.Operator == AdjustmentOperator.Add || rule.Operator == AdjustmentOperator.Multiply : false;
     }
 
     void LogAnalysis(MetricsAnalysis analysis)
