@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using FlaxEngine;
+using FlaxEngine.Utilities;
 
 namespace OIDDA;
 
@@ -23,7 +24,7 @@ public class OIDDARule
     {
         if (!Condition.IsMet(metrics)) return;
 
-        if (HasActiveException(metrics, out var exception))
+        if (IsHasActiveException(metrics, out var exception))
         {
             exception.Apply(metrics);
             return;
@@ -32,7 +33,7 @@ public class OIDDARule
         ApplyToGlobalsVariables();
     }
 
-    protected bool HasActiveException(Dictionary<string, object> metrics, out OIDDARuleException activeException)
+    protected bool IsHasActiveException(Dictionary<string, object> metrics, out OIDDARuleException activeException)
     {
         activeException = null;
         if (Exceptions == null || Exceptions.Count is 0) return false;
@@ -64,8 +65,14 @@ public enum AdjustmentOperator
     Multiply,
     Divide,
     Set,
-    Toggle,    // Bool only
-    Append     // String only
+    /// <summary>
+    /// Bool only
+    /// </summary>
+    Toggle,
+    /// <summary>
+    /// String only
+    /// </summary>
+    Append
 }
 
 public enum RuleApplicationContext
