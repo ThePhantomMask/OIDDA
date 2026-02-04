@@ -37,7 +37,7 @@ public class OIDDAMetrics
         if (range <= 0) return value > ThresholdMin ? 1f : 0f;
 
         float normalized = (value - ThresholdMin) / range;
-        normalized = Mathf.Clamp(normalized, 0f, 1f);
+        normalized = Mathf.Saturate(normalized);
 
         if (InverseLogic) normalized = 1f - normalized;
 
@@ -81,10 +81,12 @@ public class OIDDAMetrics
         {
             float f => f,
             int i => (float)i,
-            double d => (float)d,
             bool b => b ? 1f : 0f,
-            Vector3 v3 => v3.Length,
             Vector2 v2 => v2.Length,
+            Vector3 v3 => v3.Length,
+            Vector4 v4 => v4.Length,
+            Color c => c.ValuesSum,
+            Quaternion q => q.Length,
             _ => 0f
         };
     }
