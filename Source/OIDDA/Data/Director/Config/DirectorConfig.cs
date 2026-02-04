@@ -5,7 +5,7 @@ using FlaxEngine;
 namespace OIDDA;
 
 /// <summary>
-/// DirectorConfig class.
+/// Director Config
 /// </summary>
 public class DirectorConfig
 {
