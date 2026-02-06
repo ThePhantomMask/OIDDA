@@ -85,8 +85,10 @@ public class OIDDAMetrics
             Vector2 v2 => v2.Length,
             Vector3 v3 => v3.Length,
             Vector4 v4 => v4.Length,
-            Color c => c.ValuesSum,
             Quaternion q => q.Length,
+            Color c => c.ValuesSum,
+            Transform t => t.Translation.Length,
+            Matrix m => m.TranslationVector.Length,
             _ => 0f
         };
     }
