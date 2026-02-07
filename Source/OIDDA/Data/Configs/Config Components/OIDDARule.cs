@@ -19,7 +19,7 @@ public class OIDDARule
     public GameplayValue MaxValue;
     public RuleApplicationContext ApplicationContext = RuleApplicationContext.Always;
     public OIDDACondition Condition;
-    public List<OIDDARuleException> Exceptions;
+    [VisibleIf(nameof(_isNotException))] public List<OIDDARuleException> Exceptions;
 
     bool _isNotException => !(this is OIDDARuleException);
 
