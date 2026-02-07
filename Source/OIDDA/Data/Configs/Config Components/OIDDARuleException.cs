@@ -12,6 +12,8 @@ public class OIDDARuleException : OIDDARule
 {
     public string ExceptionName;
     public ExceptionType Type;
+
+    [HideInEditor] public new string RuleName;
     [NoSerialize] public new List<OIDDARuleException> Exceptions { get => null; set { } }
 
     public override void Apply(Dictionary<string, object> metrics)

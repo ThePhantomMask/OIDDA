@@ -11,6 +11,7 @@ namespace OIDDA;
 [Category(name: "OIDDA Data")]
 public class OIDDARule
 {
+    public string RuleName;
     public string TargetGlobalVariable;
     public AdjustmentOperator Operator;
     public GameplayValue AdjustmentValue;
@@ -30,6 +31,7 @@ public class OIDDARule
             return;
         }
 
+        Debug.Log($"Applying rule: {RuleName}");
         ApplyToGlobalsVariables();
     }
 
