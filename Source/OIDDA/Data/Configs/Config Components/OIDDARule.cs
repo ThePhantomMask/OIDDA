@@ -33,7 +33,7 @@ public class OIDDARule
             return;
         }
 
-        Debug.Log($"Applying rule: {RuleName}");
+        if(_isNotException) Debug.Log($"Applying rule: {RuleName}");
         ApplyToGlobalsVariables();
     }
 

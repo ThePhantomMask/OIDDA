@@ -13,7 +13,7 @@ public class OIDDARuleException : OIDDARule
     public string ExceptionName;
     public ExceptionType Type;
 
-    public new List<OIDDARuleException> Exceptions;
+    [Serialize] public new List<OIDDARuleException> Exceptions;
 
     public override void Apply(Dictionary<string, object> metrics)
     {
