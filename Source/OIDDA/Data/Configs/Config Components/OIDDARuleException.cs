@@ -13,8 +13,8 @@ public class OIDDARuleException : OIDDARule
     public string ExceptionName;
     public ExceptionType Type;
 
-    [HideInEditor] public new string RuleName;
-    [NoSerialize] public new List<OIDDARuleException> Exceptions { get => null; set { } }
+    [NoSerialize] public new string RuleName;
+    [NoSerialize] public new List<OIDDARuleException> Exceptions;
 
     public override void Apply(Dictionary<string, object> metrics)
     {
