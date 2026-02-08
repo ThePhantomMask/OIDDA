@@ -11,6 +11,7 @@ namespace OIDDA;
 [Category(name: "OIDDA Data")]
 public class OIDDARule
 {
+    [VisibleIf(nameof(_isNotException))] public string RuleName;
     public string TargetGlobalVariable;
     public AdjustmentOperator Operator;
     public GameplayValue AdjustmentValue;
@@ -18,7 +19,9 @@ public class OIDDARule
     public GameplayValue MaxValue;
     public RuleApplicationContext ApplicationContext = RuleApplicationContext.Always;
     public OIDDACondition Condition;
-    public List<OIDDARuleException> Exceptions;
+    [VisibleIf(nameof(_isNotException))] public List<OIDDARuleException> Exceptions;
+
+    bool _isNotException => this is not OIDDARuleException;
 
     public virtual void Apply(Dictionary<string, object> metrics)
     {
@@ -30,6 +33,7 @@ public class OIDDARule
             return;
         }
 
+        if(_isNotException) Debug.Log($"Applying rule: {RuleName}");
         ApplyToGlobalsVariables();
     }
 

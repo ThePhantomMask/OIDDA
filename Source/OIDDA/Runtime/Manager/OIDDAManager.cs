@@ -31,6 +31,8 @@ public class OIDDAManager : Script
     [EditorDisplay("Smoothing"), Tooltip("Cooldown between adjustments (seconds)")]
     public float AdjustmentCooldown = 10f;
 
+
+    bool _isUseSmoothing;
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
     GameplayGlobals GameplayValues;
@@ -65,6 +67,7 @@ public class OIDDAManager : Script
         GameplayValues = settings.Globals[CurrentIndex];
         settings.StaticORSGroup[CurrentIndex].ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
         if (settings.Configs.Count != 0) _currentConfig = settings.Configs[CurrentIndex].Instance;
+        _isUseSmoothing = settings.UseDDASmoothing;
         _updateInterval = settings.UpdateInterval;
         _delay = settings.Delay;
     }
@@ -99,7 +102,7 @@ public class OIDDAManager : Script
             {
                 Debug.Log($"OIDDA applied {rulesApplied} rules.");
 
-                if (_smoothingManager.HasActiveSmoothings)
+                if (_isUseSmoothing && _smoothingManager.HasActiveSmoothings)
                 {
                     Debug.Log($"[OIDDA] Smoothing {_smoothingManager.ActiveSmoothingCount} value(s)");
                 }
@@ -117,7 +120,7 @@ public class OIDDAManager : Script
             if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
             if (!ShouldApplyRule(overallScore, rule)) continue;
 
-            ApplyRuleSmooth(rule, currentValues);
+            if(_isUseSmoothing) ApplyRuleSmooth(rule, currentValues);
             rule.Apply(currentValues);
             rulesApplied++;
         }
@@ -184,7 +187,7 @@ public class OIDDAManager : Script
 
     void OIDDAUpdate()
     {
-        _smoothingManager.SmoothUpdate(Time.DeltaTime);
+        if (_isUseSmoothing) _smoothingManager.SmoothUpdate(Time.DeltaTime);
         _timeSinceLastUpdate += Time.DeltaTime;
         _timeSinceLastAdjustment += Time.DeltaTime;
 
