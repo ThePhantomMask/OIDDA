@@ -21,7 +21,7 @@ public class OIDDARule
     public OIDDACondition Condition;
     [VisibleIf(nameof(_isNotException))] public List<OIDDARuleException> Exceptions;
 
-    bool _isNotException => !(this is OIDDARuleException);
+    bool _isNotException => this is not OIDDARuleException;
 
     public virtual void Apply(Dictionary<string, object> metrics)
     {
