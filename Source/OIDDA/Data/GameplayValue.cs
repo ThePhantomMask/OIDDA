@@ -468,7 +468,7 @@ public static class GameplayValueOperations
 
     public static GameplayValue Lerp(GameplayValue current, GameplayValue target, float t)
     {
-        t = Mathf.Clamp(t, 0f, 1f);
+        t = Mathf.Saturate(t);
 
         if (current.Type != target.Type) return target;
 

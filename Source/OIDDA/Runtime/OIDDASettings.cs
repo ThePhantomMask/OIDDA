@@ -13,17 +13,22 @@ public class OIDDASettings : SettingsBase
     /// <summary>
     /// List of all Gameplay Globals for the game.
     /// </summary>
-    [EditorOrder(0), EditorDisplay("OIDDA Config")]
+    [EditorOrder(0), EditorDisplay("DDA Config")]
     public List<GameplayGlobals> Globals;
     /// <summary>
     /// List of OIDDA Configurations.
     /// </summary>
-    [EditorOrder(0), EditorDisplay("OIDDA Config")]
+    [EditorOrder(0), EditorDisplay("DDA Config")]
     public List<JsonAssetReference<OIDDAConfig>> Configs;
+    /// <summary>
+    /// Gets or sets a value indicating whether DDA smoothing is enabled.
+    /// </summary>
+    [EditorOrder(0), EditorDisplay("DDA Config")]
+    public bool UseDDASmoothing = true;
     /// <summary>
     /// Metrics update interval
     /// </summary>
-    [EditorOrder(0), EditorDisplay("OIDDA Config"), Tooltip("Metrics update interval (seconds)")]
+    [EditorOrder(0), EditorDisplay("DDA Config"), Tooltip("Metrics update interval (seconds)")]
     public float UpdateInterval = 1.0f;
     /// <summary>
     /// Folder name
@@ -33,7 +38,7 @@ public class OIDDASettings : SettingsBase
     /// Collection of Static ORS (OIDDA Receiver Sender) agents for managing the OIDDA data.
     /// </summary>
     [EditorOrder(2), EditorDisplay("ORS Config")]
-    public Dictionary<string, IORSAgentS> StaticORS;
+    public List<Dictionary<string, IORSAgentS>> StaticORSGroup;
     /// <summary>
     /// Delay for ORS Agents
     /// </summary>

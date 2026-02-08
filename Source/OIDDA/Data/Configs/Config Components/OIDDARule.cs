@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using FlaxEngine;
+using FlaxEngine.Utilities;
 
 namespace OIDDA;
 
@@ -10,6 +11,7 @@ namespace OIDDA;
 [Category(name: "OIDDA Data")]
 public class OIDDARule
 {
+    [VisibleIf(nameof(_isNotException))] public string RuleName;
     public string TargetGlobalVariable;
     public AdjustmentOperator Operator;
     public GameplayValue AdjustmentValue;
@@ -17,22 +19,25 @@ public class OIDDARule
     public GameplayValue MaxValue;
     public RuleApplicationContext ApplicationContext = RuleApplicationContext.Always;
     public OIDDACondition Condition;
-    public List<OIDDARuleException> Exceptions;
+    [VisibleIf(nameof(_isNotException))] public List<OIDDARuleException> Exceptions;
+
+    bool _isNotException => this is not OIDDARuleException;
 
     public virtual void Apply(Dictionary<string, object> metrics)
     {
         if (!Condition.IsMet(metrics)) return;
 
-        if (HasActiveException(metrics, out var exception))
+        if (IsHasActiveException(metrics, out var exception))
         {
             exception.Apply(metrics);
             return;
         }
 
+        if(_isNotException) Debug.Log($"Applying rule: {RuleName}");
         ApplyToGlobalsVariables();
     }
 
-    protected bool HasActiveException(Dictionary<string, object> metrics, out OIDDARuleException activeException)
+    protected bool IsHasActiveException(Dictionary<string, object> metrics, out OIDDARuleException activeException)
     {
         activeException = null;
         if (Exceptions == null || Exceptions.Count is 0) return false;
@@ -64,8 +69,14 @@ public enum AdjustmentOperator
     Multiply,
     Divide,
     Set,
-    Toggle,    // Bool only
-    Append     // String only
+    /// <summary>
+    /// Bool only
+    /// </summary>
+    Toggle,
+    /// <summary>
+    /// String only
+    /// </summary>
+    Append
 }
 
 public enum RuleApplicationContext

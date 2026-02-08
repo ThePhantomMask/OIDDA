@@ -122,18 +122,15 @@ public class ORS : ORSAgent
 
     public override T ReceiverValue<T>()
     {
-        if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
-        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticReceiver(ORSName))
-            return OIDDAUtils.OIDDAManager.GetStaticGlobal<T>(ORSName);
+        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticReceiver(ORSName))) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
+        return OIDDAUtils.OIDDAManager.GetStaticGlobal<T>(ORSName);
         throw new InvalidCastException($"Value for static receiver '{ORSName}' is not of type {typeof(T).Name}");
     }
 
     public override T ReceiverValue<T>(string nameValue)
     {
-        if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
-
-        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsReceiver(ORSID))
-            return OIDDAUtils.OIDDAManager.GetGlobal<T>(nameValue);
+        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsReceiver(ORSID))) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
+        return OIDDAUtils.OIDDAManager.GetGlobal<T>(nameValue);
         throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
     }
 
@@ -153,21 +150,19 @@ public class ORS : ORSAgent
 
     public override void SenderValue(string nameValue, object senderValue)
     {
-        if (!OIDDAUtils.OIDDAManager) return;
-        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsSender(ORSID))
-            OIDDAUtils.OIDDAManager.SetGlobal(nameValue, senderValue);
+        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsSender(ORSID))) return;
+        OIDDAUtils.OIDDAManager.SetGlobal(nameValue, senderValue);
     }
 
     public override void SenderValue(object senderValue)
     {
-        if (!OIDDAUtils.OIDDAManager) return;
-        if (IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticSender(ORSName))
-            OIDDAUtils.OIDDAManager.SetStaticGlobal(ORSName, senderValue);
+        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticSender(ORSName))) return;
+        OIDDAUtils.OIDDAManager.SetStaticGlobal(ORSName, senderValue);
     }
 
     public override void QuickSender(string nameValue, object senderValue)
     {
         if (!OIDDAUtils.OIDDAManager) return;
-        OIDDAUtils.OIDDAManager.QuickSender(nameValue,senderValue);
+        OIDDAUtils.OIDDAManager.QuickSender(nameValue, senderValue);
     }
 }
