@@ -179,14 +179,14 @@ public class OIDDAManager : Script
     {
         try
         {
-            var targetValue = GameplayValue.FromObject(currentValues[rule.TargetGlobalVariable]);
+            var targetValue = GameplayValue.FromObject(currentValues[rule.TargetGlobal]);
             var newValue = GameplayValueOperations.Apply(targetValue, rule.AdjustmentValue, rule.Operator);
             newValue = GameplayValueOperations.Clamp(newValue, rule.MinValue, rule.MaxValue);
-            _smoothingManager.SetTarget(rule.TargetGlobalVariable, newValue, _currentConfig.SmoothingSpeed);
+            _smoothingManager.SetTarget(rule.TargetGlobal, newValue, _currentConfig.SmoothingSpeed);
 
             if (DebugMode)
             {
-                Debug.Log($"[OIDDA] Smoothing: {rule.TargetGlobalVariable} " +
+                Debug.Log($"[OIDDA] Smoothing: {rule.TargetGlobal} " +
                           $"{targetValue.GetValue()} -> {newValue.GetValue()} " +
                           $"(speed: {_currentConfig.SmoothingSpeed})");
             }
@@ -200,19 +200,15 @@ public class OIDDAManager : Script
 
     bool ShouldApplyRule(float overallScore, OIDDARule rule)
     {
-        if (rule is OIDDARuleException ruleException)
+        return (rule is OIDDARuleException ruleException) ? ruleException.ApplicationContext switch
         {
-            return ruleException.ApplicationContext switch
-            {
-                RuleApplicationContext.Always => true,
-                RuleApplicationContext.WhenTooDifficult => overallScore > DifficultThreshold,
-                RuleApplicationContext.WhenTooEasy => overallScore < EasyThreshold,
-                RuleApplicationContext.WhenBalanced => overallScore >= EasyThreshold && overallScore <= DifficultThreshold,
-                _ => false,
-            };
-        }
-
-        return (overallScore > DifficultThreshold) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
+            RuleApplicationContext.Always => true,
+            RuleApplicationContext.WhenTooDifficult => overallScore > DifficultThreshold,
+            RuleApplicationContext.WhenTooEasy => overallScore < EasyThreshold,
+            RuleApplicationContext.WhenBalanced => overallScore >= EasyThreshold && overallScore <= DifficultThreshold,
+            _ => false,
+        } :
+        (overallScore > DifficultThreshold) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
             (overallScore < EasyThreshold) ? rule.Operator == AdjustmentOperator.Add || rule.Operator == AdjustmentOperator.Multiply : false;
     }
 

@@ -12,7 +12,7 @@ namespace OIDDA;
 public class OIDDARule
 {
     [VisibleIf(nameof(_isNotException))] public string RuleName;
-    public string TargetGlobalVariable;
+    public string TargetGlobal;
     public AdjustmentOperator Operator;
     public GameplayValue AdjustmentValue;
     public GameplayValue MinValue;
@@ -33,7 +33,7 @@ public class OIDDARule
             return;
         }
 
-        if(_isNotException) Debug.Log($"Applying rule: {RuleName}");
+        if(_isNotException) Debug.Log($"[OIDDA] Applying rule: {RuleName}");
         ApplyToGlobalsVariables();
     }
 
@@ -55,10 +55,10 @@ public class OIDDARule
 
     protected virtual void ApplyToGlobalsVariables()
     {
-        var currentValue = GameplayValue.FromObject(ORS.Instance.QuickReceiver<object>(TargetGlobalVariable));
+        var currentValue = GameplayValue.FromObject(ORS.Instance.QuickReceiver<object>(TargetGlobal));
         var newValue = GameplayValueOperations.Apply(currentValue, new GameplayValue(), Operator);
         newValue = GameplayValueOperations.Clamp(newValue, MinValue, MaxValue);
-        ORS.Instance.QuickSender(TargetGlobalVariable, newValue.GetValue());
+        ORS.Instance.QuickSender(TargetGlobal, newValue.GetValue());
     }
 }
 
