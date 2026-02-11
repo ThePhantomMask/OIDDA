@@ -152,19 +152,15 @@ public class OIDDAManager : Script
 
     bool ShouldApplyRule(float overallScore, OIDDARule rule)
     {
-        if (rule is OIDDARuleException ruleException)
+        return (rule is OIDDARuleException ruleException) ? ruleException.ApplicationContext switch
         {
-            return ruleException.ApplicationContext switch
-            {
-                RuleApplicationContext.Always => true,
-                RuleApplicationContext.WhenTooDifficult => overallScore > DifficultThreshold,
-                RuleApplicationContext.WhenTooEasy => overallScore < EasyThreshold,
-                RuleApplicationContext.WhenBalanced => overallScore >= EasyThreshold && overallScore <= DifficultThreshold,
-                _ => false,
-            };
-        }
-
-        return (overallScore > DifficultThreshold) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
+            RuleApplicationContext.Always => true,
+            RuleApplicationContext.WhenTooDifficult => overallScore > DifficultThreshold,
+            RuleApplicationContext.WhenTooEasy => overallScore < EasyThreshold,
+            RuleApplicationContext.WhenBalanced => overallScore >= EasyThreshold && overallScore <= DifficultThreshold,
+            _ => false,
+        } :
+        (overallScore > DifficultThreshold) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
             (overallScore < EasyThreshold) ? rule.Operator == AdjustmentOperator.Add || rule.Operator == AdjustmentOperator.Multiply : false;
     }
 
