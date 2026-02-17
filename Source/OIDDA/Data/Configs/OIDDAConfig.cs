@@ -11,6 +11,6 @@ namespace OIDDA;
 public class OIDDAConfig
 {
     public List<OIDDAMetrics> Metrics = new();
-    public List<OIDDARule> Rules = new();
+    public List<Rule> Rules = new();
     public float SmoothingSpeed = 0.1f;
 }

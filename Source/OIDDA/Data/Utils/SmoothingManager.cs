@@ -37,7 +37,7 @@ public class SmoothingManager
         {
             var smoothValue = kvp.Value;
 
-            var currentValue = GameplayValue.FromObject(ORS.Instance.QuickReceiver<object>(smoothValue.Variable));
+            var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(smoothValue.Variable));
             var newValue = GameplayValueOperations.Lerp(currentValue, smoothValue.TargetValue, smoothValue.SmoothSpeed * deltaTime);
             
             ORS.Instance.QuickSender(smoothValue.Variable, newValue.GetValue());
