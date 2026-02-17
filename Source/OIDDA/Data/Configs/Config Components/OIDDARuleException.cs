@@ -5,29 +5,33 @@ using FlaxEngine;
 namespace OIDDA;
 
 /// <summary>
-/// OIDDA Rule Exception
+/// Rule Exception class for the OIDDA system.
 /// </summary>
 [Category(name: "OIDDA Data")]
-public class OIDDARuleException : OIDDARule
+public class RuleException : Rule
 {
-    public string ExceptionName;
-    public ExceptionType Type;
+    public string RuleExceptionName;
+    public ExceptionType RuleType;
 
-    [NoSerialize] public new List<OIDDARuleException> Exceptions;
+    public new List<RuleException> Exceptions;
 
+    /// <summary>
+    ///  Overrides the Apply method to include logging when an exception is triggered.
+    /// </summary>
+    /// <param name="metrics">Metrics that will be handled, controlled</param>
     public override void Apply(Dictionary<string, object> metrics)
     {
-        Debug.Log($"[OIDDA] Exception '{ExceptionName}' triggered, overriding parent rule");
+        Debug.Write(LogType.Info, $"Exception rule {RuleExceptionName} triggered");
         base.Apply(metrics);
     }
 }
 
 public enum ExceptionType
 {
-    BossFight,
     Tutorial,
+    BossFight,
     FinalLevel,
-    EmotionalOverride,
+    DirectorOverride,
     StoryMoment,
     Custom
 }

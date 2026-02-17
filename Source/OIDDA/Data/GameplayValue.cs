@@ -142,29 +142,26 @@ public struct GameplayValue
         MatrixValue = value;
     }
 
-    public object GetValue()
+    public object Value => Type switch
     {
-        return Type switch
-        {
-            ValueType.Float => FloatValue,
-            ValueType.Int => IntValue,
-            ValueType.Bool => BoolValue,
-            ValueType.Vector2 => Vector2Value,
-            ValueType.Vector3 => Vector3Value,
-            ValueType.Vector4 => Vector4Value,
-            ValueType.Color => ColorValue,
-            ValueType.String => StringValue,
-            ValueType.Quaternion => QuaternionValue,
-            ValueType.Transform => TransformValue,
-            ValueType.BoundingBox => BoundingBoxValue,
-            ValueType.BoundingSphere => BoundingSphereValue,
-            ValueType.Rectangle => RectangleValue,
-            ValueType.Matrix => MatrixValue,
-            _ => null
-        };
-    }
+        ValueType.Float => FloatValue,
+        ValueType.Int => IntValue,
+        ValueType.Bool => BoolValue,
+        ValueType.Vector2 => Vector2Value,
+        ValueType.Vector3 => Vector3Value,
+        ValueType.Vector4 => Vector4Value,
+        ValueType.Color => ColorValue,
+        ValueType.String => StringValue,
+        ValueType.Quaternion => QuaternionValue,
+        ValueType.Transform => TransformValue,
+        ValueType.BoundingBox => BoundingBoxValue,
+        ValueType.BoundingSphere => BoundingSphereValue,
+        ValueType.Rectangle => RectangleValue,
+        ValueType.Matrix => MatrixValue,
+        _ => null
+    };
 
-    public static GameplayValue FromObject(object value)
+    public static GameplayValue ConvertObject(object value)
     {
         return value switch
         {

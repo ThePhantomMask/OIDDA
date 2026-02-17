@@ -9,7 +9,7 @@ namespace OIDDA;
 /// OIDDA Rule
 /// </summary>
 [Category(name: "OIDDA Data")]
-public class OIDDARule
+public class Rule
 {
     [VisibleIf(nameof(_isNotException))] public string RuleName;
     public string TargetGlobal;
@@ -19,9 +19,9 @@ public class OIDDARule
     public GameplayValue MaxValue;
     public RuleApplicationContext ApplicationContext = RuleApplicationContext.Always;
     public OIDDACondition Condition;
-    [VisibleIf(nameof(_isNotException))] public List<OIDDARuleException> Exceptions;
+    [VisibleIf(nameof(_isNotException))] public List<RuleException> Exceptions;
 
-    bool _isNotException => this is not OIDDARuleException;
+    bool _isNotException => this is not RuleException;
 
     public virtual void Apply(Dictionary<string, object> metrics)
     {
@@ -33,11 +33,11 @@ public class OIDDARule
             return;
         }
 
-        if(_isNotException) Debug.Log($"[OIDDA] Applying rule: {RuleName}");
+        if(_isNotException) Debug.Write(LogType.Info, $"Applying rule {RuleName}");
         ApplyToGlobalsVariables();
     }
 
-    protected bool IsHasActiveException(Dictionary<string, object> metrics, out OIDDARuleException activeException)
+    protected bool IsHasActiveException(Dictionary<string, object> metrics, out RuleException activeException)
     {
         activeException = null;
         if (Exceptions == null || Exceptions.Count is 0) return false;
@@ -55,10 +55,10 @@ public class OIDDARule
 
     protected virtual void ApplyToGlobalsVariables()
     {
-        var currentValue = GameplayValue.FromObject(ORS.Instance.QuickReceiver<object>(TargetGlobal));
+        var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(TargetGlobal));
         var newValue = GameplayValueOperations.Apply(currentValue, new GameplayValue(), Operator);
         newValue = GameplayValueOperations.Clamp(newValue, MinValue, MaxValue);
-        ORS.Instance.QuickSender(TargetGlobal, newValue.GetValue());
+        ORS.Instance.QuickSender(TargetGlobal, newValue.Value);
     }
 }
 
