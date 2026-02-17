@@ -40,7 +40,7 @@ public class SmoothingManager
             var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(smoothValue.Variable));
             var newValue = GameplayValueOperations.Lerp(currentValue, smoothValue.TargetValue, smoothValue.SmoothSpeed * deltaTime);
             
-            ORS.Instance.QuickSender(smoothValue.Variable, newValue.GetValue());
+            ORS.Instance.QuickSender(smoothValue.Variable, newValue.Value);
 
             if (GameplayValueOperations.IsNearTarget(newValue, smoothValue.TargetValue))
                 toRemove.Add(kvp.Key);
