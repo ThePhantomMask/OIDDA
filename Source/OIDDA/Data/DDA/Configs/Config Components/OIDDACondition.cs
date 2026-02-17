@@ -32,7 +32,7 @@ public class ConditionClause
     {
         if (!metrics.ContainsKey(MetricName)) return false;
 
-        var metricValue = GameplayValue.FromObject(metrics[MetricName]);
+        var metricValue = GameplayValue.ConvertObject(metrics[MetricName]);
         return GameplayValueOperations.Compare(metricValue, CompareValue, Operator);
     }
 

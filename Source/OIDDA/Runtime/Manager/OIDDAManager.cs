@@ -127,11 +127,11 @@ public class OIDDAManager : Script
         return rulesApplied;
     }
 
-    void ApplyRuleSmooth(OIDDARule rule, Dictionary<string, object> currentValues)
+    void ApplyRuleSmooth(Rule rule, Dictionary<string, object> currentValues)
     {
         try
         {
-            var targetValue = GameplayValue.FromObject(currentValues[rule.TargetGlobal]);
+            var targetValue = GameplayValue.ConvertObject(currentValues[rule.TargetGlobal]);
             var newValue = GameplayValueOperations.Apply(targetValue, rule.AdjustmentValue, rule.Operator);
             newValue = GameplayValueOperations.Clamp(newValue, rule.MinValue, rule.MaxValue);
             _smoothingManager.SetTarget(rule.TargetGlobal, newValue, _currentConfig.SmoothingSpeed);
@@ -139,7 +139,7 @@ public class OIDDAManager : Script
             if (DebugMode)
             {
                 Debug.Log($"[OIDDA] Smoothing: {rule.TargetGlobal} " +
-                          $"{targetValue.GetValue()} -> {newValue.GetValue()} " +
+                          $"{targetValue.Value} -> {newValue.Value} " +
                           $"(speed: {_currentConfig.SmoothingSpeed})");
             }
 
@@ -150,9 +150,9 @@ public class OIDDAManager : Script
         }
     }
 
-    bool ShouldApplyRule(float overallScore, OIDDARule rule)
+    bool ShouldApplyRule(float overallScore, Rule rule)
     {
-        return (rule is OIDDARuleException ruleException) ? ruleException.ApplicationContext switch
+        return (rule is RuleException ruleException) ? ruleException.ApplicationContext switch
         {
             RuleApplicationContext.Always => true,
             RuleApplicationContext.WhenTooDifficult => overallScore > DifficultThreshold,
