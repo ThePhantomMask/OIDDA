@@ -1,6 +1,5 @@
-﻿using System;
+﻿using FlaxEngine;
 using System.Collections.Generic;
-using FlaxEngine;
 
 namespace OIDDA;
 
@@ -13,7 +12,7 @@ public class RuleException : Rule
     public string RuleExceptionName;
     public ExceptionType RuleType;
 
-    public new List<RuleException> Exceptions;
+    public new List<RuleException> RuleExceptions;
 
     /// <summary>
     ///  Overrides the Apply method to include logging when an exception is triggered.
