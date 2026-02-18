@@ -132,7 +132,7 @@ public class OIDDAManager : Script
         try
         {
             var targetValue = GameplayValue.ConvertObject(currentValues[rule.TargetGlobal]);
-            var newValue = GameplayValueOperations.Apply(targetValue, rule.AdjustmentValue, rule.Operator);
+            var newValue = GameplayValueOperations.Apply(targetValue, rule.Value, rule.Operator);
             newValue = GameplayValueOperations.Clamp(newValue, rule.MinValue, rule.MaxValue);
             _smoothingManager.SetTarget(rule.TargetGlobal, newValue, _currentConfig.SmoothingSpeed);
 
@@ -152,7 +152,7 @@ public class OIDDAManager : Script
 
     bool ShouldApplyRule(float overallScore, Rule rule)
     {
-        return (rule is RuleException ruleException) ? ruleException.ApplicationContext switch
+        return (rule is RuleException ruleException) ? ruleException.Context switch
         {
             RuleApplicationContext.Always => true,
             RuleApplicationContext.WhenTooDifficult => overallScore > DifficultThreshold,
