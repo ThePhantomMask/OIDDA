@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using FlaxEngine;
+using OIDDA.OIDDA.Data;
 
 namespace OIDDA;
 
@@ -85,11 +86,4 @@ public struct MetricsAnalysis
     public float OverallScore;              
     public DifficultyState OverallState;
     public List<MetricInfo> MetricInfos;
-}
-
-public enum DifficultyState
-{
-    TooEasy,
-    Balanced,
-    TooDifficult
 }

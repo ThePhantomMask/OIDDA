@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using FlaxEngine;
 
-namespace OIDDA;
+namespace OIDDA.OIDDA.Data;
 
 #region DDA enums
 
@@ -85,4 +85,25 @@ public enum MetricState
     Warning,
     Critical
 }
+
+public enum DifficultyState
+{
+    TooEasy,
+    Balanced,
+    TooDifficult
+}
+
+public enum ORSType
+{
+    ReceiverSender,
+    Receiver,
+    Sender
+}
+
+public enum ORSStatus
+{
+    Disconnected,
+    Connected,
+}
+
 #endregion

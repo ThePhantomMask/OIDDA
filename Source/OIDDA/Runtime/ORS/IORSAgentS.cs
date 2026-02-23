@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using FlaxEngine;
+using OIDDA.OIDDA.Data;
 
 namespace OIDDA;
 
@@ -11,7 +12,7 @@ public struct IORSAgentS
 {
     public string GlobalVariable;
     public string ORSID { get => ORSUtils.GeneratedID; }
-    public ORSUtils.ORSType ORSType;
-    public ORSUtils.ORSStatus ORSStatus => TotalORSAgentsConnected > 0 ? ORSUtils.ORSStatus.Connected : ORSUtils.ORSStatus.Disconnected;
+    public ORSType ORSType;
+    public ORSStatus ORSStatus => TotalORSAgentsConnected > 0 ? ORSStatus.Connected : ORSStatus.Disconnected;
     [HideInEditor] public int TotalORSAgentsConnected;
 }
