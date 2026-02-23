@@ -24,13 +24,3 @@ public class RuleException : Rule
         base.Apply(metrics);
     }
 }
-
-public enum ExceptionType
-{
-    Tutorial,
-    BossFight,
-    FinalLevel,
-    DirectorOverride,
-    StoryMoment,
-    Custom
-}

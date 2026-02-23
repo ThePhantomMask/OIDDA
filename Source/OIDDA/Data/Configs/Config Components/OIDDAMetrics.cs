@@ -94,11 +94,3 @@ public struct MetricInfo
     public bool IsOutOfBounds;
     public MetricState State;
 }
-
-public enum MetricState
-{
-    Good,
-    Normal,
-    Warning,
-    Critical
-}
