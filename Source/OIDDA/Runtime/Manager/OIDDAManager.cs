@@ -1,7 +1,7 @@
 ﻿using FlaxEditor.Content.Settings;
 using FlaxEngine;
 using FlaxEngine.Utilities;
-using OIDDA.OIDDA.Data;
+using OIDDA.Data;
 using System;
 using System.Collections.Generic;
 using System.IO;

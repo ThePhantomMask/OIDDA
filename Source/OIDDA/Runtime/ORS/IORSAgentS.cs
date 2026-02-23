@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using FlaxEngine;
-using OIDDA.OIDDA.Data;
+using OIDDA.Data;
 
 namespace OIDDA;
 
