@@ -18,7 +18,7 @@ public class Rule
     public GameplayValue MinValue;
     public GameplayValue MaxValue;
     public RuleApplicationContext Context = RuleApplicationContext.Always;
-    public OIDDACondition Condition;
+    public DDACondition Condition;
     public AdjustmentOperator Operator;
     [VisibleIf(nameof(isNotException))] public List<RuleException> RuleExceptions;
 

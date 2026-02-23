@@ -6,6 +6,17 @@ namespace OIDDA.Data;
 
 #region DDA enums
 
+public enum ComparisonOperator
+{
+    Greater,          // >
+    Less,             // 
+    GreaterOrEqual,   // >=
+    LessOrEqual,      // <=
+    Equal,            // ==
+    NotEqual,         // !=
+    Contains
+}
+
 /// <summary>
 /// Specifies the types of adjustment operations that can be applied to a value, such as addition, subtraction, multiplication, division, assignment, toggling a boolean, or appending a string.
 /// </summary>
