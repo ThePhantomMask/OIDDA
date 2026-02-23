@@ -8,7 +8,7 @@ namespace OIDDA;
 /// OIDDA Metrics
 /// </summary>
 [Category(name: "OIDDA Data")]
-public class OIDDAMetrics
+public class DDAMetrics
 {
     public string MetricName;
     [Range(0, 1)] public float Weight = 0.5f;
