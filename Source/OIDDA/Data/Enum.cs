@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using FlaxEngine;
 
-namespace OIDDA.OIDDA.Data;
+namespace OIDDA;
 
 #region DDA enums
 
