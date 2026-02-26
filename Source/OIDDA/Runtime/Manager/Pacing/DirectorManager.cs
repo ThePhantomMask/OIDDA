@@ -258,7 +258,7 @@ public class DirectorManager
         // Increases probability if it has been a long time since the last peak
         if (timeSinceLastPeak > 60f) probability *= 1.5f;
 
-        return RandomUtil.Random.NextFloat(0f, 1f) < probability;
+        return RandomUtil.Random.NextFloat() < probability;
     }
 
     /// <summary>
@@ -279,20 +279,20 @@ public class DirectorManager
     {
         if (intensityHistory.Count == 0) return 0f;
 
-        var _cutOffTime = Time.GameTime - seconds;
-        var _recentEvents = new List<IntensityEvent>();
+        var cutOffTime = Time.GameTime - seconds;
+        var recentEvents = new List<IntensityEvent>();
 
         intensityHistory.ForEach( evt =>
         {
-            if (evt.Time >= _cutOffTime) _recentEvents.Add(evt);
+            if (evt.Time >= cutOffTime) recentEvents.Add(evt);
         });
 
-        if (_recentEvents.Count == 0) return CurrentIntensity;
+        if (recentEvents.Count == 0) return CurrentIntensity;
 
         float sum = 0;
-        _recentEvents.ForEach(evt => sum += evt.Intensity);
+        recentEvents.ForEach(evt => sum += evt.Intensity);
 
-        return sum / _recentEvents.Count;
+        return sum / recentEvents.Count;
     }
 
     /// <summary>
@@ -306,7 +306,7 @@ public class DirectorManager
     /// <remarks>The returned statistics provide a snapshot of the current pacing metrics, which can be used
     /// to monitor and analyze user performance or engagement over time. The values reflect the most recent state and
     /// are updated each time the property is accessed.</remarks>
-    public PacingStatistics Statistics => new PacingStatistics
+    public DirectorStatistics Statistics => new DirectorStatistics
     {
         CurrentIntensity = CurrentIntensity,
         AverageIntensity30s = AverageIntensity(),
@@ -332,9 +332,9 @@ public struct IntensityEvent
 }
 
 /// <summary>
-/// Pacing statistics for analysis and debugging
+/// Director statistics for analysis and debugging
 /// </summary>
-public struct PacingStatistics
+public struct DirectorStatistics
 {
     public float CurrentIntensity;
     public float AverageIntensity30s;
