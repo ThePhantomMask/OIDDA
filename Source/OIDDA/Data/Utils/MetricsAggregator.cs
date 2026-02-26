@@ -1,6 +1,6 @@
-﻿using System;
+﻿using FlaxEngine;
+using OIDDA.Data;
 using System.Collections.Generic;
-using FlaxEngine;
 
 namespace OIDDA;
 
@@ -9,7 +9,7 @@ namespace OIDDA;
 /// </summary>
 public static class MetricsAggregator
 {
-    public static float CalculateOverallScore(List<OIDDAMetrics> metrics, Dictionary<string, object> currentValues)
+    public static float CalculateOverallScore(List<DDAMetrics> metrics, Dictionary<string, object> currentValues)
     {
         if (metrics == null || metrics.Count == 0) return 1f;
 
@@ -31,7 +31,7 @@ public static class MetricsAggregator
         return 1f;
     }
 
-    public static MetricsAnalysis Analyze(List<OIDDAMetrics> metrics, Dictionary<string, object> currentValues)
+    public static MetricsAnalysis Analyze(List<DDAMetrics> metrics, Dictionary<string, object> currentValues)
     {
         var analysis = new MetricsAnalysis
         {
@@ -52,7 +52,7 @@ public static class MetricsAggregator
         };
     }
 
-    public static List<MetricInfo> GetProblematicMetrics(List<OIDDAMetrics> metrics, Dictionary<string, object> currentValues, float threshold = 1.7f)
+    public static List<MetricInfo> GetProblematicMetrics(List<DDAMetrics> metrics, Dictionary<string, object> currentValues, float threshold = 1.7f)
     {
         var problematic = new List<MetricInfo>();
 
@@ -85,11 +85,4 @@ public struct MetricsAnalysis
     public float OverallScore;              
     public DifficultyState OverallState;
     public List<MetricInfo> MetricInfos;
-}
-
-public enum DifficultyState
-{
-    TooEasy,
-    Balanced,
-    TooDifficult
 }

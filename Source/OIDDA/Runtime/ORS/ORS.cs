@@ -1,4 +1,5 @@
 ﻿using FlaxEngine;
+using OIDDA.Data;
 using System;
 using System.Collections.Generic;
 
@@ -14,11 +15,11 @@ public abstract class ORSAgent
 {
     public abstract void ConnectORSAgent(string AgentName);
 
-    public abstract void ConnectORSAgent(ORSUtils.ORSType type);
+    public abstract void ConnectORSAgent(ORSType type);
 
     public abstract void DisconnectORSAgent();
 
-    public abstract void DisconnectORSAgent(ORSUtils.ORSType type);
+    public abstract void DisconnectORSAgent(ORSType type);
 
     public abstract bool TryReceiverValue<T>(string nameValue, out T result);
 
@@ -67,7 +68,7 @@ public class ORS : ORSAgent
     /// Initializes the ORS agent connection using the specified ORS type (Dynamic ORS Agent).
     /// </summary>
     /// <param name="type">The ORS type to use for the agent connection. Determines the configuration and behavior of the agent.</param>
-    public override void ConnectORSAgent(ORSUtils.ORSType type)
+    public override void ConnectORSAgent(ORSType type)
     {
         if (!OIDDAUtils.OIDDAManager) return;
         OIDDAUtils.OIDDAManager.Connect(ORSID = ORSUtils.GeneratedID, new IORSAgentD
@@ -89,7 +90,7 @@ public class ORS : ORSAgent
     /// Disconnects the ORS agent from the current session (Dynamic ORS Agent).
     /// </summary>
     /// /// <param name="type">The type of ORS agent to connect to. Specifies the agent category or behavior.</param>
-    public override void DisconnectORSAgent(ORSUtils.ORSType type)
+    public override void DisconnectORSAgent(ORSType type)
     {
         if (!OIDDAUtils.OIDDAManager) return;
         OIDDAUtils.OIDDAManager.Disconnect(ORSID, type);

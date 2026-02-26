@@ -1,6 +1,6 @@
-﻿using System;
+﻿using FlaxEngine;
+using OIDDA.Data;
 using System.Collections.Generic;
-using FlaxEngine;
 
 namespace OIDDA;
 
@@ -13,7 +13,7 @@ public class RuleException : Rule
     public string RuleExceptionName;
     public ExceptionType RuleType;
 
-    public new List<RuleException> Exceptions;
+    public new List<RuleException> RuleExceptions;
 
     /// <summary>
     ///  Overrides the Apply method to include logging when an exception is triggered.
@@ -24,14 +24,4 @@ public class RuleException : Rule
         Debug.Write(LogType.Info, $"Exception rule {RuleExceptionName} triggered");
         base.Apply(metrics);
     }
-}
-
-public enum ExceptionType
-{
-    Tutorial,
-    BossFight,
-    FinalLevel,
-    DirectorOverride,
-    StoryMoment,
-    Custom
 }

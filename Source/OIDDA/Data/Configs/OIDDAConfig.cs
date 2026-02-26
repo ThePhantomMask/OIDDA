@@ -10,7 +10,7 @@ namespace OIDDA;
 [Category(name: "OIDDA Data")]
 public class OIDDAConfig
 {
-    public List<OIDDAMetrics> Metrics = new();
+    public List<DDAMetrics> Metrics = new();
     public List<Rule> Rules = new();
     public float SmoothingSpeed = 0.1f;
 }

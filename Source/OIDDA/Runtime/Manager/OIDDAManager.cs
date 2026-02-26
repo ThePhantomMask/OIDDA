@@ -1,6 +1,7 @@
 ﻿using FlaxEditor.Content.Settings;
 using FlaxEngine;
 using FlaxEngine.Utilities;
+using OIDDA.Data;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -180,7 +181,7 @@ public class OIDDAManager : Script
         try
         {
             var targetValue = GameplayValue.ConvertObject(currentValues[rule.TargetGlobal]);
-            var newValue = GameplayValueOperations.Apply(targetValue, rule.AdjustmentValue, rule.Operator);
+            var newValue = GameplayValueOperations.Apply(targetValue, rule.Value, rule.Operator);
             newValue = GameplayValueOperations.Clamp(newValue, rule.MinValue, rule.MaxValue);
             _smoothingManager.SetTarget(rule.TargetGlobal, newValue, _currentConfig.SmoothingSpeed);
 
@@ -200,7 +201,7 @@ public class OIDDAManager : Script
 
     bool ShouldApplyRule(float overallScore, Rule rule)
     {
-        return (rule is RuleException ruleException) ? ruleException.ApplicationContext switch
+        return (rule is RuleException ruleException) ? ruleException.Context switch
         {
             RuleApplicationContext.Always => true,
             RuleApplicationContext.WhenTooDifficult => overallScore > DifficultThreshold,
@@ -310,7 +311,7 @@ public class OIDDAManager : Script
         return false;
     }
 
-    public bool Disconnect(string ID, ORSUtils.ORSType type)
+    public bool Disconnect(string ID, ORSType type)
     {
         if (ORSAgentDB.ContainsKey(ID))
         {
@@ -322,7 +323,7 @@ public class OIDDAManager : Script
 
     public bool ORSIsConnected(string ID) => ORSAgentDB.ContainsKey(ID);
 
-    public bool StaticORSIsConnected(string name) => StaticORSDB.ContainsKey(name) && StaticORSDB[name].ORSStatus is ORSUtils.ORSStatus.Connected;
+    public bool StaticORSIsConnected(string name) => StaticORSDB.ContainsKey(name) && StaticORSDB[name].ORSStatus is ORSStatus.Connected;
 
     void DelaySender(string name, object value)
     {
@@ -346,13 +347,13 @@ public class OIDDAManager : Script
         return default(T);
     }
 
-    public bool VerifyIsReceiver(string ID) => ORSAgentDB[ID].ORSType == ORSUtils.ORSType.ReceiverSender || ORSAgentDB[ID].ORSType == ORSUtils.ORSType.Receiver;
+    public bool VerifyIsReceiver(string ID) => ORSAgentDB[ID].ORSType == ORSType.ReceiverSender || ORSAgentDB[ID].ORSType == ORSType.Receiver;
 
-    public bool VerifyIsStaticReceiver(string Name) => StaticORSDB[Name].ORSType == ORSUtils.ORSType.ReceiverSender || StaticORSDB[Name].ORSType == ORSUtils.ORSType.Receiver;
+    public bool VerifyIsStaticReceiver(string Name) => StaticORSDB[Name].ORSType == ORSType.ReceiverSender || StaticORSDB[Name].ORSType == ORSType.Receiver;
 
-    public bool VerifyIsSender(string ID) => ORSAgentDB[ID].ORSType == ORSUtils.ORSType.ReceiverSender || ORSAgentDB[ID].ORSType == ORSUtils.ORSType.Sender;
+    public bool VerifyIsSender(string ID) => ORSAgentDB[ID].ORSType == ORSType.ReceiverSender || ORSAgentDB[ID].ORSType == ORSType.Sender;
 
-    public bool VerifyIsStaticSender(string Name) => StaticORSDB[Name].ORSType == ORSUtils.ORSType.ReceiverSender || StaticORSDB[Name].ORSType == ORSUtils.ORSType.Sender;
+    public bool VerifyIsStaticSender(string Name) => StaticORSDB[Name].ORSType == ORSType.ReceiverSender || StaticORSDB[Name].ORSType == ORSType.Sender;
 
     public void SetGlobal(string name, object value) => (_delay != 0f ? (Action)(() => DelaySender(name, value)) : () => GameplayValues.SetValue(name, value))();
 

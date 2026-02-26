@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using OIDDA.Data;
 using FlaxEngine;
 
 namespace OIDDA;
@@ -9,7 +10,7 @@ namespace OIDDA;
 /// OIDDA Condition
 /// </summary>
 [Category(name: "OIDDA Data")]
-public class OIDDACondition
+public class DDACondition
 {
     public List<ConditionClause> Clauses;
     public bool RequireAll = true;  // true = AND, false = OR
@@ -34,16 +35,5 @@ public class ConditionClause
 
         var metricValue = GameplayValue.ConvertObject(metrics[MetricName]);
         return GameplayValueOperations.Compare(metricValue, CompareValue, Operator);
-    }
-
-    public enum ComparisonOperator
-    {
-        Greater,          // >
-        Less,             // 
-        GreaterOrEqual,   // >=
-        LessOrEqual,      // <=
-        Equal,            // ==
-        NotEqual,         // !=
-        Contains
     }
 }

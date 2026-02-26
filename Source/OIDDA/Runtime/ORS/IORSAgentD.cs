@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using FlaxEngine;
+using OIDDA.Data;
 
 namespace OIDDA;
 
@@ -9,5 +10,5 @@ namespace OIDDA;
 /// </summary>
 public struct IORSAgentD
 {
-    public ORSUtils.ORSType ORSType;
+    public ORSType ORSType;
 }

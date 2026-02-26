@@ -10,19 +10,6 @@ namespace OIDDA;
 /// </summary>
 public class ORSUtils
 {
-    public enum ORSType 
-    {
-        ReceiverSender,
-        Receiver,
-        Sender
-    }
-
-    public enum ORSStatus
-    {
-        Disconnected,
-        Connected,
-    }
-
     public static string GeneratedID => GenerateID();
 
     static string GenerateID()

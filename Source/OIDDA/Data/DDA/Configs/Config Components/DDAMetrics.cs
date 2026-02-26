@@ -1,6 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using FlaxEngine;
+﻿using FlaxEngine;
+using OIDDA.Data;
+using System;
 
 namespace OIDDA;
 
@@ -8,7 +8,7 @@ namespace OIDDA;
 /// OIDDA Metrics
 /// </summary>
 [Category(name: "OIDDA Data")]
-public class OIDDAMetrics
+public class DDAMetrics
 {
     public string MetricName;
     [Range(0, 1)] public float Weight = 0.5f;
@@ -20,8 +20,7 @@ public class OIDDAMetrics
     {
         try
         {
-            var floatValue = ConvertToFloat(currentValue);
-            return Normalize(floatValue);
+            return Normalize(ConvertToFloat(currentValue));
         }
         catch(NullReferenceException e)
         {
@@ -30,30 +29,14 @@ public class OIDDAMetrics
         }
     }
 
-    protected float Normalize(float value)
-    {
-        float range = ThresholdMax - ThresholdMin;
-
-        if (range <= 0) return value > ThresholdMin ? 1f : 0f;
-
-        float normalized = (value - ThresholdMin) / range;
-        normalized = Mathf.Saturate(normalized);
-
-        if (InverseLogic) normalized = 1f - normalized;
-
-        return normalized;
-    }
+    protected float Normalize(float value) =>
+        ((ThresholdMax - ThresholdMin) <= 0) ? value > ThresholdMin ? 1f : 0f :
+        InverseLogic ? 1f - Mathf.Saturate((value - ThresholdMin) / (ThresholdMax - ThresholdMin)) :
+        Mathf.Saturate((value - ThresholdMin) / (ThresholdMax - ThresholdMin));
 
     public float CalculateWeightedScore(object currentValue) => CalculateScore(currentValue) * Weight;
 
-    public bool IsOutOfBounds(object currentValue)
-    {
-        if (currentValue == null) return false;
-
-        float floatValue = ConvertToFloat(currentValue);
-
-        return InverseLogic ? floatValue < ThresholdMin : floatValue > ThresholdMax;
-    }
+    public bool IsOutOfBounds(object currentValue) => currentValue is null ? false : InverseLogic ? ConvertToFloat(currentValue) < ThresholdMin : ConvertToFloat(currentValue) > ThresholdMax;
 
     public bool IndicatesDifficulty(object currentValue, float threshold = 0.7f) => CalculateScore(currentValue) > threshold;
 
@@ -111,12 +94,4 @@ public struct MetricInfo
     public float Weight;
     public bool IsOutOfBounds;
     public MetricState State;
-}
-
-public enum MetricState
-{
-    Good,
-    Normal,
-    Warning,
-    Critical
 }
