@@ -44,9 +44,6 @@ public class OIDDAManager : Script
     SmoothingManager smoothingManager = new();
     MetricsAnalysis analyze;
 
-    // Event
-    event Action OnUpdateCompoments;
-
     public override void OnStart()
     {
         OIDDASettings = Engine.GetCustomSettings("OIDDASettings").CreateInstance<OIDDASettings>();
@@ -55,18 +52,8 @@ public class OIDDAManager : Script
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         OIDDAInit(OIDDASettings);
     }
-    
-    public override void OnEnable()
-    {
-        
-    }
 
     public override void OnDisable()
-    {
-        
-    }
-
-    public override void OnDestroy()
     {
         OIDDAReset();
     }
