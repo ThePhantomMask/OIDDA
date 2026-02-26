@@ -28,7 +28,6 @@ public class DirectorManager
 
     //  Historical data for analysis
     Queue<IntensityEvent> intensityHistory = new(50);
-    Dictionary<string, Action<object, float>> metricHandlers = new();
     float timeSinceLastPeak = 0f, timeInCurrentState = 0f;
 
     // The psychological parameters of a player
@@ -87,8 +86,6 @@ public class DirectorManager
         if (intensityHistory.Count > 50) intensityHistory.Dequeue();
     }
 
-    public void RegisterMetricHandler(string key, Action<object, float> handler) => metricHandlers.Add(key, handler);
-
     /// <summary>
     /// Updates the psychological metrics such as stress, fatigue, and engagement levels based on the elapsed time and provided contextual values.
     /// </summary>
@@ -101,9 +98,6 @@ public class DirectorManager
     internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
     {
         if (values == null || values.Count is 0) return;
-
-        foreach (var (key, value) in values)
-            if (metricHandlers.TryGetValue(key, out var handler)) handler(value, deltaTime);
 
         var stressChange = CurrentState switch
         {
