@@ -108,8 +108,6 @@ public class OIDDAManager : Script
 
             if (DebugMode)
             {
-                Debug.Log($"OIDDA applied {rulesApplied} rules.");
-
                 if (_isUseSmoothing && _smoothingManager.HasActiveSmoothings)
                 {
                     Debug.Log($"[OIDDA] Smoothing {_smoothingManager.ActiveSmoothingCount} value(s)");
@@ -228,14 +226,14 @@ public class OIDDAManager : Script
 
         if (_isUseDirector)
         {
-            Debug.Log($"[Pacing] {Director.DebugInfo}");
+            Debug.Log($"[Director] {Director.DebugInfo}");
         }
     }
 
     void OIDDAUpdate()
     {
         if (_isUseSmoothing) _smoothingManager.SmoothUpdate(Time.DeltaTime);
-        if (_isUseDirector) Director.OnPacingDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
+        if (_isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
         _timeSinceLastUpdate += Time.DeltaTime;
         _timeSinceLastAdjustment += Time.DeltaTime;
 

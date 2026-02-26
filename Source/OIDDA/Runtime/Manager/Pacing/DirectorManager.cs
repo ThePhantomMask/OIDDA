@@ -1,13 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using FlaxEngine;
-using OIDDA.Data;
+﻿using FlaxEngine;
 using FlaxEngine.Utilities;
+using Newtonsoft.Json.Linq;
+using OIDDA.Data;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace OIDDA;
 
 /// <summary>
-/// Psychological pacing system inspired by L4D's AI Director
+/// Psychological pacing system inspired by L4D's The Director
 /// </summary>
 public class DirectorManager
 {
@@ -25,8 +27,9 @@ public class DirectorManager
     public float StateTimer { get; private set; }
 
     //  Historical data for analysis
-    Queue<IntensityEvent> _intensityHistory = new(50);
-    float _timeSinceLastPeak = 0f, _timeInCurrentState = 0f;
+    Queue<IntensityEvent> intensityHistory = new(50);
+    Dictionary<string, Action<object, float>> metricHandlers = new();
+    float timeSinceLastPeak = 0f, timeInCurrentState = 0f;
 
     // The psychological parameters of a player
     public float StressLevel { get; private set; }
@@ -45,10 +48,10 @@ public class DirectorManager
     /// <param name="deltaTime">The amount of time, in seconds, that has elapsed since the last update. Must be non-negative.</param>
     /// <param name="GameplayValues">A dictionary containing current gameplay values that influence pacing and psychological metrics. Keys represent value names;
     /// values provide the corresponding data.</param>
-    public void OnPacingDirectorUpdate(float deltaTime , Dictionary<string, object> GameplayValues)
+    public void OnDirectorUpdate(float deltaTime , Dictionary<string, object> GameplayValues)
     {
-        _timeInCurrentState += deltaTime;
-        _timeSinceLastPeak += deltaTime;
+        timeInCurrentState += deltaTime;
+        timeSinceLastPeak += deltaTime;
         StateTimer += deltaTime;
 
         UpdatePsychologicalMetrics(deltaTime, GameplayValues);
@@ -71,7 +74,7 @@ public class DirectorManager
         var _oldIntensity = CurrentIntensity;
         CurrentIntensity = Mathf.Clamp(CurrentIntensity + amount, 0f, 100f);
 
-        _intensityHistory.Enqueue(
+        intensityHistory.Enqueue(
            new IntensityEvent
            {
                Time = Time.GameTime,
@@ -81,8 +84,10 @@ public class DirectorManager
            }
         );
 
-        if (_intensityHistory.Count > 50) _intensityHistory.Dequeue();
+        if (intensityHistory.Count > 50) intensityHistory.Dequeue();
     }
+
+    public void RegisterMetricHandler(string key, Action<object, float> handler) => metricHandlers.Add(key, handler);
 
     /// <summary>
     /// Updates the psychological metrics such as stress, fatigue, and engagement levels based on the elapsed time and provided contextual values.
@@ -97,7 +102,10 @@ public class DirectorManager
     {
         if (values == null || values.Count is 0) return;
 
-        var _stressChange = CurrentState switch
+        foreach (var (key, value) in values)
+            if (metricHandlers.TryGetValue(key, out var handler)) handler(value, deltaTime);
+
+        var stressChange = CurrentState switch
         {
             DirectorState.Build => deltaTime * 2f,
             DirectorState.Peak => deltaTime * 5f,
@@ -106,10 +114,10 @@ public class DirectorManager
             _ => 0f
         };
 
-        StressLevel = Mathf.Clamp((StressLevel + _stressChange), 0f, 100f);
+        StressLevel = Mathf.Clamp((StressLevel + stressChange), 0f, 100f);
 
-        var _fatigueChange = (CurrentState == DirectorState.Relax) ? - deltaTime * 2f : deltaTime * 0.5f;
-        FatigueLevel = Mathf.Clamp((FatigueLevel + _fatigueChange), 0f, 100f);
+        var fatigueChange = (CurrentState == DirectorState.Relax) ? - deltaTime * 2f : deltaTime * 0.5f;
+        FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
 
         EngagementLevel = (CurrentIntensity, StressLevel) switch
         {
@@ -122,47 +130,47 @@ public class DirectorManager
     /// <summary>
     /// Updates the pacing state based on the current intensity, fatigue, stress levels, and elapsed time.
     /// </summary>
-    /// <remarks>This method should be called regularly, such as once per frame or update cycle, to ensure the pacing state transitions appropriately. 
+    /// <remarks> This method should be called regularly, such as once per frame or update cycle, to ensure the pacing state transitions appropriately. 
     /// State transitions may trigger side effects such as invoking state changem events.</remarks>
     /// <param name="deltaTime">The time, in seconds, since the last update. Used to advance the pacing state logic.</param>
     internal void UpdatePacingState(float deltaTime)
     {
-        DirectorState _newState = CurrentState;
+        DirectorState newState = CurrentState;
 
         switch(CurrentState)
         {
             case DirectorState.Build:
                 if (CurrentIntensity >= PeakThreshold)
-                    _newState = DirectorState.Peak;
+                    newState = DirectorState.Peak;
                 else if (FatigueLevel > 70f)
-                    _newState = DirectorState.Relax;
+                    newState = DirectorState.Relax;
             break;
 
             case DirectorState.Peak:
-                if (_timeInCurrentState >= MaxPeakDuration || CurrentIntensity < (PeakThreshold * 0.8f))
+                if (timeInCurrentState >= MaxPeakDuration || CurrentIntensity < (PeakThreshold * 0.8f))
                 {
-                    _newState = DirectorState.Fade;
-                    _timeSinceLastPeak = 0f;
+                    newState = DirectorState.Fade;
+                    timeSinceLastPeak = 0f;
                 }
             break;
 
             case DirectorState.Fade:
                 if (CurrentIntensity <= RelaxThreshold)
-                    _newState = DirectorState.Relax;
+                    newState = DirectorState.Relax;
             break;
 
             case DirectorState.Relax:
-                if (_timeInCurrentState >= MinRelaxDuration && FatigueLevel < 30f && StressLevel < 30f ||
-                    _timeInCurrentState >= MinRelaxDuration * 2f) 
-                    _newState = DirectorState.Build;
+                if (timeInCurrentState >= MinRelaxDuration && FatigueLevel < 30f && StressLevel < 30f ||
+                    timeInCurrentState >= MinRelaxDuration * 2f) 
+                    newState = DirectorState.Build;
             break;
         }
 
-        if (_newState != CurrentState)
+        if (newState != CurrentState)
         {
-            OnStateChanged(CurrentState, _newState);
-            CurrentState = _newState;
-            _timeInCurrentState = 0f;
+            OnStateChanged(CurrentState, newState);
+            CurrentState = newState;
+            timeInCurrentState = 0f;
         }
     }
 
@@ -174,7 +182,7 @@ public class DirectorManager
     /// <param name="deltaTime">The time, in seconds, since the last update. Must be non-negative.</param>
     internal void ApplyIntensityDecay(float deltaTime)
     {
-        var _decayRate = CurrentState switch
+        var decayRate = CurrentState switch
         {
             DirectorState.Peak => IntensityDecayRate * 0.3f,
             DirectorState.Fade => IntensityDecayRate * 2f,
@@ -182,7 +190,7 @@ public class DirectorManager
             _ => IntensityDecayRate
         };
 
-        CurrentIntensity = Mathf.Max(0f, (CurrentIntensity - _decayRate * deltaTime));
+        CurrentIntensity = Mathf.Max(0f, (CurrentIntensity - decayRate * deltaTime));
     }
 
     /// <summary>
@@ -203,13 +211,13 @@ public class DirectorManager
     /// This helps maintain a recent history of intensity changes for further analysis or processing.</remarks>
     internal void RecordIntensityEvent()
     {
-        if (_intensityHistory.Count > 0)
+        if (intensityHistory.Count > 0)
         {
-            var lastEvent = _intensityHistory.ToArray()[_intensityHistory.Count - 1];
+            var lastEvent = intensityHistory.ToArray().Last();
             if (Time.GameTime - lastEvent.Time < 1f) return;
         }
 
-        _intensityHistory.Enqueue(new IntensityEvent
+        intensityHistory.Enqueue(new IntensityEvent
         {
             Time = Time.GameTime,
             Intensity = CurrentIntensity,
@@ -217,7 +225,7 @@ public class DirectorManager
             Reason = $"State: {CurrentState}"
         });
 
-        if (_intensityHistory.Count > 50) _intensityHistory.Dequeue();
+        if (intensityHistory.Count > 50) intensityHistory.Dequeue();
     }
 
     /// <summary>
@@ -229,8 +237,8 @@ public class DirectorManager
     public float DifficultyMultiplier => CurrentState switch
     {
         DirectorState.Build => Mathf.Lerp(0.8f, 1.0f, CurrentIntensity / PeakThreshold),
-        DirectorState.Peak => Mathf.Lerp(1.0f, 1.3f, _timeInCurrentState / MaxPeakDuration),
-        DirectorState.Fade => Mathf.Lerp(1.0f, 0.7f, _timeInCurrentState / 10f),
+        DirectorState.Peak => Mathf.Lerp(1.0f, 1.3f, timeInCurrentState / MaxPeakDuration),
+        DirectorState.Fade => Mathf.Lerp(1.0f, 0.7f, timeInCurrentState / 10f),
         DirectorState.Relax => 0.5f,
         _ => 1.0f
     };
@@ -240,9 +248,9 @@ public class DirectorManager
     /// </summary>
     public bool ShouldSpawnEncounter()
     {
-        if (CurrentState == DirectorState.Relax) return false;
-        if (CurrentState == DirectorState.Peak && _timeInCurrentState < 5f) return false; // Don't overdo it
-        if (FatigueLevel > 85f) return false; // Player too tired
+        if (CurrentState == DirectorState.Relax ||
+            CurrentState == DirectorState.Peak && timeInCurrentState < 5f || 
+            FatigueLevel > 85f) return false;
 
         // Probability based on intensity and time since last peak
         float probability = CurrentState switch
@@ -254,9 +262,9 @@ public class DirectorManager
         };
 
         // Increases probability if it has been a long time since the last peak
-        if (_timeSinceLastPeak > 60f) probability *= 1.5f;
+        if (timeSinceLastPeak > 60f) probability *= 1.5f;
 
-        return RandomUtil.Random.NextFloat(0f,1f) < probability;
+        return RandomUtil.Random.NextFloat(0f, 1f) < probability;
     }
 
     /// <summary>
@@ -265,7 +273,7 @@ public class DirectorManager
     public string DebugInfo =>
        $"State: {CurrentState} | Intensity: {CurrentIntensity:F1} | " +
        $"Stress: {StressLevel:F1} | Fatigue: {FatigueLevel:F1} | " +
-       $"Engagement: {EngagementLevel:F1} | Time in State: {_timeInCurrentState:F1}s";
+       $"Engagement: {EngagementLevel:F1} | Time in State: {timeInCurrentState:F1}s";
 
     /// <summary>
     /// Calculates the average intensity of events that occurred within the specified number of seconds before the current game time.
@@ -275,12 +283,12 @@ public class DirectorManager
     /// <returns>The average intensity of events within the specified time window. Returns 0 if there are no recorded events, or the current intensity if no events occurred within the time window.</returns>
     public float AverageIntensity(float seconds = 30f)
     {
-        if (_intensityHistory.Count == 0) return 0f;
+        if (intensityHistory.Count == 0) return 0f;
 
         var _cutOffTime = Time.GameTime - seconds;
         var _recentEvents = new List<IntensityEvent>();
 
-        _intensityHistory.ForEach( evt =>
+        intensityHistory.ForEach( evt =>
         {
             if (evt.Time >= _cutOffTime) _recentEvents.Add(evt);
         });
@@ -312,9 +320,9 @@ public class DirectorManager
         FatigueLevel = FatigueLevel,
         EngagementLevel = EngagementLevel,
         CurrentState = CurrentState,
-        TimeInCurrentState = _timeInCurrentState,
+        TimeInCurrentState = timeInCurrentState,
         IsInFlowState = IsInFlowState,
-        EventCount = _intensityHistory.Count
+        EventCount = intensityHistory.Count
     };
 }
 
