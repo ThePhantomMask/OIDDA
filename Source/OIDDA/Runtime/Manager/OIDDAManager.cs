@@ -34,7 +34,7 @@ public class OIDDAManager : Script
     public float AdjustmentCooldown = 10f;
 
     [Range(0, 1), EditorDisplay("Director"), Tooltip("Influence of pacing on difficulty adjustments (0-1)")]
-    public float PacingInfluence = 0.7f;
+    public float DirectorInfluence = 0.7f;
 
     public DirectorManager Director = new();
 
@@ -129,7 +129,7 @@ public class OIDDAManager : Script
     float ApplyPacingInfluence(float baseScore)
     {
         var _pacingMultiplier = Director.DifficultyMultiplier;
-        var _adjustedScore = Mathf.Lerp(baseScore, baseScore * _pacingMultiplier, PacingInfluence);
+        var _adjustedScore = Mathf.Lerp(baseScore, baseScore * _pacingMultiplier, DirectorInfluence);
 
         if (DebugMode)
         {
