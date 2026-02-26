@@ -33,7 +33,7 @@ public class OIDDAManager : Script
     [EditorDisplay("Smoothing"), Tooltip("Cooldown between adjustments (seconds)")]
     public float AdjustmentCooldown = 10f;
 
-    [Range(0, 1), Tooltip("Influence of pacing on difficulty adjustments (0-1)")]
+    [Range(0, 1), EditorDisplay("Director"), Tooltip("Influence of pacing on difficulty adjustments (0-1)")]
     public float PacingInfluence = 0.7f;
 
     public DirectorManager Director = new();
@@ -144,13 +144,13 @@ public class OIDDAManager : Script
     {
         var baseCooldown = score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.0f : AdjustmentCooldown;
 
-        // Change cooldown based on pacing status
+        // Change cooldown based on director status
         if (_isUseDirector)
         {
             baseCooldown *= Director.CurrentState switch
             {
-                DirectorState.Peak => 0.7f,    // Più veloce durante picchi
-                DirectorState.Relax => 2.0f,   // Più lento durante riposo
+                DirectorState.Peak => 0.7f,    // Faster during peaks
+                DirectorState.Relax => 2.0f,   // Slower during rest
                 _ => 1.0f
             };
         }
@@ -259,10 +259,7 @@ public class OIDDAManager : Script
         if (!_isUseDirector) return;
         Director.AddIntensity(amount, reason);
 
-        if (DebugMode)
-        {
-            Debug.Log($"[Director] Intensity added: + {amount} ({reason})");
-        }
+        if (DebugMode) Debug.Log($"[Director] Intensity added: + {amount} ({reason})");
     }
 
     public bool IsShouldSpawnEncounter => _isUseDirector ? Director.ShouldSpawnEncounter() : true;
