@@ -70,7 +70,7 @@ public class DirectorManager
     /// Can be null or empty.</param>
     public void AddIntensity(float amount, string reason = "")
     {
-        var _oldIntensity = CurrentIntensity;
+        var oldIntensity = CurrentIntensity;
         CurrentIntensity = Mathf.Clamp(CurrentIntensity + amount, 0f, 100f);
 
         intensityHistory.Enqueue(
