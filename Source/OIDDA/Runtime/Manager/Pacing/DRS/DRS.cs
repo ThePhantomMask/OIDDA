@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using FlaxEngine;
+using OIDDA.Data;
 
 namespace OIDDA;
 
@@ -29,7 +30,7 @@ public class DRS : DRSAgent
     public override void AddPacingIntensity(float amount, string reason = "")
     {
         if (!OIDDAUtils.OIDDAManager) return;
-        OIDDAUtils.OIDDAManager.AddPacingIntensity(amount, reason);
+        OIDDAUtils.OIDDAManager.AddDirectorIntensity(amount, reason);
     }
 
     /// <summary>
@@ -40,7 +41,7 @@ public class DRS : DRSAgent
     /// <summary>
     /// Gets the current pacing state of the director.
     /// </summary>
-    public DirectorManager.PacingState PacingState => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.DirectorState : DirectorManager.PacingState.Build;
+    public DirectorState PacingState => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.DirectorState : DirectorManager.PacingState.Build;
     /// <summary>
     /// Gets the current stress level of the player as determined by the Pacing Director.
     /// </summary>

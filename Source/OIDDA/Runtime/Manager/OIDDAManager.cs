@@ -254,14 +254,14 @@ public class OIDDAManager : Script
 
     #region Director Agent Management
 
-    public void AddPacingIntensity(float amount, string reason = "")
+    public void AddDirectorIntensity(float amount, string reason = "")
     {
         if (!_isUseDirector) return;
         Director.AddIntensity(amount, reason);
 
         if (DebugMode)
         {
-            Debug.Log($"[Pacing] Intensity added: + {amount} ({reason})");
+            Debug.Log($"[Director] Intensity added: + {amount} ({reason})");
         }
     }
 
