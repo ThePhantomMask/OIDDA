@@ -355,7 +355,6 @@ public class OIDDAManager : Script
     public T QuickReceiver<T>(string name) => GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
     #endregion
 
-
     public override void OnUpdate()
     {
         OIDDAUpdate();
