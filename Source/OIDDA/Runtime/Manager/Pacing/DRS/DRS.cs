@@ -40,7 +40,7 @@ public class DRS : DRSAgent
     /// <summary>
     /// Gets the current pacing state of the director.
     /// </summary>
-    public PacingDirector.PacingState PacingState => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.DirectorState : PacingDirector.PacingState.Build;
+    public DirectorManager.PacingState PacingState => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.DirectorState : DirectorManager.PacingState.Build;
     /// <summary>
     /// Gets the current stress level of the player as determined by the Pacing Director.
     /// </summary>

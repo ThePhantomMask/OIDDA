@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using FlaxEngine;
+using OIDDA.Data;
 using FlaxEngine.Utilities;
 
 namespace OIDDA;
@@ -8,28 +9,8 @@ namespace OIDDA;
 /// <summary>
 /// Psychological pacing system inspired by L4D's AI Director
 /// </summary>
-public class PacingDirector
+public class DirectorManager
 {
-    public enum PacingState
-    {
-        /// <summary>
-        /// Tension build-up
-        /// </summary>
-        Build,
-        /// <summary>
-        /// Peak intensity
-        /// </summary>
-        Peak,
-        /// <summary>
-        /// Tension decrease
-        /// </summary>
-        Fade,
-        /// <summary>
-        /// Recovery/rest
-        /// </summary>
-        Relax
-    }
-
     // Configuration
     public float IntensityDecayRate = 0.5f;
     public float IntensityBuildRate = 1.0f;
@@ -39,7 +20,7 @@ public class PacingDirector
     public float MaxPeakDuration = 30f;
 
     // Current state
-    public PacingState CurrentState {  get; private set; }
+    public DirectorState CurrentState {  get; private set; }
     public float CurrentIntensity {  get; private set; }
     public float StateTimer { get; private set; }
 
@@ -52,9 +33,9 @@ public class PacingDirector
     public float FatigueLevel { get; private set; }
     public float EngagementLevel { get; private set; }
 
-    public PacingDirector()
+    public DirectorManager()
     {
-        CurrentState = PacingState.Build;
+        CurrentState = DirectorState.Build;
         CurrentIntensity = 0f;
     }
 
@@ -118,16 +99,16 @@ public class PacingDirector
 
         var _stressChange = CurrentState switch
         {
-            PacingState.Build => deltaTime * 2f,
-            PacingState.Peak => deltaTime * 5f,
-            PacingState.Fade => -deltaTime * 1f,
-            PacingState.Relax => -deltaTime * 3f,
+            DirectorState.Build => deltaTime * 2f,
+            DirectorState.Peak => deltaTime * 5f,
+            DirectorState.Fade => -deltaTime * 1f,
+            DirectorState.Relax => -deltaTime * 3f,
             _ => 0f
         };
 
         StressLevel = Mathf.Clamp((StressLevel + _stressChange), 0f, 100f);
 
-        var _fatigueChange = (CurrentState == PacingState.Relax) ? - deltaTime * 2f : deltaTime * 0.5f;
+        var _fatigueChange = (CurrentState == DirectorState.Relax) ? - deltaTime * 2f : deltaTime * 0.5f;
         FatigueLevel = Mathf.Clamp((FatigueLevel + _fatigueChange), 0f, 100f);
 
         EngagementLevel = (CurrentIntensity, StressLevel) switch
@@ -146,34 +127,34 @@ public class PacingDirector
     /// <param name="deltaTime">The time, in seconds, since the last update. Used to advance the pacing state logic.</param>
     internal void UpdatePacingState(float deltaTime)
     {
-        PacingState _newState = CurrentState;
+        DirectorState _newState = CurrentState;
 
         switch(CurrentState)
         {
-            case PacingState.Build:
+            case DirectorState.Build:
                 if (CurrentIntensity >= PeakThreshold)
-                    _newState = PacingState.Peak;
+                    _newState = DirectorState.Peak;
                 else if (FatigueLevel > 70f)
-                    _newState = PacingState.Relax;
+                    _newState = DirectorState.Relax;
             break;
 
-            case PacingState.Peak:
+            case DirectorState.Peak:
                 if (_timeInCurrentState >= MaxPeakDuration || CurrentIntensity < (PeakThreshold * 0.8f))
                 {
-                    _newState = PacingState.Fade;
+                    _newState = DirectorState.Fade;
                     _timeSinceLastPeak = 0f;
                 }
             break;
 
-            case PacingState.Fade:
+            case DirectorState.Fade:
                 if (CurrentIntensity <= RelaxThreshold)
-                    _newState = PacingState.Relax;
+                    _newState = DirectorState.Relax;
             break;
 
-            case PacingState.Relax:
+            case DirectorState.Relax:
                 if (_timeInCurrentState >= MinRelaxDuration && FatigueLevel < 30f && StressLevel < 30f ||
                     _timeInCurrentState >= MinRelaxDuration * 2f) 
-                    _newState = PacingState.Build;
+                    _newState = DirectorState.Build;
             break;
         }
 
@@ -195,9 +176,9 @@ public class PacingDirector
     {
         var _decayRate = CurrentState switch
         {
-            PacingState.Peak => IntensityDecayRate * 0.3f,
-            PacingState.Fade => IntensityDecayRate * 2f,
-            PacingState.Relax => IntensityDecayRate * 1.5f,
+            DirectorState.Peak => IntensityDecayRate * 0.3f,
+            DirectorState.Fade => IntensityDecayRate * 2f,
+            DirectorState.Relax => IntensityDecayRate * 1.5f,
             _ => IntensityDecayRate
         };
 
@@ -209,7 +190,7 @@ public class PacingDirector
     /// </summary>
     /// <param name="oldState">The previous pacing state before the transition occurred.</param>
     /// <param name="newState">The new pacing state after the transition.</param>
-    void OnStateChanged(PacingState oldState, PacingState newState)
+    void OnStateChanged(DirectorState oldState, DirectorState newState)
     {
         Debug.Log($"[Pacing] State: {oldState} -> {newState} (Intensity: {CurrentIntensity:F1}, Stress: {StressLevel:F1})");
     }
@@ -247,10 +228,10 @@ public class PacingDirector
     /// relaxed states up to 1.3 at peak intensity.</remarks>
     public float DifficultyMultiplier => CurrentState switch
     {
-        PacingState.Build => Mathf.Lerp(0.8f, 1.0f, CurrentIntensity / PeakThreshold),
-        PacingState.Peak => Mathf.Lerp(1.0f, 1.3f, _timeInCurrentState / MaxPeakDuration),
-        PacingState.Fade => Mathf.Lerp(1.0f, 0.7f, _timeInCurrentState / 10f),
-        PacingState.Relax => 0.5f,
+        DirectorState.Build => Mathf.Lerp(0.8f, 1.0f, CurrentIntensity / PeakThreshold),
+        DirectorState.Peak => Mathf.Lerp(1.0f, 1.3f, _timeInCurrentState / MaxPeakDuration),
+        DirectorState.Fade => Mathf.Lerp(1.0f, 0.7f, _timeInCurrentState / 10f),
+        DirectorState.Relax => 0.5f,
         _ => 1.0f
     };
 
@@ -259,16 +240,16 @@ public class PacingDirector
     /// </summary>
     public bool ShouldSpawnEncounter()
     {
-        if (CurrentState == PacingState.Relax) return false;
-        if (CurrentState == PacingState.Peak && _timeInCurrentState < 5f) return false; // Don't overdo it
+        if (CurrentState == DirectorState.Relax) return false;
+        if (CurrentState == DirectorState.Peak && _timeInCurrentState < 5f) return false; // Don't overdo it
         if (FatigueLevel > 85f) return false; // Player too tired
 
         // Probability based on intensity and time since last peak
         float probability = CurrentState switch
         {
-            PacingState.Build => Mathf.Saturate(CurrentIntensity / 100f),
-            PacingState.Peak => 0.3f,
-            PacingState.Fade => 0.1f,
+            DirectorState.Build => Mathf.Saturate(CurrentIntensity / 100f),
+            DirectorState.Peak => 0.3f,
+            DirectorState.Fade => 0.1f,
             _ => 0f
         };
 
@@ -358,7 +339,7 @@ public struct PacingStatistics
     public float StressLevel;
     public float FatigueLevel;
     public float EngagementLevel;
-    public PacingDirector.PacingState CurrentState;
+    public DirectorState CurrentState;
     public float TimeInCurrentState;
     public float TimeSinceLastPeak;
     public bool IsInFlowState;

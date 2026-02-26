@@ -28,19 +28,15 @@ public class OIDDAManager : Script
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Tooltip("Enable debug logging")]
     public bool DebugMode = false;
 
+    bool _isUseSmoothing, _isUseDirector;
+
     [EditorDisplay("Smoothing"), Tooltip("Cooldown between adjustments (seconds)")]
     public float AdjustmentCooldown = 10f;
-
-
-    bool _isUseSmoothing;
-    
-    [EditorDisplay("Pacing Director"), Tooltip("Enable psychological pacing system")]
-    public bool EnablePacing = true;
 
     [Range(0, 1), Tooltip("Influence of pacing on difficulty adjustments (0-1)")]
     public float PacingInfluence = 0.7f;
 
-    public PacingDirector Director = new();
+    public DirectorManager Director = new();
 
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
@@ -79,6 +75,7 @@ public class OIDDAManager : Script
         _isUseSmoothing = settings.UseDDASmoothing;
         _updateInterval = settings.UpdateInterval;
         _delay = settings.Delay;
+        _isUseDirector = settings.UseDirector;
     }
 
     void OIDDAReset()
@@ -99,7 +96,7 @@ public class OIDDAManager : Script
 
         _score = (DebugMode) ? _analyze.OverallScore : MetricsAggregator.CalculateOverallScore(_currentConfig.Metrics, GameplayValues.Values);
 
-        if (EnablePacing) _score = ApplyPacingInfluence(_score);
+        if (_isUseDirector) _score = ApplyPacingInfluence(_score);
 
         if (_timeSinceLastAdjustment < dynamicCooldown(_score)) return; 
 
@@ -136,7 +133,7 @@ public class OIDDAManager : Script
 
         if (DebugMode)
         {
-            Debug.Log($"[Pacing] Base Score: {baseScore:F2} -> Adjusted: {_adjustedScore:F2} " +
+            Debug.Log($"[Director] Base Score: {baseScore:F2} -> Adjusted: {_adjustedScore:F2} " +
                      $"(Multiplier: {_pacingMultiplier:F2}, State: {Director.CurrentState})");
         }
 
@@ -148,12 +145,12 @@ public class OIDDAManager : Script
         var baseCooldown = score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.0f : AdjustmentCooldown;
 
         // Change cooldown based on pacing status
-        if (EnablePacing)
+        if (_isUseDirector)
         {
             baseCooldown *= Director.CurrentState switch
             {
-                PacingDirector.PacingState.Peak => 0.7f,    // Più veloce durante picchi
-                PacingDirector.PacingState.Relax => 2.0f,   // Più lento durante riposo
+                DirectorState.Peak => 0.7f,    // Più veloce durante picchi
+                DirectorState.Relax => 2.0f,   // Più lento durante riposo
                 _ => 1.0f
             };
         }
@@ -229,7 +226,7 @@ public class OIDDAManager : Script
             problematic.ForEach(metric => Debug.LogWarning($"{metric.MetricName}: {metric.NormalizedScore:F3}"));
         }
 
-        if (EnablePacing)
+        if (_isUseDirector)
         {
             Debug.Log($"[Pacing] {Director.DebugInfo}");
         }
@@ -238,7 +235,7 @@ public class OIDDAManager : Script
     void OIDDAUpdate()
     {
         if (_isUseSmoothing) _smoothingManager.SmoothUpdate(Time.DeltaTime);
-        if (EnablePacing) Director.OnPacingDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
+        if (_isUseDirector) Director.OnPacingDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
         _timeSinceLastUpdate += Time.DeltaTime;
         _timeSinceLastAdjustment += Time.DeltaTime;
 
@@ -255,11 +252,11 @@ public class OIDDAManager : Script
         }
     }
 
-    #region Pacing Director Agent Management
+    #region Director Agent Management
 
     public void AddPacingIntensity(float amount, string reason = "")
     {
-        if (!EnablePacing) return;
+        if (!_isUseDirector) return;
         Director.AddIntensity(amount, reason);
 
         if (DebugMode)
@@ -268,8 +265,8 @@ public class OIDDAManager : Script
         }
     }
 
-    public bool IsShouldSpawnEncounter => EnablePacing ? Director.ShouldSpawnEncounter() : true;
-    public PacingDirector.PacingState DirectorState => Director.CurrentState;
+    public bool IsShouldSpawnEncounter => _isUseDirector ? Director.ShouldSpawnEncounter() : true;
+    public DirectorState DirectorState => Director.CurrentState;
     public float PlayerStress => Director.StressLevel;
     public float PlayerFatigue => Director.FatigueLevel;
 

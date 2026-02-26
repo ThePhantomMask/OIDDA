@@ -118,3 +118,19 @@ public enum ORSStatus
 }
 
 #endregion
+
+#region Director enums
+
+public enum DirectorState
+{
+    /// <summary> Tension build-up </summary>
+    Build,
+    /// <summary> Peak intensity </summary>
+    Peak,
+    /// <summary> Tension decrease </summary>
+    Fade,
+    /// <summary> Recovery/rest </summary>
+    Relax
+}
+
+#endregion

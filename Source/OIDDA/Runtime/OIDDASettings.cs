@@ -31,6 +31,11 @@ public class OIDDASettings : SettingsBase
     [EditorOrder(0), EditorDisplay("DDA Config"), Tooltip("Metrics update interval (seconds)")]
     public float UpdateInterval = 1.0f;
     /// <summary>
+    /// Gets or sets a value indicating whether Director pacing is enabled.
+    /// </summary>
+    [EditorOrder(1), EditorDisplay("Director Config")]
+    public bool UseDirector = true;
+    /// <summary>
     /// Folder name
     /// </summary>
     public string FolderName = "OIDDA";
