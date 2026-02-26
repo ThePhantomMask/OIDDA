@@ -163,7 +163,6 @@ public class DirectorManager
         if (newState != CurrentState)
         {
             OnStateChanged(CurrentState, newState);
-            CurrentState = newState;
             timeInCurrentState = 0f;
         }
     }
@@ -194,7 +193,8 @@ public class DirectorManager
     /// <param name="newState">The new pacing state after the transition.</param>
     void OnStateChanged(DirectorState oldState, DirectorState newState)
     {
-        Debug.Log($"[Pacing] State: {oldState} -> {newState} (Intensity: {CurrentIntensity:F1}, Stress: {StressLevel:F1})");
+        Debug.Log($"[Director] State: {oldState} -> {newState} (Intensity: {CurrentIntensity:F1}, Stress: {StressLevel:F1})");
+        oldState = newState;
     }
 
     /// <summary>
