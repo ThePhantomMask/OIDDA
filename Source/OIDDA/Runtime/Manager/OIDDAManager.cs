@@ -37,7 +37,7 @@ public class OIDDAManager : Script
 
     public DirectorManager Director = new();
 
-    bool isUseSmoothing, _isUseDirector;
+    bool isUseSmoothing, isUseDirector;
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
     GameplayGlobals GameplayValues;
@@ -71,7 +71,7 @@ public class OIDDAManager : Script
         isUseSmoothing = settings.UseDDASmoothing;
         updateInterval = settings.UpdateInterval;
         delay = settings.Delay;
-        _isUseDirector = settings.UseDirector;
+        isUseDirector = settings.UseDirector;
     }
 
     void OIDDAReset()
@@ -92,7 +92,7 @@ public class OIDDAManager : Script
 
         score = (DebugMode) ? analyze.OverallScore : MetricsAggregator.CalculateOverallScore(currentConfig.Metrics, GameplayValues.Values);
 
-        if (_isUseDirector) score = ApplyPacingInfluence(score);
+        if (isUseDirector) score = ApplyDirectorInfluence(score);
         if (timeSinceLastAdjustment < dynamicCooldown(score)) return; 
 
         int rulesApplied = ApplyRules(GameplayValues.Values, score);
@@ -119,7 +119,7 @@ public class OIDDAManager : Script
     /// dynamic game pacing and may change as pacing parameters are updated.</remarks>
     /// <param name="baseScore">The original score to be modified based on pacing and difficulty. Must be a finite, non-negative value.</param>
     /// <returns>A floating-point value representing the base score adjusted for pacing and difficulty. The result may be higher or lower than the input depending on the current pacing state.</returns>
-    float ApplyPacingInfluence(float baseScore)
+    float ApplyDirectorInfluence(float baseScore)
     {
         var _pacingMultiplier = Director.DifficultyMultiplier;
         var _adjustedScore = Mathf.Lerp(baseScore, baseScore * _pacingMultiplier, DirectorInfluence);
@@ -138,7 +138,7 @@ public class OIDDAManager : Script
         var baseCooldown = score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.0f : AdjustmentCooldown;
 
         // Change cooldown based on director status
-        if (_isUseDirector)
+        if (isUseDirector)
         {
             baseCooldown *= Director.CurrentState switch
             {
@@ -219,7 +219,7 @@ public class OIDDAManager : Script
             problematic.ForEach(metric => Debug.LogWarning($"{metric.MetricName}: {metric.NormalizedScore:F3}"));
         }
 
-        if (_isUseDirector)
+        if (isUseDirector)
         {
             Debug.Log($"[Director] {Director.DebugInfo}");
         }
@@ -228,7 +228,7 @@ public class OIDDAManager : Script
     void OIDDAUpdate()
     {
         if (isUseSmoothing) smoothingManager.SmoothUpdate(Time.DeltaTime);
-        if (_isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
+        if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
         timeSinceLastUpdate += Time.DeltaTime;
         timeSinceLastAdjustment += Time.DeltaTime;
 
@@ -249,13 +249,13 @@ public class OIDDAManager : Script
 
     public void AddDirectorIntensity(float amount, string reason = "")
     {
-        if (!_isUseDirector) return;
+        if (!isUseDirector) return;
         Director.AddIntensity(amount, reason);
 
         if (DebugMode) Debug.Log($"[Director] Intensity added: + {amount} ({reason})");
     }
 
-    public bool IsShouldSpawnEncounter => _isUseDirector ? Director.ShouldSpawnEncounter() : true;
+    public bool IsShouldSpawnEncounter => isUseDirector ? Director.ShouldSpawnEncounter() : true;
     public DirectorState DirectorState => Director.CurrentState;
     public float PlayerStress => Director.StressLevel;
     public float PlayerFatigue => Director.FatigueLevel;
