@@ -39,7 +39,8 @@ public class SmoothingManager
 
             var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(smoothValue.Variable));
             var newValue = GameplayValueOperations.Lerp(currentValue, smoothValue.TargetValue, smoothValue.SmoothSpeed * deltaTime);
-            
+            newValue = GameplayValueOperations.ClampDelta(currentValue, newValue, smoothValue.MaxDeltaPerSecond * deltaTime);
+
             ORS.Instance.QuickSender(smoothValue.Variable, newValue.Value);
 
             if (GameplayValueOperations.IsNearTarget(newValue, smoothValue.TargetValue))
@@ -61,4 +62,5 @@ class SmoothValue
     public string Variable;
     public GameplayValue TargetValue;
     public float SmoothSpeed;
+    public float MaxDeltaPerSecond = float.MaxValue;
 }
