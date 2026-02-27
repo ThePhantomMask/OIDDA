@@ -129,7 +129,7 @@ public class DirectorManager
                     };
                     EngagementLevel = (value.Action is DirectorAction.Increase) ? (resultScore > 0f ? EngagementLevel / resultScore : EngagementLevel) 
                         : EngagementLevel * resultScore;
-                    EngagementLevel = Mathf.Clamp(EngagementLevel, 60f, 100f);
+                    EngagementLevel = Mathf.Clamp(EngagementLevel, 0f, 100f);
                 break;
             }
         }
