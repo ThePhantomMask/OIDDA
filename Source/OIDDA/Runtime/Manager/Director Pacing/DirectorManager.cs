@@ -47,7 +47,7 @@ public class DirectorManager
     /// <param name="deltaTime">The amount of time, in seconds, that has elapsed since the last update. Must be non-negative.</param>
     /// <param name="GameplayValues">A dictionary containing current gameplay values that influence pacing and psychological metrics. Keys represent value names;
     /// values provide the corresponding data.</param>
-    public void OnDirectorUpdate(float deltaTime , Dictionary<string, object> GameplayValues)
+    public void OnDirectorUpdate(float deltaTime , Dictionary<string, DirectorValue> GameplayValues)
     {
         timeInCurrentState += deltaTime;
         timeSinceLastPeak += deltaTime;
@@ -95,30 +95,41 @@ public class DirectorManager
     /// <param name="deltaTime">The amount of time, in seconds, since the last update. Must be a non-negative value.</param>
     /// <param name="values">A dictionary containing contextual values that may influence the update of psychological metrics. The expected
     /// keys and value types depend on the implementation context.</param>
-    internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
+    internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, DirectorValue> values)
     {
         if (values == null || values.Count is 0) return;
 
-        var stressChange = CurrentState switch
+        foreach (var value in values.Values)
         {
-            DirectorState.Build => deltaTime * 2f,
-            DirectorState.Peak => deltaTime * 5f,
-            DirectorState.Fade => -deltaTime * 1f,
-            DirectorState.Relax => -deltaTime * 3f,
-            _ => 0f
-        };
+            var resultScore = DirectorUtils.CalculateScoreByDirectorValue(value);
 
-        StressLevel = Mathf.Clamp((StressLevel + stressChange), 0f, 100f);
-
-        var fatigueChange = (CurrentState == DirectorState.Relax) ? - deltaTime * 2f : deltaTime * 0.5f;
-        FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
-
-        EngagementLevel = (CurrentIntensity, StressLevel) switch
-        {
-            ( > 70f, _) and (_, < 80f) => Mathf.Lerp(EngagementLevel, 100f, deltaTime * 2f),
-            ( < 20f, _) or (_, > 90f) => Mathf.Lerp(EngagementLevel, 30f, deltaTime),
-            _ => Mathf.Lerp(EngagementLevel, 60f, deltaTime)
-        };
+            switch (value.Category)
+            {
+                case DirectorCategory.Stress:
+                  var stressChange = CurrentState switch
+                  {
+                        DirectorState.Build => deltaTime * 2f,
+                        DirectorState.Peak => deltaTime * 5f,
+                        DirectorState.Fade => -deltaTime * 1f,
+                        DirectorState.Relax => -deltaTime * 3f,
+                        _ => 0f
+                  };
+                  StressLevel = Mathf.Clamp((StressLevel + (stressChange * resultScore)), 0f, 100f);
+                break;
+                case DirectorCategory.Fatigue:
+                    var fatigueChange = (CurrentState == DirectorState.Relax) ? -(resultScore * deltaTime) * 2f : (resultScore * deltaTime) * 0.5f;
+                    FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
+                break;
+                case DirectorCategory.Engagement:
+                    EngagementLevel = (CurrentIntensity, StressLevel) switch
+                    {
+                        ( > 70f, _) and (_, < 80f) => Mathf.Lerp(EngagementLevel * resultScore, 100f, deltaTime * 2f),
+                        ( < 20f, _) or (_, > 90f) => Mathf.Lerp(EngagementLevel * resultScore, 30f, deltaTime),
+                        _ => Mathf.Lerp(EngagementLevel * resultScore, 60f, deltaTime)
+                    };
+                break;
+            }
+        }
     }
 
     /// <summary>

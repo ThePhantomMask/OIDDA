@@ -58,9 +58,8 @@ public class DDAMetrics
         };
     }
 
-    protected float ConvertToFloat(object value)
-    {
-        return value switch
+    protected float ConvertToFloat(object value) =>
+        value switch
         {
             float f => f,
             int i => (float)i,
@@ -74,7 +73,6 @@ public class DDAMetrics
             Matrix m => m.TranslationVector.Length,
             _ => 0f
         };
-    }
 
     MetricState DetermineState(float score) => score switch
     {

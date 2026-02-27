@@ -133,4 +133,18 @@ public enum DirectorState
     Relax
 }
 
+public enum DirectorCategory
+{
+    Stress,
+    Fatigue,
+    Engagement
+}
+
+public enum DirectorAction
+{
+    Increase, 
+    Decrease, 
+    Keep
+}
+
 #endregion
