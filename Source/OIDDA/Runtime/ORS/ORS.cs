@@ -201,6 +201,10 @@ public class ORS : ORSAgent
     /// </summary>
     public DirectorState CurrentState => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.DirectorState : DirectorState.Build;
     /// <summary>
+    /// Gets the current intensity level of the game loop.
+    /// </summary>
+    public float CurrentIntensity => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.Intensity : 0.0f;
+    /// <summary>
     /// Gets the current stress level of the player as determined by the Pacing Director.
     /// </summary>
     public float CurrentStress => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.PlayerStress : 0.0f;
