@@ -13,6 +13,8 @@ namespace OIDDA;
 /// Thread safety and connection state management are the responsibility of the implementing class.</remarks>
 public abstract class ORSAgent
 {
+    #region DDA API methods
+
     public abstract void ConnectORSAgent(string AgentName);
 
     public abstract void ConnectORSAgent(ORSType type);
@@ -40,6 +42,12 @@ public abstract class ORSAgent
     public abstract void SenderValue(object senderValue);
 
     public abstract void QuickSender(string nameValue, object senderValue);
+
+    #endregion
+
+    #region  Director API methods
+    public abstract void AddDirectorIntensity(float amount, string reason = "");
+    #endregion
 }
 
 /// <summary>
@@ -48,10 +56,11 @@ public abstract class ORSAgent
 [Category(name: "OIDDA")]
 public class ORS : ORSAgent
 {
-    string ORSID, ORSName;
-
     public static ORS Instance = new();
 
+    #region DDA API methods
+
+    string ORSID, ORSName;
     public bool IsConnected => !string.IsNullOrEmpty(ORSID) && OIDDAUtils.OIDDAManager.ORSIsConnected(ORSID) || !string.IsNullOrEmpty(ORSName) && OIDDAUtils.OIDDAManager.StaticORSIsConnected(ORSName);
 
     /// <summary>
@@ -166,4 +175,39 @@ public class ORS : ORSAgent
         if (!OIDDAUtils.OIDDAManager) return;
         OIDDAUtils.OIDDAManager.QuickSender(nameValue, senderValue);
     }
+
+    #endregion
+
+    #region  Director API methods
+
+    /// <summary>
+    /// Adds the specified amount of pacing intensity to the pacing director, optionally providing a reason for the adjustment.
+    /// </summary>
+    /// <param name="amount">The amount of pacing intensity to add. Positive values increase pacing intensity.</param>
+    /// <param name="reason">An optional description of the reason for the intensity adjustment. This value may be used for logging or debugging purposes.</param>
+    public override void AddDirectorIntensity(float amount, string reason = "")
+    {
+        if (!OIDDAUtils.OIDDAManager) return;
+        OIDDAUtils.OIDDAManager.AddDirectorIntensity(amount, reason);
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether an encounter should be spawned based on the current pacing settings.
+    /// </summary>
+    /// <remarks>If pacing is enabled, this property reflects the recommendation of the pacing director. If pacing is disabled, it always returns <see langword="true"/>.</remarks>
+    public bool IsShouldSpawnEncounter => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.IsShouldSpawnEncounter : false;
+    /// <summary>
+    /// Gets the current pacing state of the director.
+    /// </summary>
+    public DirectorState CurrentState => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.DirectorState : DirectorState.Build;
+    /// <summary>
+    /// Gets the current stress level of the player as determined by the Pacing Director.
+    /// </summary>
+    public float CurrentStress => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.PlayerStress : 0.0f;
+    /// <summary>
+    /// Gets the current fatigue level of the player.
+    /// </summary>
+    public float CurrentFatigue => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.PlayerFatigue : 0.0f;
+
+    #endregion
 }

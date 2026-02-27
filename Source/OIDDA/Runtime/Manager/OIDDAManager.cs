@@ -28,7 +28,6 @@ public class OIDDAManager : Script
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Tooltip("Enable debug logging")]
     public bool DebugMode = false;
 
-
     [EditorDisplay("Smoothing"), Tooltip("Cooldown between adjustments (seconds)")]
     public float AdjustmentCooldown = 10f;
 
@@ -121,16 +120,16 @@ public class OIDDAManager : Script
     /// <returns>A floating-point value representing the base score adjusted for pacing and difficulty. The result may be higher or lower than the input depending on the current pacing state.</returns>
     float ApplyDirectorInfluence(float baseScore)
     {
-        var _pacingMultiplier = Director.DifficultyMultiplier;
-        var _adjustedScore = Mathf.Lerp(baseScore, baseScore * _pacingMultiplier, DirectorInfluence);
+        var pacingMultiplier = Director.DifficultyMultiplier;
+        var adjustedScore = Mathf.Lerp(baseScore, baseScore * pacingMultiplier, DirectorInfluence);
 
         if (DebugMode)
         {
-            Debug.Log($"[Director] Base Score: {baseScore:F2} -> Adjusted: {_adjustedScore:F2} " +
-                     $"(Multiplier: {_pacingMultiplier:F2}, State: {Director.CurrentState})");
+            Debug.Log($"[Director] Base Score: {baseScore:F2} -> Adjusted: {adjustedScore:F2} " +
+                     $"(Multiplier: {pacingMultiplier:F2}, State: {Director.CurrentState})");
         }
 
-        return _adjustedScore;
+        return adjustedScore;
     }
 
     float dynamicCooldown(float score)
@@ -257,6 +256,7 @@ public class OIDDAManager : Script
 
     public bool IsShouldSpawnEncounter => isUseDirector ? Director.ShouldSpawnEncounter() : true;
     public DirectorState DirectorState => Director.CurrentState;
+    public float Intensity => Director.CurrentIntensity;
     public float PlayerStress => Director.StressLevel;
     public float PlayerFatigue => Director.FatigueLevel;
 
