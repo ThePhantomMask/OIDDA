@@ -136,15 +136,13 @@ public enum DirectorState
 public enum DirectorCategory
 {
     Stress,
-    Fatigue,
-    Engagement
+    Fatigue
 }
 
 public enum DirectorAction
 {
     Increase, 
-    Decrease, 
-    Keep
+    Decrease
 }
 
 #endregion

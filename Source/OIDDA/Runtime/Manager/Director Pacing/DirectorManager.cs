@@ -120,18 +120,13 @@ public class DirectorManager
                     var fatigueChange = (CurrentState == DirectorState.Relax) ? -(resultScore * deltaTime) * 2f : (resultScore * deltaTime) * 0.5f;
                     FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
                 break;
-                case DirectorCategory.Engagement:
-                    EngagementLevel = (CurrentIntensity, StressLevel) switch
-                    {
-                        ( > 70f, _) and (_, < 80f) => Mathf.Lerp(EngagementLevel, 100f, deltaTime * 2f),
-                        ( < 20f, _) or (_, > 90f) => Mathf.Lerp(EngagementLevel, 30f, deltaTime),
-                        _ => Mathf.Lerp(EngagementLevel, 60f, deltaTime)
-                    };
-                    EngagementLevel = (value.Action is DirectorAction.Increase) ? (resultScore > 0f ? EngagementLevel / resultScore : EngagementLevel) 
-                        : EngagementLevel * resultScore;
-                    EngagementLevel = Mathf.Clamp(EngagementLevel, 0f, 100f);
-                break;
             }
+            EngagementLevel = (CurrentIntensity, StressLevel) switch
+            {
+                ( > 70f, _) and (_, < 80f) => Mathf.Lerp(EngagementLevel, 100f, deltaTime * 2f),
+                ( < 20f, _) or (_, > 90f) => Mathf.Lerp(EngagementLevel, 30f, deltaTime),
+                _ => Mathf.Lerp(EngagementLevel, 60f, deltaTime)
+            };
         }
     }
 
