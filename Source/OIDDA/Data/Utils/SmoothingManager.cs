@@ -9,14 +9,15 @@ namespace OIDDA;
 /// </summary>
 public class SmoothingManager
 {
-    Dictionary<string, SmoothValue> _smoothedValues = new();
+    readonly Dictionary<string, SmoothValue> _smoothedValues = new();
+    readonly List<string> toRemove = new();
 
     public void SetTarget(string variable, GameplayValue targetValue, float smoothingSpeed)
     {
-        if (_smoothedValues.ContainsKey(variable))
+        if (_smoothedValues.TryGetValue(variable, out var existing))
         {
-            _smoothedValues[variable].TargetValue = targetValue;
-            _smoothedValues[variable].SmoothSpeed = smoothingSpeed;
+            existing.TargetValue = targetValue;
+            existing.SmoothSpeed = smoothingSpeed;
             return;
         }
 
@@ -31,15 +32,15 @@ public class SmoothingManager
 
     public void SmoothUpdate(float deltaTime)
     {
-        var toRemove = new List<string>();
+        if (_smoothedValues == null || _smoothedValues.Count == 0) return;
 
         foreach(var kvp in _smoothedValues)
         {
             var smoothValue = kvp.Value;
 
             var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(smoothValue.Variable));
-            var newValue = GameplayValueOperations.Lerp(currentValue, smoothValue.TargetValue, smoothValue.SmoothSpeed * deltaTime);
-            newValue = GameplayValueOperations.ClampDelta(currentValue, newValue, smoothValue.MaxDeltaPerSecond * deltaTime);
+            var t = 1f - Mathf.Pow(1f - smoothValue.SmoothSpeed, deltaTime);
+            var newValue = GameplayValueOperations.Lerp(currentValue, smoothValue.TargetValue, t);
 
             ORS.Instance.QuickSender(smoothValue.Variable, newValue.Value);
 
@@ -48,6 +49,7 @@ public class SmoothingManager
         }
 
         toRemove.ForEach(Key => _smoothedValues.Remove(Key));
+        toRemove.Clear();
     }
 
     public bool HasActiveSmoothings => _smoothedValues.Count > 0;
@@ -62,5 +64,4 @@ class SmoothValue
     public string Variable;
     public GameplayValue TargetValue;
     public float SmoothSpeed;
-    public float MaxDeltaPerSecond = float.MaxValue;
 }
