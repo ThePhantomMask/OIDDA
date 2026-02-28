@@ -1,6 +1,7 @@
-﻿using System;
+﻿using FlaxEngine;
+using System;
 using System.Collections.Generic;
-using FlaxEngine;
+using System.Linq;
 
 namespace OIDDA;
 
@@ -9,5 +10,12 @@ namespace OIDDA;
 /// </summary>
 public class DirectorCondition
 {
+    public List<ConditionClause> Clauses;
+    public bool RequireAll = true;  // true = AND, false = OR
 
+    public bool IsMet(Dictionary<string, object> metrics)
+    {
+        if (Clauses == null || Clauses.Count == 0) return true;
+        return RequireAll ? Clauses.All(c => c.Evaluate(metrics)) : Clauses.Any(c => c.Evaluate(metrics));
+    }
 }
