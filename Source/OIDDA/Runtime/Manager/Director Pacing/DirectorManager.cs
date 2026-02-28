@@ -113,14 +113,13 @@ public class DirectorManager
                         DirectorState.Fade => -deltaTime * 1f,
                         DirectorState.Relax => -deltaTime * 3f,
                         _ => 0f
-                  };
+                  } + resultScore;
                   Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Stress Level");
-                  StressLevel = Mathf.Clamp((StressLevel + (stressChange * resultScore)), 0f, 100f);
+                  StressLevel = Mathf.Clamp((StressLevel + stressChange), 0f, 100f);
                 break;
                 case DirectorCategory.Fatigue:
                     Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Fatigue Level");
-                    var fatigueChange = (CurrentState == DirectorState.Relax) ? -deltaTime * 2f : deltaTime * 0.5f;
-                    fatigueChange = resultScore > 0 ? resultScore * fatigueChange : resultScore / fatigueChange;
+                    var fatigueChange = ((CurrentState == DirectorState.Relax) ? -deltaTime * 2f : deltaTime * 0.5f) + resultScore;
                     FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
                 break;
             }
