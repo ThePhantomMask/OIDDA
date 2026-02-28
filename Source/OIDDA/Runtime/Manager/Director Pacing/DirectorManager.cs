@@ -20,6 +20,7 @@ public class DirectorManager
     public float RelaxThreshold = 20f;
     public float MinRelaxDuration = 10f;
     public float MaxPeakDuration = 30f;
+    [HideInEditor] public List<DirectorMetrics> DirectorMetrics;
 
     // Current state
     public DirectorState CurrentState {  get; private set; }

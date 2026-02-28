@@ -1,10 +1,11 @@
 ﻿using FlaxEngine;
+using OIDDA.Data;
 using System;
 
 namespace OIDDA;
 
 /// <summary>
-/// DirectorMetrics class.
+/// Director Metrics
 /// </summary>
 public class DirectorMetrics
 {
@@ -16,7 +17,7 @@ public class DirectorMetrics
     {
         try
         {
-            return ConvertToFloat(currentValue);
+            return Normalize(ConvertToFloat(currentValue), ThresholdMin, ThresholdMax);
         }
         catch(NullReferenceException e)
         {
@@ -25,7 +26,14 @@ public class DirectorMetrics
         }
     }
 
+    protected float Normalize(float value, float ThresholdMin, float ThresholdMax) =>
+         ((ThresholdMax - ThresholdMin) <= 0) ? value > ThresholdMin ? 1f : 0f :
+        InverseLogic ? 1f - Mathf.Saturate((value - ThresholdMin) / (ThresholdMax - ThresholdMin)) :
+        Mathf.Saturate((value - ThresholdMin) / (ThresholdMax - ThresholdMin));
+
     public float CalculateWeightedScore(object currentValue, float ThresholdMin, float ThresholdMax) => CalculateScore(currentValue, ThresholdMin, ThresholdMax) * Weight;
+
+    public bool IsOutOfBounds(object currentValue, float ThresholdMin, float ThresholdMax) => currentValue is null ? false : InverseLogic ? ConvertToFloat(currentValue) < ThresholdMin : ConvertToFloat(currentValue) > ThresholdMax;
 
     protected float ConvertToFloat(object value) =>
         value switch
@@ -42,4 +50,12 @@ public class DirectorMetrics
             Matrix m => m.TranslationVector.Length,
             _ => 0f
         };
+
+    MetricState DetermineState(float score) => score switch
+    {
+        > 0.7f => MetricState.Critical,
+        > 0.5f => MetricState.Warning,
+        < 0.5f and > 0.3f => MetricState.Normal,
+        _ => MetricState.Good
+    };
 }
