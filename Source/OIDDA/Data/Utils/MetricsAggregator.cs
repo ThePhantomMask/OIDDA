@@ -18,12 +18,11 @@ public static class MetricsAggregator
 
         foreach(var metric in metrics)
         {
-            if (!currentValues.ContainsKey(metric.MetricName)) continue;
-
-            var CurrentValue = currentValues[metric.MetricName];
-
-            totalWeightedScore += metric.CalculateWeightedScore(CurrentValue);
-            totalWeight += metric.Weight;
+            if (currentValues.TryGetValue(metric.MetricName, out object value))
+            {
+                totalWeightedScore += metric.CalculateWeightedScore(value);
+                totalWeight += metric.Weight;
+            }
         }
 
         if (totalWeight > 0) return Mathf.Clamp(totalWeightedScore / totalWeight, 0f, 2f);

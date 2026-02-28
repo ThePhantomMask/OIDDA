@@ -5,7 +5,7 @@ using System;
 namespace OIDDA;
 
 /// <summary>
-/// OIDDA Metrics
+/// DDA Metrics
 /// </summary>
 [Category(name: "OIDDA Data")]
 public class DDAMetrics
