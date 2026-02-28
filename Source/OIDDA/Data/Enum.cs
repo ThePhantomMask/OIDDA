@@ -132,4 +132,11 @@ public enum DirectorState
     /// <summary> Recovery/rest </summary>
     Relax
 }
+
+public enum DirectoryRuleApplication
+{
+    Stress,
+    Fatigue
+}
+
 #endregion

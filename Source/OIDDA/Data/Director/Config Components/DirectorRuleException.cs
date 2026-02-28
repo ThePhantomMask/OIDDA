@@ -1,6 +1,7 @@
-﻿using System;
+﻿using FlaxEngine;
+using OIDDA.Data;
+using System;
 using System.Collections.Generic;
-using FlaxEngine;
 
 namespace OIDDA;
 
@@ -9,5 +10,14 @@ namespace OIDDA;
 /// </summary>
 public class DirectorRuleException : DirectorRule
 {
+    public string RuleExceptionName;
+    public ExceptionType RuleType;
 
+    public new List<RuleException> RuleExceptions;
+
+    public override void Apply(Dictionary<string, object> metrics)
+    {
+        Debug.Write(LogType.Info, $"Director Exception rule {RuleExceptionName} triggered");
+        base.Apply(metrics);
+    }
 }

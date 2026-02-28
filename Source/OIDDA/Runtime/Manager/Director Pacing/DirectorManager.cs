@@ -20,7 +20,6 @@ public class DirectorManager
     public float RelaxThreshold = 20f;
     public float MinRelaxDuration = 10f;
     public float MaxPeakDuration = 30f;
-    [HideInEditor] public List<DirectorMetrics> DirectorMetrics;
 
     // Current state
     public DirectorState CurrentState {  get; private set; }
@@ -72,7 +71,7 @@ public class DirectorManager
     public void AddIntensity(float amount, string reason = "")
     {
         var oldIntensity = CurrentIntensity;
-        CurrentIntensity = Mathf.Clamp(CurrentIntensity + amount, 0f, 100f);
+        CurrentIntensity = Mathf.Clamp(oldIntensity + amount, 0f, 100f);
 
         intensityHistory.Enqueue(
            new IntensityEvent
