@@ -99,11 +99,11 @@ public class DirectorManager
     {
         if (values == null || values.Count is 0) return;
 
-        foreach (var value in values.Values)
+        foreach (var value in values)
         {
-            var resultScore = DirectorUtils.CalculateScoreByDirectorValue(value);
+            var resultScore = DirectorUtils.CalculateScoreByDirectorValue(value.Value);
 
-            switch (value.Category)
+            switch (value.Value.Category)
             {
                 case DirectorCategory.Stress:
                   var stressChange = CurrentState switch
@@ -114,9 +114,11 @@ public class DirectorManager
                         DirectorState.Relax => -deltaTime * 3f,
                         _ => 0f
                   };
+                  Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Stress Level");
                   StressLevel = Mathf.Clamp((StressLevel + (stressChange * resultScore)), 0f, 100f);
                 break;
                 case DirectorCategory.Fatigue:
+                    Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Fatigue Level");
                     var fatigueChange = (CurrentState == DirectorState.Relax) ? -(resultScore * deltaTime) * 2f : (resultScore * deltaTime) * 0.5f;
                     FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
                 break;
