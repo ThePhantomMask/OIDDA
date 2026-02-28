@@ -132,17 +132,4 @@ public enum DirectorState
     /// <summary> Recovery/rest </summary>
     Relax
 }
-
-public enum DirectorCategory
-{
-    Stress,
-    Fatigue
-}
-
-public enum DirectorAction
-{
-    Increase, 
-    Decrease
-}
-
 #endregion

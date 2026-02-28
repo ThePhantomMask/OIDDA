@@ -47,7 +47,7 @@ public class DirectorManager
     /// <param name="deltaTime">The amount of time, in seconds, that has elapsed since the last update. Must be non-negative.</param>
     /// <param name="GameplayValues">A dictionary containing current gameplay values that influence pacing and psychological metrics. Keys represent value names;
     /// values provide the corresponding data.</param>
-    public void OnDirectorUpdate(float deltaTime , Dictionary<string, DirectorValue> GameplayValues)
+    public void OnDirectorUpdate(float deltaTime , Dictionary<string, object> GameplayValues)
     {
         timeInCurrentState += deltaTime;
         timeSinceLastPeak += deltaTime;
@@ -95,41 +95,36 @@ public class DirectorManager
     /// <param name="deltaTime">The amount of time, in seconds, since the last update. Must be a non-negative value.</param>
     /// <param name="values">A dictionary containing contextual values that may influence the update of psychological metrics. The expected
     /// keys and value types depend on the implementation context.</param>
-    internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, DirectorValue> values)
+    internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
     {
         if (values == null || values.Count is 0) return;
 
         foreach (var value in values)
         {
-            var resultScore = DirectorUtils.CalculateScoreByDirectorValue(value.Value);
+            var resultScore = DirectorUtils.CalculateScore(value.Value);
 
-            switch (value.Value.Category)
+            Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Stress Level");
+            var stressChange = CurrentState switch
             {
-                case DirectorCategory.Stress:
-                  var stressChange = CurrentState switch
-                  {
-                        DirectorState.Build => deltaTime * 2f,
-                        DirectorState.Peak => deltaTime * 5f,
-                        DirectorState.Fade => -deltaTime * 1f,
-                        DirectorState.Relax => -deltaTime * 3f,
-                        _ => 0f
-                  } + resultScore;
-                  Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Stress Level");
-                  StressLevel = Mathf.Clamp((StressLevel + stressChange), 0f, 100f);
-                break;
-                case DirectorCategory.Fatigue:
-                    Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Fatigue Level");
-                    var fatigueChange = ((CurrentState == DirectorState.Relax) ? -deltaTime * 2f : deltaTime * 0.5f) + resultScore;
-                    FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
-                break;
-            }
-            EngagementLevel = (CurrentIntensity, StressLevel) switch
-            {
-                ( > 70f, _) and (_, < 80f) => Mathf.Lerp(EngagementLevel, 100f, deltaTime * 2f),
-                ( < 20f, _) or (_, > 90f) => Mathf.Lerp(EngagementLevel, 30f, deltaTime),
-                _ => Mathf.Lerp(EngagementLevel, 60f, deltaTime)
-            };
+                DirectorState.Build => deltaTime * 2f,
+                DirectorState.Peak => deltaTime * 5f,
+                DirectorState.Fade => -deltaTime * 1f,
+                DirectorState.Relax => -deltaTime * 3f,
+                _ => 0f
+            } + resultScore;
+            StressLevel = Mathf.Clamp((StressLevel + stressChange), 0f, 100f);
+
+            Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Fatigue Level");
+            var fatigueChange = ((CurrentState == DirectorState.Relax) ? -deltaTime * 2f : deltaTime * 0.5f) + resultScore;
+            FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
         }
+
+        EngagementLevel = (CurrentIntensity, StressLevel) switch
+        {
+            ( > 70f, _) and (_, < 80f) => Mathf.Lerp(EngagementLevel, 100f, deltaTime * 2f),
+            ( < 20f, _) or (_, > 90f) => Mathf.Lerp(EngagementLevel, 30f, deltaTime),
+            _ => Mathf.Lerp(EngagementLevel, 60f, deltaTime)
+        };
     }
 
     /// <summary>

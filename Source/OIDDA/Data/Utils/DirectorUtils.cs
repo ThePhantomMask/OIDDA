@@ -1,5 +1,5 @@
 ﻿using FlaxEngine;
-using OIDDA.Data;
+using System;
 
 namespace OIDDA;
 
@@ -8,14 +8,21 @@ namespace OIDDA;
 /// </summary>
 public static class DirectorUtils
 {
-    public static float CalculateScoreByDirectorValue(DirectorValue value)
+
+    public static float CalculateScore(object currentValue)
     {
-        var raw = CalculateScore(value.Value.Value);
-        var normalized = Mathf.Saturate((raw - CalculateScore(value.Min.Value))/ (CalculateScore(value.Max.Value) - CalculateScore(value.Min.Value)));
-        return (value.Action is DirectorAction.Increase) ? normalized : - normalized;
+        try
+        {
+            return ConvertToFloat(currentValue);
+        }
+        catch (NullReferenceException e)
+        {
+            Debug.LogException(e);
+            return 1f;
+        }
     }
 
-    static float CalculateScore(object gameplayValue) => gameplayValue switch
+    static float ConvertToFloat(object value) => value switch
     {
         float f => f,
         int i => (float)i,

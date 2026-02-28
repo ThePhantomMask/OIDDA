@@ -227,7 +227,7 @@ public class OIDDAManager : Script
     void OIDDAUpdate()
     {
         if (isUseSmoothing) smoothingManager.SmoothUpdate(Time.DeltaTime);
-        if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, currentConfig.DirectorData);
+        if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
         timeSinceLastUpdate += Time.DeltaTime;
         timeSinceLastAdjustment += Time.DeltaTime;
 

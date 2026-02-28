@@ -542,22 +542,4 @@ public static class GameplayValueOperations
                 return true;
         }
     }
-
-    public static GameplayValue ClampDelta(GameplayValue current, GameplayValue next, float maxDelta)
-    {
-        if (maxDelta >= float.MaxValue) return next;
-
-        float currentFloat = Convert.ToSingle(current.Value);
-        float nextFloat = Convert.ToSingle(next.Value);
-
-        float delta = nextFloat - currentFloat;
-
-        if (Math.Abs(delta) > maxDelta)
-        {
-            float clamped = currentFloat + Math.Sign(delta) * maxDelta;
-            return GameplayValue.ConvertObject(clamped);
-        }
-
-        return next;
-    }
 }
