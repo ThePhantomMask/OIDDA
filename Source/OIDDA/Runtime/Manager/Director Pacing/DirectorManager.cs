@@ -54,7 +54,7 @@ public class DirectorManager
         StateTimer += deltaTime;
 
         UpdatePsychologicalMetrics(deltaTime, GameplayValues);
-        UpdatePacingState(deltaTime);
+        UpdatePacingState(StateTimer);
         ApplyIntensityDecay(deltaTime);
         RecordIntensityEvent();
     }
@@ -169,7 +169,7 @@ public class DirectorManager
         if (newState != CurrentState)
         {
             OnStateChanged(CurrentState, newState);
-            timeInCurrentState = 0f;
+            timeInCurrentState = StateTimer = 0f;
         }
     }
 
