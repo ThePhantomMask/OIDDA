@@ -12,5 +12,6 @@ public class OIDDAConfig
 {
     public List<DDAMetrics> Metrics = new();
     public List<Rule> Rules = new();
+    public Dictionary<string, DirectorValue> DirectorData = new();
     public float SmoothingSpeed = 0.1f;
 }

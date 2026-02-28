@@ -39,7 +39,6 @@ public class OIDDAManager : Script
     bool isUseSmoothing, isUseDirector;
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
-    Dictionary<string, DirectorValue> DirectorData;
     GameplayGlobals GameplayValues;
     float updateInterval, delay, timerSender, timerReceiver, score, timeSinceLastUpdate = 0f, timeSinceLastAdjustment = 0f;
 
@@ -228,7 +227,7 @@ public class OIDDAManager : Script
     void OIDDAUpdate()
     {
         if (isUseSmoothing) smoothingManager.SmoothUpdate(Time.DeltaTime);
-        if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, DirectorData);
+        if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, currentConfig.DirectorData);
         timeSinceLastUpdate += Time.DeltaTime;
         timeSinceLastAdjustment += Time.DeltaTime;
 
