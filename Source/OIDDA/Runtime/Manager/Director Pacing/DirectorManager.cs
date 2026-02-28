@@ -119,7 +119,8 @@ public class DirectorManager
                 break;
                 case DirectorCategory.Fatigue:
                     Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Fatigue Level");
-                    var fatigueChange = (CurrentState == DirectorState.Relax) ? -(resultScore * deltaTime) * 2f : (resultScore * deltaTime) * 0.5f;
+                    var fatigueChange = (CurrentState == DirectorState.Relax) ? -deltaTime * 2f : deltaTime * 0.5f;
+                    fatigueChange = resultScore > 0 ? resultScore * fatigueChange : resultScore / fatigueChange;
                     FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
                 break;
             }
