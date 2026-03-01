@@ -56,6 +56,7 @@ public class DirectorManager
         timeSinceLastPeak += deltaTime;
         StateTimer += deltaTime;
 
+        smoothingManager.SmoothUpdate(deltaTime);
         UpdatePsychologicalMetrics(deltaTime, GameplayValues);
         UpdatePacingState(StateTimer);
         ApplyIntensityDecay(deltaTime);
