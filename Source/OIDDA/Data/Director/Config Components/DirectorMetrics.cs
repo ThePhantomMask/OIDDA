@@ -33,11 +33,11 @@ public class DirectorMetrics
         InverseLogic ? 1f - Mathf.Saturate((value - ThresholdMin) / (ThresholdMax - ThresholdMin)) :
         Mathf.Saturate((value - ThresholdMin) / (ThresholdMax - ThresholdMin));
 
-    public float CalculateWeightedScore(object currentValue, float ThresholdMin, float ThresholdMax) => CalculateScore(currentValue) * Weight;
+    public float CalculateWeightedScore(object currentValue) => CalculateScore(currentValue) * Weight;
 
     public bool IsOutOfBounds(object currentValue) => currentValue is null ? false : InverseLogic ? ConvertToFloat(currentValue) < ThresholdMin : ConvertToFloat(currentValue) > ThresholdMax;
 
-    public bool IndicatesIfInPeak(object currentValue, float threshold = 0.7f) => CalculateScore(currentValue) > threshold;
+    public bool IndicatesTooStress(object currentValue, float threshold = 0.7f) => CalculateScore(currentValue) > threshold;
 
     public bool IndicatesRelax(object currentValue, float threshold = 0.3f) => CalculateScore(currentValue) < threshold;
 

@@ -66,8 +66,8 @@ public class OIDDAManager : Script
         if (settings is null) return;
         GameplayValues = settings.Globals[CurrentIndex];
         settings.StaticORSGroup[CurrentIndex].ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
-        if (settings.Configs.Count != 0) currentConfig = settings.Configs[CurrentIndex].Instance;
-        isUseSmoothing = settings.UseDDASmoothing;
+        if (settings.Configs.Count != 0) Director.currentConfig = currentConfig = settings.Configs[CurrentIndex].Instance;
+        Director.isDirectorSmoothing = isUseSmoothing = settings.UseDDASmoothing;
         updateInterval = settings.UpdateInterval;
         delay = settings.Delay;
         isUseDirector = settings.UseDirector;

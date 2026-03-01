@@ -20,6 +20,8 @@ public class DirectorManager
     public float RelaxThreshold = 20f;
     public float MinRelaxDuration = 10f;
     public float MaxPeakDuration = 30f;
+    [HideInEditor] public bool isDirectorSmoothing;
+    [HideInEditor] public OIDDAConfig currentConfig;
 
     // Current state
     public DirectorState CurrentState {  get; private set; }
@@ -29,6 +31,7 @@ public class DirectorManager
     //  Historical data for analysis
     Queue<IntensityEvent> intensityHistory = new(50);
     float timeSinceLastPeak = 0f, timeInCurrentState = 0f;
+    SmoothingManager smoothingManager = new();
 
     // The psychological parameters of a player
     public float StressLevel { get; private set; }
@@ -99,24 +102,27 @@ public class DirectorManager
     {
         if (values == null || values.Count is 0) return;
 
-        foreach (var value in values)
+        foreach (var rule in currentConfig.DirectorRules)
         {
-            var resultScore = DirectorUtils.CalculateScore(value.Value);
-
-            Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Stress Level");
-            var stressChange = CurrentState switch
+            switch (rule.RuleApllication)
             {
-                DirectorState.Build => deltaTime * 2f,
-                DirectorState.Peak => deltaTime * 5f,
-                DirectorState.Fade => -deltaTime * 1f,
-                DirectorState.Relax => -deltaTime * 3f,
-                _ => 0f
-            } + resultScore;
-            StressLevel = Mathf.Clamp((StressLevel + stressChange), 0f, 100f);
+                case DirectoryRuleApplication.Stress:
+                    var stressChange = CurrentState switch
+                    {
+                        DirectorState.Build => deltaTime * 2f,
+                        DirectorState.Peak => deltaTime * 5f,
+                        DirectorState.Fade => -deltaTime * 1f,
+                        DirectorState.Relax => -deltaTime * 3f,
+                        _ => 0f
+                    } + CalculateScoreByData(values);
+                    StressLevel = Mathf.Clamp((StressLevel + stressChange), 0f, 100f);
+                break;
 
-            Debug.Write(LogType.Info, $"{value.Key} value {resultScore} will be applied to Fatigue Level");
-            var fatigueChange = ((CurrentState == DirectorState.Relax) ? -deltaTime * 2f : deltaTime * 0.5f) + resultScore;
-            FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
+                case DirectoryRuleApplication.Fatigue:
+                    var fatigueChange = ((CurrentState == DirectorState.Relax) ? -deltaTime * 2f : deltaTime * 0.5f) + CalculateScoreByData(values);
+                    FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
+                break;
+            }
         }
 
         EngagementLevel = (CurrentIntensity, StressLevel) switch
@@ -226,6 +232,56 @@ public class DirectorManager
         });
 
         if (intensityHistory.Count > 50) intensityHistory.Dequeue();
+    }
+
+    protected float CalculateScoreByData(Dictionary<string,object> values)
+    {
+        var score = MetricsAggregator.CalculateOverallScore(currentConfig.DirectorMetrics, values);
+        int rulesApplied = ApplyRules(values, score);
+        return rulesApplied > 0 ? score : 0;
+    }
+
+    protected int ApplyRules(Dictionary<string, object> currentValues, float overallScore)
+    {
+        int rulesApplied = 0;
+        foreach (var rule in currentConfig.DirectorRules)
+        {
+            if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
+            if (!ShouldApplyRule(overallScore, rule)) continue;
+            if (isDirectorSmoothing) ApplyRuleSmooth(rule, currentValues);
+            rule.Apply(currentValues);
+            rulesApplied++;
+        }
+        return rulesApplied;
+    }
+
+    void ApplyRuleSmooth(DirectorRule rule, Dictionary<string, object> currentValues)
+    {
+        try
+        {
+            var targetValue = GameplayValue.ConvertObject(currentValues[rule.TargetGlobal]);
+            var newValue = GameplayValueOperations.Apply(targetValue, rule.Value, rule.Operator);
+            newValue = GameplayValueOperations.Clamp(newValue, rule.MinValue, rule.MaxValue);
+            smoothingManager.SetTarget(rule.TargetGlobal, newValue, currentConfig.SmoothingSpeed);
+        }
+        catch(Exception e)
+        {
+            Debug.LogError(e.Message);
+        }
+    }
+
+    bool ShouldApplyRule(float overallScore, DirectorRule rule)
+    {
+        return (rule is DirectorRuleException ruleException) ? ruleException.Context switch
+        {
+            RuleApplicationContext.Always => true,
+            RuleApplicationContext.WhenTooDifficult => overallScore > (FatigueLevel * 0.01f) || overallScore > (StressLevel * 0.01f),
+            RuleApplicationContext.WhenTooEasy => overallScore < (RelaxThreshold * 0.01f),
+            RuleApplicationContext.WhenBalanced => overallScore >= (RelaxThreshold * 0.01f) && overallScore <= (FatigueLevel * 0.01f),
+            _ => false,
+        } :
+        (overallScore > (PeakThreshold * 0.01f)) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
+            (overallScore < (RelaxThreshold * 0.01f)) ? rule.Operator == AdjustmentOperator.Add || rule.Operator == AdjustmentOperator.Multiply : false;
     }
 
     /// <summary>
