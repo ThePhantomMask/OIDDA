@@ -31,6 +31,7 @@ public class DirectorManager
     //  Historical data for analysis
     Queue<IntensityEvent> intensityHistory = new(50);
     float timeSinceLastPeak = 0f, timeInCurrentState = 0f;
+    float stressRate => StressLevel * 0.01f; float fatigueRate => FatigueLevel * 0.01f;
     SmoothingManager smoothingManager = new();
 
     // The psychological parameters of a player
@@ -230,8 +231,8 @@ public class DirectorManager
         foreach (var rule in currentConfig.DirectorRules)
         {
             if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
-            if (!ShouldApplyRule(overallScore, rule)) continue;
             overallScore = CalculateScoreByEmotion(rule, deltaTime);
+            if (!ShouldApplyRule(overallScore, rule)) continue;
             if (isDirectorSmoothing) ApplyRuleSmooth(rule, currentValues);
             rule.Apply(currentValues);
             rulesApplied++;
