@@ -1,6 +1,7 @@
 ﻿using FlaxEngine;
 using System;
 using System.Collections.Generic;
+using OIDDA.Data;
 
 namespace OIDDA;
 
@@ -10,39 +11,58 @@ namespace OIDDA;
 [Category(name: "OIDDA Data")]
 public class OIDDASettings : SettingsBase
 {
+    bool isSingle => GlobalType == GlobalType.Single;
+    bool isMultiple => GlobalType == GlobalType.Multiple;
+
+    /// <summary>
+    /// Select the mode.
+    /// </summary>
+    [EditorOrder(0), EditorDisplay("OIDDA Config")]
+    public GlobalType GlobalType;
+    /// <summary>
+    /// Folder name
+    /// </summary>
+    [EditorOrder(0), EditorDisplay("OIDDA Config")]
+    public string FolderName = "OIDDA";
+    /// <summary>
+    /// Gameplay Globals for the game.
+    /// </summary>
+    [VisibleIf(nameof(isSingle)), EditorOrder(1), EditorDisplay("DDA Config")]
+    public GameplayGlobals Global;
     /// <summary>
     /// List of all Gameplay Globals for the game.
     /// </summary>
-    [EditorOrder(0), EditorDisplay("DDA Config")]
+    [VisibleIf(nameof(isMultiple)) , EditorOrder(1), EditorDisplay("DDA Config")]
     public List<GameplayGlobals> Globals;
+    /// <summary>
+    /// OIDDA Configuration.
+    /// </summary>
+    [VisibleIf(nameof(isSingle)), EditorOrder(1), EditorDisplay("DDA Config")]
+    public JsonAssetReference<OIDDAConfig> Config;
     /// <summary>
     /// List of OIDDA Configurations.
     /// </summary>
-    [EditorOrder(0), EditorDisplay("DDA Config")]
+    [VisibleIf(nameof(isMultiple)), EditorOrder(1), EditorDisplay("DDA Config")]
     public List<JsonAssetReference<OIDDAConfig>> Configs;
     /// <summary>
     /// Gets or sets a value indicating whether DDA smoothing is enabled.
     /// </summary>
-    [EditorOrder(0), EditorDisplay("DDA Config")]
+    [EditorOrder(1), EditorDisplay("DDA Config")]
     public bool UseDDASmoothing = true;
     /// <summary>
     /// Metrics update interval
     /// </summary>
-    [EditorOrder(0), EditorDisplay("DDA Config"), Tooltip("Metrics update interval (seconds)")]
+    [EditorOrder(1), EditorDisplay("DDA Config"), Tooltip("Metrics update interval (seconds)")]
     public float UpdateInterval = 1.0f;
     /// <summary>
     /// Gets or sets a value indicating whether Director pacing is enabled.
     /// </summary>
-    [EditorOrder(1), EditorDisplay("Director Config")]
+    [EditorOrder(2), EditorDisplay("Director Config")]
     public bool UseDirector = true;
-    /// <summary>
-    /// Folder name
-    /// </summary>
-    public string FolderName = "OIDDA";
     /// <summary>
     /// Collection of Static ORS (OIDDA Receiver Sender) agents for managing the OIDDA data.
     /// </summary>
-    [EditorOrder(2), EditorDisplay("ORS Config")]
+    [EditorOrder(3), EditorDisplay("ORS Config")]
     public List<Dictionary<string, IORSAgentS>> StaticORSGroup;
     /// <summary>
     /// Delay for ORS Agents

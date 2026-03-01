@@ -1,8 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using FlaxEngine;
+﻿namespace OIDDA.Data;
 
-namespace OIDDA.Data;
+public enum GlobalType
+{
+    Single,
+    Multiple
+}
 
 #region DDA enums
 
