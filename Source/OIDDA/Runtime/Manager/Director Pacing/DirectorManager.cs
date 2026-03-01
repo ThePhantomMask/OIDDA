@@ -31,6 +31,7 @@ public class DirectorManager
     //  Historical data for analysis
     Queue<IntensityEvent> intensityHistory = new(50);
     float timeSinceLastPeak = 0f, timeInCurrentState = 0f;
+    float stressChange = 0f, fatigueChange = 0f;
     SmoothingManager smoothingManager = new();
 
     // The psychological parameters of a player
@@ -102,28 +103,10 @@ public class DirectorManager
     {
         if (values == null || values.Count is 0) return;
 
-        foreach (var rule in currentConfig.DirectorRules)
-        {
-            switch (rule.RuleApllication)
-            {
-                case DirectoryRuleApplication.Stress:
-                    var stressChange = CurrentState switch
-                    {
-                        DirectorState.Build => deltaTime * 2f,
-                        DirectorState.Peak => deltaTime * 5f,
-                        DirectorState.Fade => -deltaTime * 1f,
-                        DirectorState.Relax => -deltaTime * 3f,
-                        _ => 0f
-                    } + CalculateScoreByData(values);
-                    StressLevel = Mathf.Clamp((StressLevel + stressChange), 0f, 100f);
-                break;
+        var scoreContribution = CalculateScoreByData(values, deltaTime);
 
-                case DirectoryRuleApplication.Fatigue:
-                    var fatigueChange = ((CurrentState == DirectorState.Relax) ? -deltaTime * 2f : deltaTime * 0.5f) + CalculateScoreByData(values);
-                    FatigueLevel = Mathf.Clamp((FatigueLevel + fatigueChange), 0f, 100f);
-                break;
-            }
-        }
+        StressLevel = Mathf.Clamp((StressLevel + scoreContribution), 0f, 100f);
+        FatigueLevel = Mathf.Clamp((FatigueLevel + scoreContribution), 0f, 100f);
 
         EngagementLevel = (CurrentIntensity, StressLevel) switch
         {
@@ -234,20 +217,21 @@ public class DirectorManager
         if (intensityHistory.Count > 50) intensityHistory.Dequeue();
     }
 
-    protected float CalculateScoreByData(Dictionary<string,object> values)
+    protected float CalculateScoreByData(Dictionary<string,object> values, float deltatime)
     {
         var score = MetricsAggregator.CalculateOverallScore(currentConfig.DirectorMetrics, values);
-        int rulesApplied = ApplyRules(values, score);
+        int rulesApplied = ApplyRules(values, score, deltatime);
         return rulesApplied > 0 ? score : 0;
     }
 
-    protected int ApplyRules(Dictionary<string, object> currentValues, float overallScore)
+    protected int ApplyRules(Dictionary<string, object> currentValues, float overallScore, float deltaTime)
     {
         int rulesApplied = 0;
         foreach (var rule in currentConfig.DirectorRules)
         {
             if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
             if (!ShouldApplyRule(overallScore, rule)) continue;
+            overallScore = CalculateScoreByEmotion(rule, deltaTime);
             if (isDirectorSmoothing) ApplyRuleSmooth(rule, currentValues);
             rule.Apply(currentValues);
             rulesApplied++;
@@ -283,6 +267,20 @@ public class DirectorManager
         (overallScore > (PeakThreshold * 0.01f)) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
             (overallScore < (RelaxThreshold * 0.01f)) ? rule.Operator == AdjustmentOperator.Add || rule.Operator == AdjustmentOperator.Multiply : false;
     }
+
+    float CalculateScoreByEmotion(DirectorRule rule, float deltaTime) => rule.Emotion switch
+    {
+        EmotionType.Stress => stressChange = CurrentState switch
+        {
+            DirectorState.Build => deltaTime * 2f,
+            DirectorState.Peak => deltaTime * 5f,
+            DirectorState.Fade => -deltaTime * 1f,
+            DirectorState.Relax => -deltaTime * 3f,
+            _ => 0f
+        },
+        EmotionType.Fatigue => (CurrentState == DirectorState.Relax) ? -deltaTime * 2f : deltaTime * 0.5f,
+        _ => 0f
+    };
 
     /// <summary>
     /// Gets the current difficulty multiplier based on the pacing state and intensity.

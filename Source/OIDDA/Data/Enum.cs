@@ -133,7 +133,7 @@ public enum DirectorState
     Relax
 }
 
-public enum DirectoryRuleApplication
+public enum EmotionType
 {
     Stress,
     Fatigue

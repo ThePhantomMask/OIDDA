@@ -18,8 +18,8 @@ public class DirectorRule
     public GameplayValue MinValue;
     public GameplayValue MaxValue;
     public RuleApplicationContext Context = RuleApplicationContext.Always;
+    public EmotionType Emotion = EmotionType.Stress;
     public DirectorCondition Condition;
-    public DirectoryRuleApplication RuleApllication;
     public AdjustmentOperator Operator;
     [VisibleIf(nameof(isNotException))] public List<DirectorRuleException> RuleExceptions;
 
