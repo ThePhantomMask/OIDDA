@@ -31,7 +31,6 @@ public class DirectorManager
     //  Historical data for analysis
     Queue<IntensityEvent> intensityHistory = new(50);
     float timeSinceLastPeak = 0f, timeInCurrentState = 0f;
-    float stressChange = 0f, fatigueChange = 0f;
     SmoothingManager smoothingManager = new();
 
     // The psychological parameters of a player
@@ -270,7 +269,7 @@ public class DirectorManager
 
     float CalculateScoreByEmotion(DirectorRule rule, float deltaTime) => rule.Emotion switch
     {
-        EmotionType.Stress => stressChange = CurrentState switch
+        EmotionType.Stress => CurrentState switch
         {
             DirectorState.Build => deltaTime * 2f,
             DirectorState.Peak => deltaTime * 5f,
