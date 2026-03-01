@@ -231,7 +231,7 @@ public class DirectorManager
         foreach (var rule in currentConfig.DirectorRules)
         {
             if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
-            overallScore = CalculateScoreByEmotion(rule, deltaTime);
+            overallScore += CalculateScoreByEmotion(rule, deltaTime);
             if (!ShouldApplyRule(overallScore, rule)) continue;
             if (isDirectorSmoothing) ApplyRuleSmooth(rule, currentValues);
             rule.Apply(currentValues);
@@ -260,13 +260,13 @@ public class DirectorManager
         return (rule is DirectorRuleException ruleException) ? ruleException.Context switch
         {
             RuleApplicationContext.Always => true,
-            RuleApplicationContext.WhenTooDifficult => overallScore > (FatigueLevel * 0.01f) || overallScore > (StressLevel * 0.01f),
-            RuleApplicationContext.WhenTooEasy => overallScore < (RelaxThreshold * 0.01f),
-            RuleApplicationContext.WhenBalanced => overallScore >= (RelaxThreshold * 0.01f) && overallScore <= (FatigueLevel * 0.01f),
+            RuleApplicationContext.WhenTooDifficult => overallScore > fatigueRate || overallScore > stressRate,
+            RuleApplicationContext.WhenTooEasy => overallScore < fatigueRate || overallScore < stressRate,
+            RuleApplicationContext.WhenBalanced => overallScore >= stressRate && overallScore <= fatigueRate,
             _ => false,
         } :
-        (overallScore > (PeakThreshold * 0.01f)) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
-            (overallScore < (RelaxThreshold * 0.01f)) ? rule.Operator == AdjustmentOperator.Add || rule.Operator == AdjustmentOperator.Multiply : false;
+        (overallScore > fatigueRate || overallScore > stressRate) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
+            (overallScore < fatigueRate || overallScore < stressRate) ? rule.Operator == AdjustmentOperator.Add || rule.Operator == AdjustmentOperator.Multiply : false;
     }
 
     float CalculateScoreByEmotion(DirectorRule rule, float deltaTime) => rule.Emotion switch
