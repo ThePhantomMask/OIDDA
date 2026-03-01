@@ -102,7 +102,8 @@ public class DirectorManager
     /// keys and value types depend on the implementation context.</param>
     internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
     {
-        if (values == null || values.Count is 0) return;
+        if (values == null || currentConfig.DirectorMetrics == null || currentConfig.DirectorRules == null ||
+            values.Count is 0 || currentConfig.DirectorMetrics.Count is 0 || currentConfig.DirectorRules.Count is 0) return;
 
         var scoreContribution = CalculateScoreByData(values, deltaTime);
 
