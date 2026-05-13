@@ -329,7 +329,7 @@ public class OIDDAManager : Script
         if (timerReceiver >= delay)
         {
             timerReceiver = 0;
-            return GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
+            return GameplayValues.GetValue<T>(name);
         }
         return default(T);
     }
@@ -348,11 +348,11 @@ public class OIDDAManager : Script
 
     public void QuickSender(string name, object value) { GameplayValues.SetValue(name, value); AnalyzeAndApply(); }
 
-    public T GetGlobal<T>(string name) => (delay != 0f) ? DelayReceiver<T>(name) : GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
+    public T GetGlobal<T>(string name) => (delay != 0f) ? DelayReceiver<T>(name) : GameplayValues.GetValue<T>(name);
 
-    public T GetStaticGlobal<T>(string NameAgent) => (delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : GameplayValues.GetValue(StaticORSDB[NameAgent].GlobalVariable) is T typeValue ? typeValue : default(T);
+    public T GetStaticGlobal<T>(string NameAgent) => (delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : GameplayValues.GetValue<T>(StaticORSDB[NameAgent].GlobalVariable);
 
-    public T QuickReceiver<T>(string name) => GameplayValues.GetValue(name) is T typeValue ? typeValue : default(T);
+    public T QuickReceiver<T>(string name) => GameplayValues.GetValue<T>(name);
     #endregion
 
     public override void OnUpdate()
