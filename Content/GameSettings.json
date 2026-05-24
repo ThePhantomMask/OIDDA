@@ -1,7 +1,7 @@
 {
 	"ID": "9eba3d2a4cee4c099117f49c5dffc171",
 	"TypeName": "FlaxEditor.Content.Settings.GameSettings",
-	"EngineBuild": 6807,
+	"EngineBuild": 6912,
 	"Data": {
 	"ProductName": "OIDDA",
 	"CompanyName": "The Phantom Mask",
@@ -35,6 +35,7 @@
 	"SwitchPlatform": null,
 	"PS5Platform": null,
 	"MacPlatform": null,
-	"iOSPlatform": null
+	"iOSPlatform": null,
+	"WebPlatform": null
 }
 }

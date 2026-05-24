@@ -15,8 +15,6 @@ namespace OIDDA;
 public class OIDDAManager : Script
 {
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager")]
-    public int CurrentIndex;
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager")]
     public bool InstantMetricsUpdated;
 
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Range(0, 1)]
@@ -64,9 +62,9 @@ public class OIDDAManager : Script
     internal void OIDDAInit(OIDDASettings settings)
     {
         if (settings is null) return;
-        GameplayValues = (settings.GlobalType is GlobalType.Single) ? settings.Global : settings.Globals[CurrentIndex];
-        settings.StaticORSGroup[CurrentIndex].ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
-        if (settings.Configs.Count != 0) Director.currentConfig = currentConfig = (settings.GlobalType is GlobalType.Single) ? settings.Config.Instance : settings.Configs[CurrentIndex].Instance;
+        GameplayValues = (settings.GlobalType is GlobalType.Single) ? settings.Global : settings.SelectedGlobal;
+        settings.SelectedStaticORSGroup.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
+        if (settings.Configs.Count != 0) Director.currentConfig = currentConfig = (settings.GlobalType is GlobalType.Single) ? settings.Config.Instance : settings.SelectedConfig.Instance;
         Director.isDirectorSmoothing = isUseSmoothing = settings.UseDDASmoothing;
         updateInterval = settings.UpdateInterval;
         delay = settings.Delay;
