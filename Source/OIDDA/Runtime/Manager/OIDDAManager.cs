@@ -2,6 +2,7 @@
 using FlaxEngine;
 using FlaxEngine.Utilities;
 using OIDDA.Data;
+using OIDDA.Elo;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,6 +33,21 @@ public class OIDDAManager : Script
     [Range(0, 1), EditorDisplay("Director"), Tooltip("Influence of pacing on difficulty adjustments (0-1)")]
     public float DirectorInfluence = 0.7f;
 
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), Tooltip("Enable the ELO-based skill rating as an additional DDA input")]
+    public bool UseEloRatings = false;
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Starting rating for a brand new player")]
+    public float InitialPlayerRating = 1000f;
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("K-factor used for the first 'KFactorRampGames' matches (faster adaptation")]
+    public float KFactorProvisional = 32f;
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Starting rating for a brand new player")]
+    public float KFactorStable = 12f;
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Number of matches after which the K-factor switches from provisional to stable")]
+    public int KFactorRampGames = 20;
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Default ELO rating assigned to a new enemy/encounter id the first time it is seen")]
+    public float DefaultOpponentRating = 1000f;
+
+
+
     public DirectorManager Director = new();
 
     bool isUseSmoothing, isUseDirector;
@@ -44,6 +60,9 @@ public class OIDDAManager : Script
     OIDDAConfig currentConfig;
     SmoothingManager smoothingManager = new();
     MetricsAnalysis analyze;
+
+    EloRatingsSystem ERS;
+    EloOpponentPool EOP;
 
     public override void OnStart()
     {
@@ -69,6 +88,12 @@ public class OIDDAManager : Script
         updateInterval = settings.UpdateInterval;
         delay = settings.Delay;
         isUseDirector = settings.UseDirector;
+
+        if (UseEloRatings)
+        {
+
+        }
+
     }
 
     void OIDDAReset()
@@ -76,6 +101,11 @@ public class OIDDAManager : Script
         if (GameplayValues) GameplayValues.ResetValues();  
         if (ORSAgentDB.Count != 0) ORSAgentDB.Clear(); 
         if (StaticORSDB.Count != 0) StaticORSDB.Clear();
+
+        if (UseEloRatings)
+        {
+
+        }
     }
 
     void AnalyzeAndApply()
