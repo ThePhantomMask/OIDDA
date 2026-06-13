@@ -131,9 +131,9 @@ public class EloOpponentPool
         }
         return rating;
     }
-
     /// <summary> Overwrites the stored rating for an opponent id. </summary>
     public void SetRating(string opponentId, float rating) => ratings[opponentId] = rating;
+
     /// <summary> Removes all stored ratings (in-memory only, no persistence). </summary>
     public void Clear() => ratings.Clear();
 
