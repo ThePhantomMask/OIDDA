@@ -114,5 +114,28 @@ public class EloRatingsSystem
 /// </summary>
 public class EloOpponentPool
 {
+    readonly Dictionary<string, float> ratings = new();
 
+    /// <summary> Default rating assigned to an opponent the first time it's seen. </summary>
+    public float DefaultRating = 1000f;
+
+    /// <summary>
+    /// Gets the current rating for an opponent id, creating it with <see cref="DefaultRating"/> if it doesn't exist yet.
+    /// </summary>
+    public float GetRating(string opponentId)
+    {
+        if (!ratings.TryGetValue(opponentId, out var rating))
+        {
+            rating = DefaultRating;
+            ratings[opponentId] = rating;
+        }
+        return rating;
+    }
+
+    /// <summary> Overwrites the stored rating for an opponent id. </summary>
+    public void SetRating(string opponentId, float rating) => ratings[opponentId] = rating;
+    /// <summary> Removes all stored ratings (in-memory only, no persistence). </summary>
+    public void Clear() => ratings.Clear();
+
+    public IReadOnlyDictionary<string, float> Ratings => ratings;
 }
