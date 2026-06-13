@@ -142,3 +142,15 @@ public enum EmotionType
 }
 
 #endregion
+
+#region ELO Ratings enums
+/// <summary>
+/// Possible outcomes of a "match" from the player's perspective.
+/// </summary>
+public enum MatchResult
+{
+    Loss = 0,
+    Draw = 1,
+    Win = 2
+}
+#endregion
