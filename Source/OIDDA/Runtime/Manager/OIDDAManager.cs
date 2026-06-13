@@ -45,7 +45,10 @@ public class OIDDAManager : Script
     public int KFactorRampGames = 20;
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Default ELO rating assigned to a new enemy/encounter id the first time it is seen")]
     public float DefaultOpponentRating = 1000f;
-
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Name lists of the GameplayGlobals variables that receives the raw ELO ratings values")]
+    public List<string> EloRatingGlobals;
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Name lists of the GameplayGlobals variables that receives the normalized skill delta, in [-1, 1]")]
+    public List<string> EloSkillDeltaGlobals;
 
 
     public DirectorManager Director = new();
