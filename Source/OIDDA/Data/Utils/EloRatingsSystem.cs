@@ -32,4 +32,35 @@ public class EloRatingsSystem
     public float KFactorStable = 12f;
     /// <summary> Number of recorded matches after which the player switches from the provisional K-factor to the stable one. </summary>
     public int KFactorRampGames = 20;
+    /// <summary> Standard ELO divisor (400 = roughly the rating gap that corresponds to a 10x difference in odds). </summary>
+    public float RatingDivisor = 400f;
+    /// <summary>Current player rating. </summary>
+    public float PlayerRating { get; private set; }
+    /// <summary> Total number of matches recorded for the player (used for the dynamic K-factor). </summary>
+    public float GamesPlayed { get; private set; }
+
+    public EloRatingsSystem(float? startingRating = null)
+    {
+        PlayerRating = startingRating ?? InitialRating;
+    }
+
+    /// <summary>
+    /// Resets the system to the initial rating with zero games played.
+    /// </summary>
+    public void Reset(float? startingRating = null)
+    {
+        PlayerRating = startingRating ?? InitialRating;
+        GamesPlayed = 0;
+    }
+
+    /// <summary>
+    /// Expected score (probability of winning, in [0,1]) of "A" against "B" given their current ratings.
+    /// </summary>
+    public float ExpectedScore(float ratingA, float ratingB)
+    {
+        var exponent = (ratingB - ratingA) / RatingDivisor;
+        return 1f / (1f + MathF.Pow(10f, exponent));
+    }
+
+
 }
