@@ -49,7 +49,8 @@ public class OIDDAManager : Script
     public List<string> EloRatingGlobals;
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Name lists of the GameplayGlobals variables that receives the normalized skill delta, in [-1, 1]")]
     public List<string> EloSkillDeltaGlobals;
-
+    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Rating difference (player - opponent) that maps to +-1 in the normalized skill delta. 400 is the ELO-standard 'one full tier' gap")]
+    public float EloSkillDeltaRange = 400f;
 
     public DirectorManager Director = new();
 
@@ -92,11 +93,7 @@ public class OIDDAManager : Script
         delay = settings.Delay;
         isUseDirector = settings.UseDirector;
 
-        if (UseEloRatings)
-        {
-
-        }
-
+        ELOInit();
     }
 
     void OIDDAReset()
@@ -104,9 +101,22 @@ public class OIDDAManager : Script
         if (GameplayValues) GameplayValues.ResetValues();  
         if (ORSAgentDB.Count != 0) ORSAgentDB.Clear(); 
         if (StaticORSDB.Count != 0) StaticORSDB.Clear();
+        if (UseEloRatings) { ERS = null; EOP = null; }
+    }
 
+    void ELOInit()
+    {
         if (UseEloRatings)
         {
+            ERS = new EloRatingsSystem(InitialPlayerRating)
+            {
+                InitialRating = InitialPlayerRating,
+                KFactorProvisional = KFactorProvisional,
+                KFactorStable = KFactorStable,
+                KFactorRampGames = KFactorRampGames
+            };
+
+            EOP = new EloOpponentPool { DefaultRating = DefaultOpponentRating };
 
         }
     }
@@ -384,6 +394,87 @@ public class OIDDAManager : Script
     public T GetStaticGlobal<T>(string NameAgent) => (delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : GameplayValues.GetValue<T>(StaticORSDB[NameAgent].GlobalVariable);
 
     public T QuickReceiver<T>(string name) => GameplayValues.GetValue<T>(name);
+    #endregion
+
+    #region ELO Rating System
+
+    /// <summary> Current raw ELO rating of the player (1000 = default starting rating). </summary>
+    public float PlayerEloRating => UseEloRatings && ERS != null ? ERS.PlayerRating : InitialPlayerRating;
+    /// <summary> Total number of ELO matches recorded so far (affects the dynamic K-factor). </summary>
+    public float PlayerEloGamesPlayed => UseEloRatings && ERS != null ? ERS.GamesPlayed : 0;
+
+    /// <summary>
+    /// Records the result of a single match against an individual enemy (e.g. the player killed/was killed by it). 
+    /// Updates both the player's rating and the enemy's stored rating, then pushes the new values to GameplayGlobals so OIDDA rules can react to them.
+    /// </summary>
+    /// <param name="enemyId">Identifier for the enemy "type" (e.g. "Goblin", "Sniper_Elite"). Each id keeps its own rating over time.</param>
+    /// <param name="result">Outcome from the PLAYER's point of view.</param>
+    public void ReportEnemyResult(string enemyId, MatchResult result)
+    {
+        if (!UseEloRatings) return;
+
+        if (ERS == null || EOP == null) ELOInit();
+
+        var opponentRating = EOP.GetRating(enemyId);
+        ERS.RecordMatch(opponentRating, result, out var newOpponentRating);
+        EOP.SetRating(enemyId, newOpponentRating);
+
+        if (DebugMode) Debug.Log($"[OIDDA][Elo] Enemy '{enemyId}' result: {result}. Player rating: {ERS.PlayerRating:F1} (was vs {opponentRating:F1})");
+
+        BroadcastEloRating(opponentRating);
+    }
+
+    /// <summary>
+    /// Records the result of an aggregated encounter/level (e.g. "completed the level", "wiped on the boss room", "cleared the wave"). 
+    /// Treated as a single ELO match against the encounter's own rating, which is independent from the individual enemy ratings updated via <see cref="ReportEnemyResult"/>.
+    /// </summary>
+    /// <param name="encounterId">Identifier for the encounter/level (e.g. "Level_03", "Boss_Wave_2").</param>
+    /// <param name="result">Outcome from the PLAYER's point of view.</param>
+    public void ReportEncounterResult(string encounterId, MatchResult result)
+    {
+        if (!UseEloRatings) return;
+
+        if (ERS == null || EOP == null) ELOInit();
+
+        var encounterRating = EOP.GetRating(encounterId);
+        ERS.RecordMatch(encounterRating, result, out var newEncounterRating);
+        EOP.SetRating(encounterId, newEncounterRating);
+
+        if (DebugMode) Debug.Log($"[OIDDA][Elo] Encounter '{encounterId}' result: {result}. Player rating: {ERS.PlayerRating:F1} (was vs {encounterRating:F1})");
+
+        BroadcastEloRating(newEncounterRating);
+    }
+
+    /// <summary>
+    /// Returns the current stored rating for an enemy/encounter id (creating it with <see cref="DefaultOpponentRating"/> if not seen yet), without recording a match. 
+    /// Useful for debugging/UI.
+    /// </summary>
+    public float GetEloOpponentRating(string id) => UseEloRatings && EOP != null ? EOP.GetRating(id) : DefaultOpponentRating;
+
+    /// <summary>
+    /// Hard reset of the player's ELO rating (e.g. on "New Game"). 
+    /// Does not reset the stored enemy/encounter ratings.
+    /// </summary>
+    /// <param name="startingRating">Starting Rating value</param>
+    public void ResetPlayerEloRating(float? startingRating = null)
+    {
+        if (!UseEloRatings || ERS == null) return;
+        ERS.Reset(startingRating ?? InitialPlayerRating);
+        BroadcastEloRating();
+    }
+
+    /// <summary>
+    /// Pushes the current player ELO rating, and a normalized "skill delta" relative to the given opponent rating (or 0 if none is given), into GameplayGlobals so existing OIDDA rules/metrics can use them as inputs (also triggers <see cref="AnalyzeAndApply"/>).
+    /// </summary>
+    void BroadcastEloRating(float? referenceOpponentRating = null)
+    {
+        var opponentRating = referenceOpponentRating ?? ERS.PlayerRating;
+        var delta = Mathf.Clamp((ERS.PlayerRating - opponentRating) / EloSkillDeltaRange, -1f, 1f);
+
+        EloRatingGlobals.ForEach(name => GameplayValues.SetValue(name, ERS.PlayerRating));
+        EloSkillDeltaGlobals.ForEach(name => GameplayValues.SetValue(name, delta));
+    }
+
     #endregion
 
     public override void OnUpdate()
