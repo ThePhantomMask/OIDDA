@@ -403,12 +403,6 @@ public class OIDDAManager : Script
     /// <summary> Total number of ELO matches recorded so far (affects the dynamic K-factor). </summary>
     public float PlayerEloGamesPlayed => UseEloRatings && ERS != null ? ERS.GamesPlayed : 0;
 
-    /// <summary>
-    /// Records the result of a single match against an individual enemy (e.g. the player killed/was killed by it). 
-    /// Updates both the player's rating and the enemy's stored rating, then pushes the new values to GameplayGlobals so OIDDA rules can react to them.
-    /// </summary>
-    /// <param name="enemyId">Identifier for the enemy "type" (e.g. "Goblin", "Sniper_Elite"). Each id keeps its own rating over time.</param>
-    /// <param name="result">Outcome from the PLAYER's point of view.</param>
     public void ReportEnemyResult(string enemyId, MatchResult result)
     {
         if (!UseEloRatings) return;
@@ -424,12 +418,6 @@ public class OIDDAManager : Script
         BroadcastEloRating(opponentRating);
     }
 
-    /// <summary>
-    /// Records the result of an aggregated encounter/level (e.g. "completed the level", "wiped on the boss room", "cleared the wave"). 
-    /// Treated as a single ELO match against the encounter's own rating, which is independent from the individual enemy ratings updated via <see cref="ReportEnemyResult"/>.
-    /// </summary>
-    /// <param name="encounterId">Identifier for the encounter/level (e.g. "Level_03", "Boss_Wave_2").</param>
-    /// <param name="result">Outcome from the PLAYER's point of view.</param>
     public void ReportEncounterResult(string encounterId, MatchResult result)
     {
         if (!UseEloRatings) return;
