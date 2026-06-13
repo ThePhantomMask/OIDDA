@@ -396,7 +396,7 @@ public class OIDDAManager : Script
     public T QuickReceiver<T>(string name) => GameplayValues.GetValue<T>(name);
     #endregion
 
-    #region ELO Rating System
+    #region ELO Rating System Management
 
     /// <summary> Current raw ELO rating of the player (1000 = default starting rating). </summary>
     public float PlayerEloRating => UseEloRatings && ERS != null ? ERS.PlayerRating : InitialPlayerRating;
