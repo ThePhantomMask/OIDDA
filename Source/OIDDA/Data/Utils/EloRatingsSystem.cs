@@ -15,9 +15,21 @@ public enum MatchResult
 }
 
 /// <summary>
-/// EloRatingsSystem class.
+/// Pure ELO rating logic, so it can be unit-tested and reused by different ORS agents.
+/// Implements the classic ELO formula:
+///   E_A = 1 / (1 + 10^((R_B - R_A) / 400))
+///   R_A' = R_A + K * (S_A - E_A)
+///
+/// The K-factor is dynamic (chess-style): it starts high while the system has little information about the player and decreases as more matches are recorded, so the rating converges and stabilizes.
 /// </summary>
 public class EloRatingsSystem
 {
-
+    /// <summary> Rating used for a brand-new player/entity. </summary>
+    public float InitialRating = 1000f;
+    /// <summary> K-factor used while GamesPlayed and KFactorRampGames (provisional period). </summary>
+    public float KFactorProvisional = 32f;
+    /// <summary> K-factor used after GamesPlayed and KFactorRampGames (stable period).</summary>
+    public float KFactorStable = 12f;
+    /// <summary> Number of recorded matches after which the player switches from the provisional K-factor to the stable one. </summary>
+    public int KFactorRampGames = 20;
 }
