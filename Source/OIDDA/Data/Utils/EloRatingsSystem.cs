@@ -62,5 +62,57 @@ public class EloRatingsSystem
         return 1f / (1f + MathF.Pow(10f, exponent));
     }
 
+    /// <summary>
+    /// Returns the K-factor to use for the player's NEXT update, based on how many matches have been recorded so far.
+    /// </summary>
+    public float CurrentKFactor => GamesPlayed < KFactorRampGames ? KFactorProvisional : KFactorStable;
+
+    /// <summary>
+    /// Converts a MatchResult into the ELO "score" S_A used in the formula (1 = win, 0.5 = draw, 0 = loss).
+    /// </summary>
+    public static float ResultToScore(MatchResult result) => result switch
+    {
+        MatchResult.Win => 1f,
+        MatchResult.Draw => 0.5f,
+        _ => 0,
+    };
+
+
+    /// <summary>
+    /// Records the outcome of a single match between the player (rating = PlayerRating) and an opponent with the given rating, updating the player's rating in place.
+    /// Returns the new player rating and, via <paramref name="newOpponentRating"/>, the opponent's new rating (useful if the opponent also has a persistent rating, e.g. an enemy archetype or an encounter).
+    /// </summary>
+    public float RecordMatch(float opponentRating, MatchResult result, out float newOpponentRating, bool updateOpponent = true)
+    {
+        var score = ResultToScore(result);
+        var expectedPlayer = ExpectedScore(PlayerRating, opponentRating);
+        float k = CurrentKFactor;
+
+        var newPlayerRating = PlayerRating + k * (score - expectedPlayer);
+
+        if (updateOpponent)
+        {
+            var expectedOpponent = ExpectedScore(opponentRating, PlayerRating);
+            var opponentScore = 1f - score; // zero-sum
+            // Opponents (enemies/encounters) use the stable K-factor by convention, since they don't track their own "games played".
+            newOpponentRating = opponentRating + KFactorStable * (opponentScore - expectedOpponent);
+        }
+        else
+        {
+            newOpponentRating = opponentRating;
+        }
+
+        PlayerRating = newPlayerRating;
+        GamesPlayed += Time.DeltaTime;
+        return PlayerRating;
+    }
+}
+
+/// <summary>
+/// Keeps a small in-memory table of ratings for "opponents": either individual enemy archetypes (e.g. "Goblin", "Sniper") or aggregated encounters/levels (e.g. "Level_03_Boss"). 
+/// Each entry is a simple ELO rating that evolves the same way the player's rating does.
+/// </summary>
+public class EloOpponentPool
+{
 
 }
