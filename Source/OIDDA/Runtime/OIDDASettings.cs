@@ -63,7 +63,7 @@ public class OIDDASettings : SettingsBase
     /// Collection of Static ORS (OIDDA Receiver Sender) agents for managing the OIDDA data.
     /// </summary>
     [EditorOrder(3), EditorDisplay("ORS Config")]
-    public List<StaticORSAgentEntry> StaticORSGroup;
+    public List<List<StaticORSAgentEntry>> StaticORSGroup;
     /// <summary>
     /// Delay for ORS Agents
     /// </summary>
