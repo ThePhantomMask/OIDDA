@@ -63,7 +63,7 @@ public class OIDDASettings : SettingsBase
     /// Collection of Static ORS (OIDDA Receiver Sender) agents for managing the OIDDA data.
     /// </summary>
     [EditorOrder(3), EditorDisplay("ORS Config")]
-    public List<Dictionary<string, IORSAgentS>> StaticORSGroup;
+    public List<StaticORSAgentEntry> StaticORSGroup;
     /// <summary>
     /// Delay for ORS Agents
     /// </summary>
@@ -81,4 +81,11 @@ public class OIDDASettings : SettingsBase
     public GameplayGlobals SelectedGlobal => Globals[_currentIndex].PlayGlobal;
     public Dictionary<string, IORSAgentS> SelectedStaticORSGroup => StaticORSGroup[_currentIndex];
     public JsonAssetReference<OIDDAConfig> SelectedConfig => Configs[_currentIndex];
+}
+
+
+public struct StaticORSAgentEntry
+{
+    public string Key;
+    public IORSAgentS Value;
 }
