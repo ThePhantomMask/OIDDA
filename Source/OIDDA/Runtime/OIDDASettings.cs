@@ -38,10 +38,17 @@ public class OIDDASettings : SettingsBase
     /// Collection of Static ORS (OIDDA Receiver Sender) agents for managing the OIDDA data.
     /// </summary>
     [EditorOrder(2), EditorDisplay("ORS Config")]
-    public List<Dictionary<string, IORSAgentS>> StaticORSGroup;
+    public List<StaticORSAgentEntry> StaticORSGroup;
     /// <summary>
     /// Delay for ORS Agents
     /// </summary>
     [EditorOrder(2), Range(0, 1), EditorDisplay("ORS Config")]
     public float Delay;
+}
+
+
+public struct StaticORSAgentEntry
+{
+    public string Key;
+    public IORSAgentS Value;
 }
