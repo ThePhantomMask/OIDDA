@@ -33,25 +33,6 @@ public class OIDDAManager : Script
     [Range(0, 1), EditorDisplay("Director"), Tooltip("Influence of pacing on difficulty adjustments (0-1)")]
     public float DirectorInfluence = 0.7f;
 
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), Tooltip("Enable the ELO-based skill rating as an additional DDA input")]
-    public bool UseEloRatings = false;
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Starting rating for a brand new player")]
-    public float InitialPlayerRating = 1000f;
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("K-factor used for the first 'KFactorRampGames' matches (faster adaptation")]
-    public float KFactorProvisional = 32f;
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Starting rating for a brand new player")]
-    public float KFactorStable = 12f;
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Number of matches after which the K-factor switches from provisional to stable")]
-    public int KFactorRampGames = 20;
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Default ELO rating assigned to a new enemy/encounter id the first time it is seen")]
-    public float DefaultOpponentRating = 1000f;
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Name lists of the GameplayGlobals variables that receives the raw ELO ratings values")]
-    public List<string> EloRatingGlobals;
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Name lists of the GameplayGlobals variables that receives the normalized skill delta, in [-1, 1]")]
-    public List<string> EloSkillDeltaGlobals;
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("ELO Rating"), VisibleIf(nameof(UseEloRatings)), Tooltip("Rating difference (player - opponent) that maps to +-1 in the normalized skill delta. 400 is the ELO-standard 'one full tier' gap")]
-    public float EloSkillDeltaRange = 400f;
-
     public DirectorManager Director = new();
 
     bool isUseSmoothing, isUseDirector;
@@ -64,9 +45,6 @@ public class OIDDAManager : Script
     OIDDAConfig currentConfig;
     SmoothingManager smoothingManager = new();
     MetricsAnalysis analyze;
-
-    EloRatingsSystem ERS;
-    EloOpponentPool EOP;
 
     public override void OnStart()
     {
@@ -92,8 +70,6 @@ public class OIDDAManager : Script
         updateInterval = settings.UpdateInterval;
         delay = settings.Delay;
         isUseDirector = settings.UseDirector;
-
-        ELOInit();
     }
 
     void OIDDAReset()
@@ -101,24 +77,6 @@ public class OIDDAManager : Script
         if (GameplayValues) GameplayValues.ResetValues();  
         if (ORSAgentDB.Count != 0) ORSAgentDB.Clear(); 
         if (StaticORSDB.Count != 0) StaticORSDB.Clear();
-        if (UseEloRatings) { ERS = null; EOP = null; }
-    }
-
-    void ELOInit()
-    {
-        if (UseEloRatings)
-        {
-            ERS = new EloRatingsSystem(InitialPlayerRating)
-            {
-                InitialRating = InitialPlayerRating,
-                KFactorProvisional = KFactorProvisional,
-                KFactorStable = KFactorStable,
-                KFactorRampGames = KFactorRampGames
-            };
-
-            EOP = new EloOpponentPool { DefaultRating = DefaultOpponentRating };
-
-        }
     }
 
     void AnalyzeAndApply()
@@ -394,75 +352,6 @@ public class OIDDAManager : Script
     public T GetStaticGlobal<T>(string NameAgent) => (delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : GameplayValues.GetValue<T>(StaticORSDB[NameAgent].GlobalVariable);
 
     public T QuickReceiver<T>(string name) => GameplayValues.GetValue<T>(name);
-    #endregion
-
-    #region ELO Rating System Management
-
-    /// <summary> Current raw ELO rating of the player (1000 = default starting rating). </summary>
-    public float PlayerEloRating => UseEloRatings && ERS != null ? ERS.PlayerRating : InitialPlayerRating;
-    /// <summary> Total number of ELO matches recorded so far (affects the dynamic K-factor). </summary>
-    public float PlayerEloGamesPlayed => UseEloRatings && ERS != null ? ERS.GamesPlayed : 0;
-
-    public void ReportEnemyResult(string enemyId, MatchResult result)
-    {
-        if (!UseEloRatings) return;
-
-        if (ERS == null || EOP == null) ELOInit();
-
-        var opponentRating = EOP.GetRating(enemyId);
-        ERS.RecordMatch(opponentRating, result, out var newOpponentRating);
-        EOP.SetRating(enemyId, newOpponentRating);
-
-        if (DebugMode) Debug.Log($"[OIDDA][Elo] Enemy '{enemyId}' result: {result}. Player rating: {ERS.PlayerRating:F1} (was vs {opponentRating:F1})");
-
-        BroadcastEloRating(opponentRating);
-    }
-
-    public void ReportEncounterResult(string encounterId, MatchResult result)
-    {
-        if (!UseEloRatings) return;
-
-        if (ERS == null || EOP == null) ELOInit();
-
-        var encounterRating = EOP.GetRating(encounterId);
-        ERS.RecordMatch(encounterRating, result, out var newEncounterRating);
-        EOP.SetRating(encounterId, newEncounterRating);
-
-        if (DebugMode) Debug.Log($"[OIDDA][Elo] Encounter '{encounterId}' result: {result}. Player rating: {ERS.PlayerRating:F1} (was vs {encounterRating:F1})");
-
-        BroadcastEloRating(newEncounterRating);
-    }
-
-    /// <summary>
-    /// Returns the current stored rating for an enemy/encounter id (creating it with <see cref="DefaultOpponentRating"/> if not seen yet), without recording a match. 
-    /// Useful for debugging/UI.
-    /// </summary>
-    public float GetEloOpponentRating(string id) => UseEloRatings && EOP != null ? EOP.GetRating(id) : DefaultOpponentRating;
-
-    /// <summary>
-    /// Hard reset of the player's ELO rating (e.g. on "New Game"). 
-    /// Does not reset the stored enemy/encounter ratings.
-    /// </summary>
-    /// <param name="startingRating">Starting Rating value</param>
-    public void ResetPlayerEloRating(float? startingRating = null)
-    {
-        if (!UseEloRatings || ERS == null) return;
-        ERS.Reset(startingRating ?? InitialPlayerRating);
-        BroadcastEloRating();
-    }
-
-    /// <summary>
-    /// Pushes the current player ELO rating, and a normalized "skill delta" relative to the given opponent rating (or 0 if none is given), into GameplayGlobals so existing OIDDA rules/metrics can use them as inputs (also triggers <see cref="AnalyzeAndApply"/>).
-    /// </summary>
-    void BroadcastEloRating(float? referenceOpponentRating = null)
-    {
-        var opponentRating = referenceOpponentRating ?? ERS.PlayerRating;
-        var delta = Mathf.Clamp((ERS.PlayerRating - opponentRating) / EloSkillDeltaRange, -1f, 1f);
-
-        EloRatingGlobals.ForEach(name => GameplayValues.SetValue(name, ERS.PlayerRating));
-        EloSkillDeltaGlobals.ForEach(name => GameplayValues.SetValue(name, delta));
-    }
-
     #endregion
 
     public override void OnUpdate()
