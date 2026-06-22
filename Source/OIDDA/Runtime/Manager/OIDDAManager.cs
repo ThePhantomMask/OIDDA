@@ -2,7 +2,6 @@
 using FlaxEngine;
 using FlaxEngine.Utilities;
 using OIDDA.Data;
-using OIDDA.Elo;
 using System;
 using System.Collections.Generic;
 using System.IO;
