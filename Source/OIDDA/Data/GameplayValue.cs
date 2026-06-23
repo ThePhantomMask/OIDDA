@@ -27,7 +27,8 @@ public struct GameplayValue
     bool IsBoundingSphere => Type is ValueType.BoundingSphere;
     bool IsRectangle => Type is ValueType.Rectangle;
     bool IsMatrix => Type is ValueType.Matrix;
-
+    bool IsTexture => Type is ValueType.Texture;
+    bool IsCubeTexture => Type is ValueType.CubeTexture;
 
     [VisibleIf(nameof(IsFloat))]
     public float FloatValue;
@@ -57,7 +58,10 @@ public struct GameplayValue
     public Rectangle RectangleValue;
     [VisibleIf(nameof(IsMatrix))]
     public Matrix MatrixValue;
-
+    [VisibleIf(nameof(IsTexture))]
+    public Texture TextureValue;
+    [VisibleIf(nameof(IsCubeTexture))]
+    public CubeTexture CubeTextureValue;
 
     public GameplayValue(float value) : this()
     {
@@ -143,6 +147,18 @@ public struct GameplayValue
         MatrixValue = value;
     }
 
+    public GameplayValue(Texture value): this()
+    {
+        Type = ValueType.Texture;
+        TextureValue = value;
+    }
+
+    public GameplayValue(CubeTexture value) : this()
+    {
+        Type = ValueType.CubeTexture;
+        CubeTextureValue = value;
+    }
+
     public object Value => Type switch
     {
         ValueType.Float => FloatValue,
@@ -159,6 +175,8 @@ public struct GameplayValue
         ValueType.BoundingSphere => BoundingSphereValue,
         ValueType.Rectangle => RectangleValue,
         ValueType.Matrix => MatrixValue,
+        ValueType.Texture => TextureValue,
+        ValueType.CubeTexture => CubeTextureValue,
         _ => null
     };
 
@@ -180,6 +198,8 @@ public struct GameplayValue
             BoundingSphere bs => new GameplayValue(bs),
             Rectangle r => new GameplayValue(r),
             Matrix m => new GameplayValue(m),
+            Texture t => new GameplayValue(t),
+            CubeTexture ct => new GameplayValue(ct),
             _ => default
         };
     }
@@ -196,7 +216,8 @@ public struct GameplayValue
     public Transform AsTransform() => Type == ValueType.Transform ? TransformValue : Transform.Default;
     public BoundingBox AsBoundingBox() => Type == ValueType.BoundingBox ? BoundingBoxValue : BoundingBox.Default;
     public BoundingSphere AsBoundingSphere() => Type == ValueType.BoundingSphere ? BoundingSphereValue : BoundingSphere.Default;
-
+    public Texture AsTexture() => Type == ValueType.Texture ? TextureValue : new Texture();
+    public CubeTexture AsCubeTexture() => Type == ValueType.CubeTexture ? CubeTextureValue : new CubeTexture();
 
 }
 public enum ValueType
@@ -214,7 +235,9 @@ public enum ValueType
     BoundingBox,
     BoundingSphere,
     Rectangle,
-    Matrix
+    Matrix,
+    Texture,
+    CubeTexture
 }
 
 public static class GameplayValueOperations
