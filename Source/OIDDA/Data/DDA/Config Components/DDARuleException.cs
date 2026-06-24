@@ -13,7 +13,7 @@ public class RuleException : Rule
     public string RuleExceptionName;
     public ExceptionType RuleType;
 
-    public new List<RuleException> RuleExceptions;
+    public override List<RuleException> RuleExceptions { get; set; }
 
     /// <summary>
     ///  Overrides the Apply method to include logging when an exception is triggered.

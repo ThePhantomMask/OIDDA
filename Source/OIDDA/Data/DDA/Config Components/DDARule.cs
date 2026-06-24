@@ -20,7 +20,7 @@ public class Rule
     public RuleApplicationContext Context = RuleApplicationContext.Always;
     public DDACondition Condition;
     public AdjustmentOperator Operator;
-    [VisibleIf(nameof(isNotException))] public List<RuleException> RuleExceptions;
+    [VisibleIf(nameof(isNotException))] public virtual List<RuleException> RuleExceptions { get; set; }
 
 
     /// <summary>
