@@ -387,7 +387,23 @@ public static class GameplayValueOperations
                    _ => current.MatrixValue
                 };
                 return new GameplayValue(resultMatrix);
-
+            
+            case ValueType.Texture:
+                Texture resultTexture = op switch
+                {
+                    AdjustmentOperator.Set => adjustment.TextureValue,
+                    _ => current.TextureValue
+                };
+                return new GameplayValue(resultTexture);
+            
+            case ValueType.CubeTexture:
+                CubeTexture resultCubeTexture = op switch
+                {
+                    AdjustmentOperator.Set => adjustment.CubeTextureValue,
+                    _ => current.CubeTextureValue
+                };
+                return new GameplayValue(resultCubeTexture);
+            
             default:
                 return current;
         }
@@ -560,6 +576,12 @@ public static class GameplayValueOperations
 
             case ValueType.Quaternion:
                 return Quaternion.Dot(current.QuaternionValue, target.QuaternionValue) > 1.0f - threshold;
+
+            case ValueType.Texture:
+                return current.TextureValue == target.TextureValue;
+
+            case ValueType.CubeTexture:
+                return current.CubeTextureValue == target.CubeTextureValue;
 
             default:
                 return true;
