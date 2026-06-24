@@ -69,18 +69,6 @@ public class OIDDASettings : SettingsBase
     /// </summary>
     [EditorOrder(2), Range(0, 1), EditorDisplay("ORS Config")]
     public float Delay;
-
-    int _currentIndex => (FindIndex() != -1) ? FindIndex() : 0;
-
-    int FindIndex()
-    {
-        var sceneTags = Level.Scenes[0].Tags;
-        return Globals.FindIndex(mg => mg.Tags.Exists(tag => tag.Contains(tag)));
-    }
-
-    public GameplayGlobals SelectedGlobal => Globals[_currentIndex].PlayGlobal;
-    public Dictionary<string, IORSAgentS> SelectedStaticORSGroup => StaticORSGroup[_currentIndex];
-    public JsonAssetReference<OIDDAConfig> SelectedConfig => Configs[_currentIndex];
 }
 
 

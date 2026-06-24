@@ -40,35 +40,35 @@ public class OIDDAManager : Script
     GameplayGlobals GameplayValues;
     float updateInterval, delay, timerSender, timerReceiver, score, timeSinceLastUpdate = 0f, timeSinceLastAdjustment = 0f;
 
-    OIDDASettings OIDDASettings;
     OIDDAConfig currentConfig;
     SmoothingManager smoothingManager = new();
     MetricsAnalysis analyze;
 
     public override void OnStart()
     {
-        OIDDASettings = Engine.GetCustomSettings("OIDDASettings").CreateInstance<OIDDASettings>();
-        var Settings = GameSettings.Load();
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Settings.CompanyName, Settings.ProductName, OIDDASettings.FolderName);
-        if (!Directory.Exists(path)) Directory.CreateDirectory(path);
-        OIDDAInit(OIDDASettings);
+        var Instance = OIDDAPlugin.Instance;
+        
+        if (Instance)
+        {
+            GameplayValues = Instance.CurrentGlobals;
+            Instance.CurrentStaticORSAgents.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
+            if (Instance.CurrentOIDDAConfig) Director.currentConfig = currentConfig = Instance.CurrentOIDDAConfig.Instance;
+
+            var OIDDASettings = OIDDAPlugin.Instance.Settings;
+
+            if (OIDDASettings != null)
+            {
+                Director.isDirectorSmoothing = isUseSmoothing = OIDDASettings.UseDDASmoothing;
+                updateInterval = OIDDASettings.UpdateInterval;
+                delay = OIDDASettings.Delay;
+                isUseDirector = OIDDASettings.UseDirector;
+            }
+        }
     }
 
     public override void OnDisable()
     {
         OIDDAReset();
-    }
-
-    internal void OIDDAInit(OIDDASettings settings)
-    {
-        if (settings is null) return;
-        GameplayValues = (settings.GlobalType is GlobalType.Single) ? settings.Global : settings.SelectedGlobal;
-        settings.SelectedStaticORSGroup.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
-        if (settings.Configs.Count != 0) Director.currentConfig = currentConfig = (settings.GlobalType is GlobalType.Single) ? settings.Config.Instance : settings.SelectedConfig.Instance;
-        Director.isDirectorSmoothing = isUseSmoothing = settings.UseDDASmoothing;
-        updateInterval = settings.UpdateInterval;
-        delay = settings.Delay;
-        isUseDirector = settings.UseDirector;
     }
 
     void OIDDAReset()
