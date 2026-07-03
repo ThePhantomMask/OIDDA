@@ -29,7 +29,7 @@ public class OIDDAPlugin : GamePlugin
             Author = "Phantom Raptor Studio",
             RepositoryUrl = "https://github.com/ThePhantomMask/OIDDA",
             Description = "A plugin that adds intelligent difficulty adaptation system designed to create personalised and seamless gaming experiences in a simple, out-of-the-box way.",
-            Version = new Version(0, 0, 9169),
+            Version = new Version(0, 0, 9250),
             IsAlpha = false,
             IsBeta = true,
         };
@@ -62,9 +62,29 @@ public class OIDDAPlugin : GamePlugin
     void OnSceneLoaded(Scene currentscene, Guid guid)
     {
         int currentIndex = (FindIndex(currentscene) != -1) ? FindIndex(currentscene) : 0;
-        CurrentGlobals = Settings.GlobalType == GlobalType.Single ? Settings.Global : Settings.Globals[currentIndex].PlayGlobal;
+
         CurrentStaticORSAgents = Settings.StaticORSGroup[currentIndex];
-        if (Settings.Configs == null || Settings.Configs.Count == 0) return;
+
+        if(Settings.Global == null || Settings.Globals[currentIndex].PlayGlobal == null)
+        {
+          #if FLAX_EDITOR
+            string configType = Settings.GlobalType == GlobalType.Single ? "Global" : "Globals";
+            Debug.LogError($"No OIDDA {configType} found. \n Please check your OIDDA settings.");
+          #endif
+            return;
+        }
+
+        CurrentGlobals = Settings.GlobalType == GlobalType.Single ? Settings.Global : Settings.Globals[currentIndex].PlayGlobal;
+        
+        if (Settings.Config == null || Settings.Configs == null)
+        {
+          #if FLAX_EDITOR
+            string configType = Settings.GlobalType == GlobalType.Single ? "Config" : "Configs";
+            Debug.LogError($"No OIDDA {configType} found. \n Please check your OIDDA settings.");
+          #endif
+            return;
+        }
+        
         CurrentOIDDAConfig = Settings.GlobalType == GlobalType.Single ? Settings.Config : Settings.Configs[currentIndex];
     }
 }
