@@ -60,28 +60,31 @@ public class OIDDAPlugin : GamePlugin
     {
         int currentIndex = FindIndex(currentscene);
 
-        CurrentStaticORSAgents = Settings.StaticORSGroup[currentIndex];
-
-        if(Settings.Global == null || Settings.Globals[currentIndex].PlayGlobal == null)
+        if(currentIndex >= 0)
         {
-          #if FLAX_EDITOR
-            string globalType = Settings.GlobalType == GlobalType.Single ? "Global" : "Globals";
-            Debug.LogError($"No OIDDA {globalType} found. \n Please check your OIDDA settings.");
-          #endif
-            return;
-        }
+            CurrentStaticORSAgents = Settings.StaticORSGroup[currentIndex];
 
-        CurrentGlobals = Settings.GlobalType == GlobalType.Single ? Settings.Global : Settings.Globals[currentIndex].PlayGlobal;
-        
-        if (Settings.Config == null || Settings.Configs == null)
-        {
-          #if FLAX_EDITOR
-            string configType = Settings.GlobalType == GlobalType.Single ? "Config" : "Configs";
-            Debug.LogError($"No OIDDA {configType} found. \n Please check your OIDDA settings.");
-          #endif
-            return;
+            if (Settings.Global == null || Settings.Globals[currentIndex].PlayGlobal == null)
+            {
+               #if FLAX_EDITOR
+                string globalType = Settings.GlobalType == GlobalType.Single ? "Global" : "Globals";
+                Debug.LogError($"No OIDDA {globalType} found. \n Please check your OIDDA settings.");
+               #endif
+                return;
+            }
+
+            CurrentGlobals = Settings.GlobalType == GlobalType.Single ? Settings.Global : Settings.Globals[currentIndex].PlayGlobal;
+
+            if (Settings.Config == null || Settings.Configs == null)
+            {
+               #if FLAX_EDITOR
+                string configType = Settings.GlobalType == GlobalType.Single ? "Config" : "Configs";
+                Debug.LogError($"No OIDDA {configType} found. \n Please check your OIDDA settings.");
+               #endif
+                return;
+            }
+
+            CurrentOIDDAConfig = Settings.GlobalType == GlobalType.Single ? Settings.Config : Settings.Configs[currentIndex];
         }
-        
-        CurrentOIDDAConfig = Settings.GlobalType == GlobalType.Single ? Settings.Config : Settings.Configs[currentIndex];
     }
 }
