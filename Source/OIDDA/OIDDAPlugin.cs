@@ -68,8 +68,8 @@ public class OIDDAPlugin : GamePlugin
         if(Settings.Global == null || Settings.Globals[currentIndex].PlayGlobal == null)
         {
           #if FLAX_EDITOR
-            string configType = Settings.GlobalType == GlobalType.Single ? "Global" : "Globals";
-            Debug.LogError($"No OIDDA {configType} found. \n Please check your OIDDA settings.");
+            string globalType = Settings.GlobalType == GlobalType.Single ? "Global" : "Globals";
+            Debug.LogError($"No OIDDA {globalType} found. \n Please check your OIDDA settings.");
           #endif
             return;
         }
