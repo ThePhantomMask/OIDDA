@@ -5,6 +5,8 @@ using OIDDA.Data;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
 
 namespace OIDDA;
 
@@ -14,9 +16,6 @@ namespace OIDDA;
 [Category(name: "OIDDA")]
 public class OIDDAManager : Script
 {
-    [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager")]
-    public bool InstantMetricsUpdated;
-
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Range(0, 1)]
     public float DifficultThreshold = 0.7f;
 
@@ -202,24 +201,21 @@ public class OIDDAManager : Script
 
     void LogAnalysis(MetricsAnalysis analysis)
     {
-        Debug.Log($"=== OIDDA Analysis ===");
-        Debug.Log($"Overall Score: {analysis.OverallScore:F3} ({analysis.OverallState})");
-        Debug.Log($"Individual Metrics:");
-
-        analysis.MetricInfos.ForEach(info => Debug.Log($"[{info.State}] {info.MetricName}: {info.NormalizedScore: F3}" +
-            $"(weighted: {info.WeightedScore: F3}, value: {info.CurrentValue})"));
+        var analysisLog = new StringBuilder();
+        analysisLog.AppendLine("OIDDA Analysis:");
+        analysisLog.AppendLine($"Overall Score: {analysis.OverallScore:F3} ({analysis.OverallState})");
+        analysisLog.AppendLine($"Individual Metrics: {string.Join("\n", analysis.MetricInfos.Select(info => $"[{info.State}] {info.MetricName}: {info.NormalizedScore: F3}"))}");
 
         var problematic = MetricsAggregator.GetProblematicMetrics(currentConfig.Metrics, GameplayValues.Values, DifficultThreshold);
         if (problematic.Count > 0)
         {
-            Debug.Log($"Problematic Metrics ({problematic.Count}):");
-            problematic.ForEach(metric => Debug.LogWarning($"{metric.MetricName}: {metric.NormalizedScore:F3}"));
+            analysisLog.AppendLine($"Problematic Metrics ({problematic.Count}):");
+            problematic.ForEach(metric => analysisLog.AppendLine($"{metric.MetricName}: {metric.NormalizedScore:F3}"));
         }
 
-        if (isUseDirector)
-        {
-            Debug.Log($"[Director] {Director.DebugInfo}");
-        }
+        if (isUseDirector) analysisLog.AppendLine($"[Director] {Director.DebugInfo}");
+
+        Debug.Log(analysisLog.ToString());
     }
 
     void OIDDAUpdate()
@@ -228,12 +224,6 @@ public class OIDDAManager : Script
         if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
         timeSinceLastUpdate += Time.DeltaTime;
         timeSinceLastAdjustment += Time.DeltaTime;
-
-        if (InstantMetricsUpdated)
-        {
-            InstantMetricsUpdated = false; timeSinceLastUpdate = 0f;
-            return;
-        }
 
         if (timeSinceLastUpdate >= updateInterval)
         {
