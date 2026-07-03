@@ -37,8 +37,8 @@ public class OIDDAPlugin : GamePlugin
 
     int FindIndex(Scene scene)
     {
-        var sceneTags = scene.Tags;
-        return Settings.Globals.FindIndex(mg => mg.Tags.Exists(tag => tag.Contains(tag)));
+        var sceneTags = scene.Tags.ToString();
+        return Settings.GlobalType == GlobalType.Single ? 0 : Settings.Globals.FindIndex(mg => mg.Tags.Exists(tag => sceneTags.Contains(tag)));
     }
 
     public override void Initialize()
@@ -61,7 +61,7 @@ public class OIDDAPlugin : GamePlugin
 
     void OnSceneLoaded(Scene currentscene, Guid guid)
     {
-        int currentIndex = (FindIndex(currentscene) != -1) ? FindIndex(currentscene) : 0;
+        int currentIndex = FindIndex(currentscene);
 
         CurrentStaticORSAgents = Settings.StaticORSGroup[currentIndex];
 
