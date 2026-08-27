@@ -498,6 +498,72 @@ public static class GameplayValueOperations
                     _ => false
                 };
 
+            case ValueType.Vector2:
+                return op switch
+                {
+                    ComparisonOperator.Greater => a.Vector2Value.ValuesSum > b.Vector2Value.ValuesSum,
+                    ComparisonOperator.Less => a.Vector2Value.ValuesSum < b.Vector2Value.ValuesSum,
+                    ComparisonOperator.GreaterOrEqual => a.Vector2Value.ValuesSum >= b.Vector2Value.ValuesSum,
+                    ComparisonOperator.LessOrEqual => a.Vector2Value.ValuesSum <= b.Vector2Value.ValuesSum,
+                    ComparisonOperator.Equal => a.Vector2Value.ValuesSum == b.Vector2Value.ValuesSum,
+                    ComparisonOperator.NotEqual => a.Vector2Value.ValuesSum != b.Vector2Value.ValuesSum,
+                    _ => false
+                };
+
+            case ValueType.Vector3:
+                return op switch
+                {
+                    ComparisonOperator.Greater => a.Vector3Value.ValuesSum > b.Vector3Value.ValuesSum,
+                    ComparisonOperator.Less => a.Vector3Value.ValuesSum < b.Vector3Value.ValuesSum,
+                    ComparisonOperator.GreaterOrEqual => a.Vector3Value.ValuesSum >= b.Vector3Value.ValuesSum,
+                    ComparisonOperator.LessOrEqual => a.Vector3Value.ValuesSum <= b.Vector3Value.ValuesSum,
+                    ComparisonOperator.Equal => a.Vector3Value.ValuesSum == b.Vector3Value.ValuesSum,
+                    ComparisonOperator.NotEqual => a.Vector3Value.ValuesSum != b.Vector3Value.ValuesSum,
+                    _ => false
+                };
+
+            case ValueType.Vector4:
+                return op switch
+                {
+                    ComparisonOperator.Greater => a.Vector4Value.ValuesSum > b.Vector4Value.ValuesSum,
+                    ComparisonOperator.Less => a.Vector4Value.ValuesSum < b.Vector4Value.ValuesSum,
+                    ComparisonOperator.GreaterOrEqual => a.Vector4Value.ValuesSum >= b.Vector4Value.ValuesSum,
+                    ComparisonOperator.LessOrEqual => a.Vector4Value.ValuesSum <= b.Vector4Value.ValuesSum,
+                    ComparisonOperator.Equal => a.Vector4Value.ValuesSum == b.Vector4Value.ValuesSum,
+                    ComparisonOperator.NotEqual => a.Vector4Value.ValuesSum != b.Vector4Value.ValuesSum,
+                    _ => false
+                };
+
+            case ValueType.Color:
+                return op switch
+                {
+                    ComparisonOperator.Greater => a.ColorValue.ValuesSum > b.ColorValue.ValuesSum,
+                    ComparisonOperator.Less => a.ColorValue.ValuesSum < b.ColorValue.ValuesSum,
+                    ComparisonOperator.GreaterOrEqual => a.ColorValue.ValuesSum >= b.ColorValue.ValuesSum,
+                    ComparisonOperator.LessOrEqual => a.ColorValue.ValuesSum <= b.ColorValue.ValuesSum,
+                    ComparisonOperator.Equal => a.ColorValue.ValuesSum == b.ColorValue.ValuesSum,
+                    ComparisonOperator.NotEqual => a.ColorValue.ValuesSum != b.ColorValue.ValuesSum,
+                    _ => false
+                };
+
+            case ValueType.Quaternion:
+                return op switch
+                {
+                    ComparisonOperator.Greater => a.QuaternionValue.Angle > b.QuaternionValue.Angle &&
+                    a.QuaternionValue.Axis.ValuesSum > b.QuaternionValue.Axis.ValuesSum,
+                    ComparisonOperator.Less => a.QuaternionValue.Angle < b.QuaternionValue.Angle &&
+                    a.QuaternionValue.Axis.ValuesSum < b.QuaternionValue.Axis.ValuesSum,
+                    ComparisonOperator.GreaterOrEqual => a.QuaternionValue.Angle >= b.QuaternionValue.Angle &&
+                    a.QuaternionValue.Axis.ValuesSum >= b.QuaternionValue.Axis.ValuesSum,
+                    ComparisonOperator.LessOrEqual => a.QuaternionValue.Angle <= b.QuaternionValue.Angle &&
+                    a.QuaternionValue.Axis.ValuesSum <= b.QuaternionValue.Axis.ValuesSum,
+                    ComparisonOperator.Equal => a.QuaternionValue.Angle == b.QuaternionValue.Angle &&
+                    a.QuaternionValue.Axis.ValuesSum == b.QuaternionValue.Axis.ValuesSum,
+                    ComparisonOperator.NotEqual => a.QuaternionValue.Angle != b.QuaternionValue.Angle &&
+                    a.QuaternionValue.Axis.ValuesSum != b.QuaternionValue.Axis.ValuesSum,
+                    _ => false
+                };
+
             default:
                 return false;
         }
