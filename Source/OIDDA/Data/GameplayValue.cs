@@ -251,406 +251,289 @@ public static class GameplayValueOperations
             return current;
         }
 
-        switch (current.Type)
+        return current.Type switch
         {
-            case ValueType.Float:
-                float resultFloat = op switch
-                {
-                    AdjustmentOperator.Add => current.FloatValue + adjustment.FloatValue,
-                    AdjustmentOperator.Subtract => current.FloatValue - adjustment.FloatValue,
-                    AdjustmentOperator.Multiply => current.FloatValue * adjustment.FloatValue,
-                    AdjustmentOperator.Divide => adjustment.FloatValue != 0 ? current.FloatValue / adjustment.FloatValue : current.FloatValue,
-                    AdjustmentOperator.Set => adjustment.FloatValue,
-                    _ => current.FloatValue
-                };
-                return new GameplayValue(resultFloat);
-
-            case ValueType.Int:
-                int resultInt = op switch
-                {
-                    AdjustmentOperator.Add => current.IntValue + adjustment.IntValue,
-                    AdjustmentOperator.Subtract => current.IntValue - adjustment.IntValue,
-                    AdjustmentOperator.Multiply => current.IntValue * adjustment.IntValue,
-                    AdjustmentOperator.Divide => adjustment.IntValue != 0 ? current.IntValue / adjustment.IntValue : current.IntValue,
-                    AdjustmentOperator.Set => adjustment.IntValue,
-                    _ => current.IntValue
-                };
-                return new GameplayValue(resultInt);
-
-            case ValueType.Bool:
-                bool resultBool = op switch
-                {
-                    AdjustmentOperator.Set => adjustment.BoolValue,
-                    AdjustmentOperator.Toggle => !current.BoolValue,
-                    _ => current.BoolValue
-                };
-                return new GameplayValue(resultBool);
-
-            case ValueType.Vector2:
-                Vector2 resultVec2 = op switch
-                {
-                    AdjustmentOperator.Add => current.Vector2Value + adjustment.Vector2Value,
-                    AdjustmentOperator.Subtract => current.Vector2Value - adjustment.Vector2Value,
-                    AdjustmentOperator.Multiply => current.Vector2Value * adjustment.Vector2Value,
-                    AdjustmentOperator.Divide => adjustment.Vector2Value != Vector2.Zero ? current.Vector2Value / adjustment.Vector2Value : current.Vector2Value,
-                    AdjustmentOperator.Set => adjustment.Vector2Value,
-                    _ => current.Vector2Value
-                };
-                return new GameplayValue(resultVec2);
-
-            case ValueType.Vector3:
-                Vector3 resultVec3 = op switch
-                {
-                    AdjustmentOperator.Add => current.Vector3Value + adjustment.Vector3Value,
-                    AdjustmentOperator.Subtract => current.Vector3Value - adjustment.Vector3Value,
-                    AdjustmentOperator.Multiply => current.Vector3Value * adjustment.Vector3Value,
-                    AdjustmentOperator.Divide => adjustment.Vector3Value != Vector3.Zero ? current.Vector3Value / adjustment.Vector3Value : current.Vector3Value,
-                    AdjustmentOperator.Set => adjustment.Vector3Value,
-                    _ => current.Vector3Value
-                };
-                return new GameplayValue(resultVec3);
-
-            case ValueType.Vector4:
-                Vector4 resultVec4 = op switch
-                {
-                    AdjustmentOperator.Add => current.Vector4Value + adjustment.Vector4Value,
-                    AdjustmentOperator.Subtract => current.Vector4Value - adjustment.Vector4Value,
-                    AdjustmentOperator.Multiply => current.Vector4Value * adjustment.Vector4Value,
-                    AdjustmentOperator.Divide => adjustment.Vector4Value != Vector4.Zero ? current.Vector4Value / adjustment.Vector4Value : current.Vector4Value,
-                    AdjustmentOperator.Set => adjustment.Vector4Value,
-                    _ => current.Vector4Value
-                };
-                return new GameplayValue(resultVec4);
-
-            case ValueType.String:
-                string resultStr = op switch
-                {
-                    AdjustmentOperator.Set => adjustment.StringValue,
-                    AdjustmentOperator.Append => current.StringValue + adjustment.StringValue,
-                    _ => current.StringValue
-                };
-                return new GameplayValue(resultStr);
-
-            case ValueType.Quaternion:
-                Quaternion resultQuaternion = op switch 
-                {
-                    AdjustmentOperator.Add => current.QuaternionValue + adjustment.QuaternionValue,
-                    AdjustmentOperator.Subtract => current.QuaternionValue - adjustment.QuaternionValue,
-                    AdjustmentOperator.Multiply => current.QuaternionValue * adjustment.QuaternionValue,
-                    AdjustmentOperator.Set => adjustment.QuaternionValue,
-                    _ => current.QuaternionValue
-                };
-                return new GameplayValue(resultQuaternion);
-
-            case ValueType.Transform:
-                Transform resultTransform = op switch
-                {
-                    AdjustmentOperator.Add => current.TransformValue + adjustment.TransformValue,
-                    AdjustmentOperator.Subtract => current.TransformValue - adjustment.TransformValue,
-                    AdjustmentOperator.Set => adjustment.TransformValue,
-                    _ => current.TransformValue
-                };
-                return new GameplayValue(resultTransform);
-
-            case ValueType.BoundingBox:
-                BoundingBox resultBox = op switch
-                {
-                    AdjustmentOperator.Set => adjustment.BoundingBoxValue,
-                    _ => current.BoundingBoxValue
-                };
-                return new GameplayValue(resultBox);
-
-            case ValueType.BoundingSphere:
-                BoundingSphere resultSphere = op switch
-                {
-                    AdjustmentOperator.Set => adjustment.BoundingSphereValue,
-                    _ => current.BoundingSphereValue
-                };
-                return new GameplayValue(resultSphere);
-
-            case ValueType.Rectangle:
-                Rectangle resultRectangle = op switch
-                {
-                    AdjustmentOperator.Set => adjustment.RectangleValue,
-                    _ => current.RectangleValue
-                };
-                return new GameplayValue(resultRectangle);
-
-            case ValueType.Matrix:
-                Matrix resultMatrix = op switch
-                { 
-                   AdjustmentOperator.Add => current.MatrixValue + adjustment.MatrixValue,
-                   AdjustmentOperator.Subtract => current.MatrixValue - adjustment.MatrixValue,
-                   AdjustmentOperator.Multiply => current.MatrixValue * adjustment.MatrixValue,
-                   AdjustmentOperator.Divide => adjustment.MatrixValue != Matrix.Zero ? current.MatrixValue / adjustment.MatrixValue : current.MatrixValue,
-                   AdjustmentOperator.Set => adjustment.MatrixValue,
-                   _ => current.MatrixValue
-                };
-                return new GameplayValue(resultMatrix);
-            
-            case ValueType.Texture:
-                Texture resultTexture = op switch
-                {
-                    AdjustmentOperator.Set => adjustment.TextureValue,
-                    _ => current.TextureValue
-                };
-                return new GameplayValue(resultTexture);
-            
-            case ValueType.CubeTexture:
-                CubeTexture resultCubeTexture = op switch
-                {
-                    AdjustmentOperator.Set => adjustment.CubeTextureValue,
-                    _ => current.CubeTextureValue
-                };
-                return new GameplayValue(resultCubeTexture);
-            
-            default:
-                return current;
-        }
+            ValueType.Float => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Add => current.FloatValue + adjustment.FloatValue,
+                AdjustmentOperator.Subtract => current.FloatValue - adjustment.FloatValue,
+                AdjustmentOperator.Multiply => current.FloatValue * adjustment.FloatValue,
+                AdjustmentOperator.Divide => adjustment.FloatValue != 0 ? current.FloatValue / adjustment.FloatValue : current.FloatValue,
+                AdjustmentOperator.Set => adjustment.FloatValue,
+                _ => current.FloatValue
+            }),
+            ValueType.Int => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Add => current.IntValue + adjustment.IntValue,
+                AdjustmentOperator.Subtract => current.IntValue - adjustment.IntValue,
+                AdjustmentOperator.Multiply => current.IntValue * adjustment.IntValue,
+                AdjustmentOperator.Divide => adjustment.IntValue != 0 ? current.IntValue / adjustment.IntValue : current.IntValue,
+                AdjustmentOperator.Set => adjustment.IntValue,
+                _ => current.IntValue
+            }),
+            ValueType.Bool => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Set => adjustment.BoolValue,
+                AdjustmentOperator.Toggle => !current.BoolValue,
+                _ => current.BoolValue
+            }),
+            ValueType.Vector2 => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Add => current.Vector2Value + adjustment.Vector2Value,
+                AdjustmentOperator.Subtract => current.Vector2Value - adjustment.Vector2Value,
+                AdjustmentOperator.Multiply => current.Vector2Value * adjustment.Vector2Value,
+                AdjustmentOperator.Divide => adjustment.Vector2Value != Vector2.Zero ? current.Vector2Value / adjustment.Vector2Value : current.Vector2Value,
+                AdjustmentOperator.Set => adjustment.Vector2Value,
+                _ => current.Vector2Value
+            }),
+            ValueType.Vector3 => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Add => current.Vector3Value + adjustment.Vector3Value,
+                AdjustmentOperator.Subtract => current.Vector3Value - adjustment.Vector3Value,
+                AdjustmentOperator.Multiply => current.Vector3Value * adjustment.Vector3Value,
+                AdjustmentOperator.Divide => adjustment.Vector3Value != Vector3.Zero ? current.Vector3Value / adjustment.Vector3Value : current.Vector3Value,
+                AdjustmentOperator.Set => adjustment.Vector3Value,
+                _ => current.Vector3Value
+            }),
+            ValueType.Vector4 => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Add => current.Vector4Value + adjustment.Vector4Value,
+                AdjustmentOperator.Subtract => current.Vector4Value - adjustment.Vector4Value,
+                AdjustmentOperator.Multiply => current.Vector4Value * adjustment.Vector4Value,
+                AdjustmentOperator.Divide => adjustment.Vector4Value != Vector4.Zero ? current.Vector4Value / adjustment.Vector4Value : current.Vector4Value,
+                AdjustmentOperator.Set => adjustment.Vector4Value,
+                _ => current.Vector4Value
+            }),
+            ValueType.String => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Set => adjustment.StringValue,
+                AdjustmentOperator.Append => current.StringValue + adjustment.StringValue,
+                _ => current.StringValue
+            }),
+            ValueType.Quaternion => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Add => current.QuaternionValue + adjustment.QuaternionValue,
+                AdjustmentOperator.Subtract => current.QuaternionValue - adjustment.QuaternionValue,
+                AdjustmentOperator.Multiply => current.QuaternionValue * adjustment.QuaternionValue,
+                AdjustmentOperator.Set => adjustment.QuaternionValue,
+                _ => current.QuaternionValue
+            }),
+            ValueType.Transform => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Add => current.TransformValue + adjustment.TransformValue,
+                AdjustmentOperator.Subtract => current.TransformValue - adjustment.TransformValue,
+                AdjustmentOperator.Set => adjustment.TransformValue,
+                _ => current.TransformValue
+            }),
+            ValueType.BoundingBox => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Set => adjustment.BoundingBoxValue,
+                _ => current.BoundingBoxValue
+            }),
+            ValueType.BoundingSphere => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Set => adjustment.BoundingSphereValue,
+                _ => current.BoundingSphereValue
+            }),
+            ValueType.Rectangle => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Set => adjustment.RectangleValue,
+                _ => current.RectangleValue
+            }),
+            ValueType.Matrix => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Add => current.MatrixValue + adjustment.MatrixValue,
+                AdjustmentOperator.Subtract => current.MatrixValue - adjustment.MatrixValue,
+                AdjustmentOperator.Multiply => current.MatrixValue * adjustment.MatrixValue,
+                AdjustmentOperator.Divide => adjustment.MatrixValue != Matrix.Zero ? current.MatrixValue / adjustment.MatrixValue : current.MatrixValue,
+                AdjustmentOperator.Set => adjustment.MatrixValue,
+                _ => current.MatrixValue
+            }),
+            ValueType.Texture => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Set => adjustment.TextureValue,
+                _ => current.TextureValue
+            }),
+            ValueType.CubeTexture => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Set => adjustment.CubeTextureValue,
+                _ => current.CubeTextureValue
+            }),
+            _ => current
+        };
     }
 
     public static GameplayValue Clamp(GameplayValue value, GameplayValue min, GameplayValue max)
     {
         // Type mismatch, no clamp
         if (value.Type != min.Type || value.Type != max.Type)
-        {
             return value;
-        }
 
-        switch (value.Type)
+        return value.Type switch
         {
-            case ValueType.Float:
-                return new GameplayValue(Mathf.Clamp(value.FloatValue, min.FloatValue, max.FloatValue));
-
-            case ValueType.Int:
-                return new GameplayValue(Mathf.Clamp(value.IntValue, min.IntValue, max.IntValue));
-
-            case ValueType.Vector2:
-                return new GameplayValue(new Vector2(
+            ValueType.Float => new GameplayValue(Mathf.Clamp(value.FloatValue, min.FloatValue, max.FloatValue)),
+            ValueType.Int => new GameplayValue(Mathf.Clamp(value.IntValue, min.IntValue, max.IntValue)),
+            ValueType.Vector2 => new GameplayValue(new Vector2 (
                     Mathf.Clamp(value.Vector2Value.X, min.Vector2Value.X, max.Vector2Value.X),
-                    Mathf.Clamp(value.Vector2Value.Y, min.Vector2Value.Y, max.Vector2Value.Y)
-                ));
-
-            case ValueType.Vector3:
-                return new GameplayValue(new Vector3(
+                    Mathf.Clamp(value.Vector2Value.Y, min.Vector2Value.Y, max.Vector2Value.Y))),
+            ValueType.Vector3 => new GameplayValue(new Vector3(
                     Mathf.Clamp(value.Vector3Value.X, min.Vector3Value.X, max.Vector3Value.X),
                     Mathf.Clamp(value.Vector3Value.Y, min.Vector3Value.Y, max.Vector3Value.Y),
-                    Mathf.Clamp(value.Vector3Value.Z, min.Vector3Value.Z, max.Vector3Value.Z)
-                ));
-
-            case ValueType.Vector4:
-                return new GameplayValue(new Vector4(
+                    Mathf.Clamp(value.Vector3Value.Z, min.Vector3Value.Z, max.Vector3Value.Z))),
+            ValueType.Vector4 => new GameplayValue(new Vector4(
                     Mathf.Clamp(value.Vector4Value.X, min.Vector4Value.X, max.Vector4Value.X),
                     Mathf.Clamp(value.Vector4Value.Y, min.Vector4Value.Y, max.Vector4Value.Y),
                     Mathf.Clamp(value.Vector4Value.Z, min.Vector4Value.Z, max.Vector4Value.Z),
-                    Mathf.Clamp(value.Vector4Value.W, min.Vector4Value.W, max.Vector4Value.W)
-                ));
-
-            default:
-                return value;  // No clamp for other types
-        }
+                    Mathf.Clamp(value.Vector4Value.W, min.Vector4Value.W, max.Vector4Value.W))),
+            ValueType.Quaternion => new GameplayValue(new Quaternion(
+                    Mathf.Clamp(value.QuaternionValue.X, min.QuaternionValue.X, max.QuaternionValue.X),
+                    Mathf.Clamp(value.QuaternionValue.Y, min.QuaternionValue.Y, max.QuaternionValue.Y),
+                    Mathf.Clamp(value.QuaternionValue.Z, min.QuaternionValue.Z, max.QuaternionValue.Z),
+                    Mathf.Clamp(value.QuaternionValue.W, min.QuaternionValue.W, max.QuaternionValue.W))),
+            _ => value // No clamp for other types
+        };
     }
 
     public static bool Compare(GameplayValue a, GameplayValue b, ComparisonOperator op)
     {
-        if (a.Type != b.Type) return false;
+        if (a.Type != b.Type) 
+            return false;
 
-        switch (a.Type)
+        return a.Type switch
         {
-            case ValueType.Float:
-                return op switch
-                {
-                    ComparisonOperator.Greater => a.FloatValue > b.FloatValue,
-                    ComparisonOperator.Less => a.FloatValue < b.FloatValue,
-                    ComparisonOperator.GreaterOrEqual => a.FloatValue >= b.FloatValue,
-                    ComparisonOperator.LessOrEqual => a.FloatValue <= b.FloatValue,
-                    ComparisonOperator.Equal => Math.Abs(a.FloatValue - b.FloatValue) < 0.001f,
-                    ComparisonOperator.NotEqual => Math.Abs(a.FloatValue - b.FloatValue) >= 0.001f,
-                    _ => false
-                };
-
-            case ValueType.Int:
-                return op switch
-                {
-                    ComparisonOperator.Greater => a.IntValue > b.IntValue,
-                    ComparisonOperator.Less => a.IntValue < b.IntValue,
-                    ComparisonOperator.GreaterOrEqual => a.IntValue >= b.IntValue,
-                    ComparisonOperator.LessOrEqual => a.IntValue <= b.IntValue,
-                    ComparisonOperator.Equal => a.IntValue == b.IntValue,
-                    ComparisonOperator.NotEqual => a.IntValue != b.IntValue,
-                    _ => false
-                };
-
-            case ValueType.Bool:
-                return op switch
-                {
-                    ComparisonOperator.Equal => a.BoolValue == b.BoolValue,
-                    ComparisonOperator.NotEqual => a.BoolValue != b.BoolValue,
-                    _ => false
-                };
-
-            case ValueType.String:
-                return op switch
-                {
-                    ComparisonOperator.Equal => a.StringValue == b.StringValue,
-                    ComparisonOperator.NotEqual => a.StringValue != b.StringValue,
-                    ComparisonOperator.Contains => a.StringValue.Contains(b.StringValue),
-                    _ => false
-                };
-
-            case ValueType.Vector2:
-                return op switch
-                {
-                    ComparisonOperator.Greater => a.Vector2Value.ValuesSum > b.Vector2Value.ValuesSum,
-                    ComparisonOperator.Less => a.Vector2Value.ValuesSum < b.Vector2Value.ValuesSum,
-                    ComparisonOperator.GreaterOrEqual => a.Vector2Value.ValuesSum >= b.Vector2Value.ValuesSum,
-                    ComparisonOperator.LessOrEqual => a.Vector2Value.ValuesSum <= b.Vector2Value.ValuesSum,
-                    ComparisonOperator.Equal => a.Vector2Value.ValuesSum == b.Vector2Value.ValuesSum,
-                    ComparisonOperator.NotEqual => a.Vector2Value.ValuesSum != b.Vector2Value.ValuesSum,
-                    _ => false
-                };
-
-            case ValueType.Vector3:
-                return op switch
-                {
-                    ComparisonOperator.Greater => a.Vector3Value.ValuesSum > b.Vector3Value.ValuesSum,
-                    ComparisonOperator.Less => a.Vector3Value.ValuesSum < b.Vector3Value.ValuesSum,
-                    ComparisonOperator.GreaterOrEqual => a.Vector3Value.ValuesSum >= b.Vector3Value.ValuesSum,
-                    ComparisonOperator.LessOrEqual => a.Vector3Value.ValuesSum <= b.Vector3Value.ValuesSum,
-                    ComparisonOperator.Equal => a.Vector3Value.ValuesSum == b.Vector3Value.ValuesSum,
-                    ComparisonOperator.NotEqual => a.Vector3Value.ValuesSum != b.Vector3Value.ValuesSum,
-                    _ => false
-                };
-
-            case ValueType.Vector4:
-                return op switch
-                {
-                    ComparisonOperator.Greater => a.Vector4Value.ValuesSum > b.Vector4Value.ValuesSum,
-                    ComparisonOperator.Less => a.Vector4Value.ValuesSum < b.Vector4Value.ValuesSum,
-                    ComparisonOperator.GreaterOrEqual => a.Vector4Value.ValuesSum >= b.Vector4Value.ValuesSum,
-                    ComparisonOperator.LessOrEqual => a.Vector4Value.ValuesSum <= b.Vector4Value.ValuesSum,
-                    ComparisonOperator.Equal => a.Vector4Value.ValuesSum == b.Vector4Value.ValuesSum,
-                    ComparisonOperator.NotEqual => a.Vector4Value.ValuesSum != b.Vector4Value.ValuesSum,
-                    _ => false
-                };
-
-            case ValueType.Color:
-                return op switch
-                {
-                    ComparisonOperator.Greater => a.ColorValue.ValuesSum > b.ColorValue.ValuesSum,
-                    ComparisonOperator.Less => a.ColorValue.ValuesSum < b.ColorValue.ValuesSum,
-                    ComparisonOperator.GreaterOrEqual => a.ColorValue.ValuesSum >= b.ColorValue.ValuesSum,
-                    ComparisonOperator.LessOrEqual => a.ColorValue.ValuesSum <= b.ColorValue.ValuesSum,
-                    ComparisonOperator.Equal => a.ColorValue.ValuesSum == b.ColorValue.ValuesSum,
-                    ComparisonOperator.NotEqual => a.ColorValue.ValuesSum != b.ColorValue.ValuesSum,
-                    _ => false
-                };
-
-            case ValueType.Quaternion:
-                return op switch
-                {
-                    ComparisonOperator.Greater => a.QuaternionValue.Angle > b.QuaternionValue.Angle &&
-                    a.QuaternionValue.Axis.ValuesSum > b.QuaternionValue.Axis.ValuesSum,
-                    ComparisonOperator.Less => a.QuaternionValue.Angle < b.QuaternionValue.Angle &&
-                    a.QuaternionValue.Axis.ValuesSum < b.QuaternionValue.Axis.ValuesSum,
-                    ComparisonOperator.GreaterOrEqual => a.QuaternionValue.Angle >= b.QuaternionValue.Angle &&
-                    a.QuaternionValue.Axis.ValuesSum >= b.QuaternionValue.Axis.ValuesSum,
-                    ComparisonOperator.LessOrEqual => a.QuaternionValue.Angle <= b.QuaternionValue.Angle &&
-                    a.QuaternionValue.Axis.ValuesSum <= b.QuaternionValue.Axis.ValuesSum,
-                    ComparisonOperator.Equal => a.QuaternionValue.Angle == b.QuaternionValue.Angle &&
-                    a.QuaternionValue.Axis.ValuesSum == b.QuaternionValue.Axis.ValuesSum,
-                    ComparisonOperator.NotEqual => a.QuaternionValue.Angle != b.QuaternionValue.Angle &&
-                    a.QuaternionValue.Axis.ValuesSum != b.QuaternionValue.Axis.ValuesSum,
-                    _ => false
-                };
-
-            default:
-                return false;
-        }
+            ValueType.Float => op switch
+            {
+                ComparisonOperator.Greater => a.FloatValue > b.FloatValue,
+                ComparisonOperator.Less => a.FloatValue < b.FloatValue,
+                ComparisonOperator.GreaterOrEqual => a.FloatValue >= b.FloatValue,
+                ComparisonOperator.LessOrEqual => a.FloatValue <= b.FloatValue,
+                ComparisonOperator.Equal => Math.Abs(a.FloatValue - b.FloatValue) < 0.001f,
+                ComparisonOperator.NotEqual => Math.Abs(a.FloatValue - b.FloatValue) >= 0.001f,
+                _ => false
+            },
+            ValueType.Int => op switch
+            {
+                ComparisonOperator.Greater => a.IntValue > b.IntValue,
+                ComparisonOperator.Less => a.IntValue < b.IntValue,
+                ComparisonOperator.GreaterOrEqual => a.IntValue >= b.IntValue,
+                ComparisonOperator.LessOrEqual => a.IntValue <= b.IntValue,
+                ComparisonOperator.Equal => a.IntValue == b.IntValue,
+                ComparisonOperator.NotEqual => a.IntValue != b.IntValue,
+                _ => false
+            },
+            ValueType.Bool => op switch
+            {
+                ComparisonOperator.Equal => a.BoolValue == b.BoolValue,
+                ComparisonOperator.NotEqual => a.BoolValue != b.BoolValue,
+                _ => false
+            },
+            ValueType.String => op switch
+            {
+                ComparisonOperator.Equal => a.StringValue == b.StringValue,
+                ComparisonOperator.NotEqual => a.StringValue != b.StringValue,
+                ComparisonOperator.Contains => a.StringValue.Contains(b.StringValue),
+                _ => false
+            },
+            ValueType.Vector2 => op switch
+            {
+                ComparisonOperator.Greater => a.Vector2Value.ValuesSum > b.Vector2Value.ValuesSum,
+                ComparisonOperator.Less => a.Vector2Value.ValuesSum < b.Vector2Value.ValuesSum,
+                ComparisonOperator.GreaterOrEqual => a.Vector2Value.ValuesSum >= b.Vector2Value.ValuesSum,
+                ComparisonOperator.LessOrEqual => a.Vector2Value.ValuesSum <= b.Vector2Value.ValuesSum,
+                ComparisonOperator.Equal => a.Vector2Value.ValuesSum == b.Vector2Value.ValuesSum,
+                ComparisonOperator.NotEqual => a.Vector2Value.ValuesSum != b.Vector2Value.ValuesSum,
+                _ => false
+            },
+            ValueType.Vector3 => op switch
+            {
+                ComparisonOperator.Greater => a.Vector3Value.ValuesSum > b.Vector3Value.ValuesSum,
+                ComparisonOperator.Less => a.Vector3Value.ValuesSum < b.Vector3Value.ValuesSum,
+                ComparisonOperator.GreaterOrEqual => a.Vector3Value.ValuesSum >= b.Vector3Value.ValuesSum,
+                ComparisonOperator.LessOrEqual => a.Vector3Value.ValuesSum <= b.Vector3Value.ValuesSum,
+                ComparisonOperator.Equal => a.Vector3Value.ValuesSum == b.Vector3Value.ValuesSum,
+                ComparisonOperator.NotEqual => a.Vector3Value.ValuesSum != b.Vector3Value.ValuesSum,
+                _ => false
+            },
+            ValueType.Vector4 => op switch
+            {
+                ComparisonOperator.Greater => a.Vector4Value.ValuesSum > b.Vector4Value.ValuesSum,
+                ComparisonOperator.Less => a.Vector4Value.ValuesSum < b.Vector4Value.ValuesSum,
+                ComparisonOperator.GreaterOrEqual => a.Vector4Value.ValuesSum >= b.Vector4Value.ValuesSum,
+                ComparisonOperator.LessOrEqual => a.Vector4Value.ValuesSum <= b.Vector4Value.ValuesSum,
+                ComparisonOperator.Equal => a.Vector4Value.ValuesSum == b.Vector4Value.ValuesSum,
+                ComparisonOperator.NotEqual => a.Vector4Value.ValuesSum != b.Vector4Value.ValuesSum,
+                _ => false
+            },
+            ValueType.Color => op switch
+            {
+                ComparisonOperator.Greater => a.ColorValue.ValuesSum > b.ColorValue.ValuesSum,
+                ComparisonOperator.Less => a.ColorValue.ValuesSum < b.ColorValue.ValuesSum,
+                ComparisonOperator.GreaterOrEqual => a.ColorValue.ValuesSum >= b.ColorValue.ValuesSum,
+                ComparisonOperator.LessOrEqual => a.ColorValue.ValuesSum <= b.ColorValue.ValuesSum,
+                ComparisonOperator.Equal => a.ColorValue.ValuesSum == b.ColorValue.ValuesSum,
+                ComparisonOperator.NotEqual => a.ColorValue.ValuesSum != b.ColorValue.ValuesSum,
+                _ => false
+            },
+            ValueType.Quaternion => op switch
+            {
+                ComparisonOperator.Greater => a.QuaternionValue.Angle > b.QuaternionValue.Angle &&
+                a.QuaternionValue.Axis.ValuesSum > b.QuaternionValue.Axis.ValuesSum,
+                ComparisonOperator.Less => a.QuaternionValue.Angle < b.QuaternionValue.Angle &&
+                a.QuaternionValue.Axis.ValuesSum < b.QuaternionValue.Axis.ValuesSum,
+                ComparisonOperator.GreaterOrEqual => a.QuaternionValue.Angle >= b.QuaternionValue.Angle &&
+                a.QuaternionValue.Axis.ValuesSum >= b.QuaternionValue.Axis.ValuesSum,
+                ComparisonOperator.LessOrEqual => a.QuaternionValue.Angle <= b.QuaternionValue.Angle &&
+                a.QuaternionValue.Axis.ValuesSum <= b.QuaternionValue.Axis.ValuesSum,
+                ComparisonOperator.Equal => a.QuaternionValue.Angle == b.QuaternionValue.Angle &&
+                a.QuaternionValue.Axis.ValuesSum == b.QuaternionValue.Axis.ValuesSum,
+                ComparisonOperator.NotEqual => a.QuaternionValue.Angle != b.QuaternionValue.Angle &&
+                a.QuaternionValue.Axis.ValuesSum != b.QuaternionValue.Axis.ValuesSum,
+                _ => false
+            },
+            _ => false
+        };
     }
 
     public static GameplayValue Lerp(GameplayValue current, GameplayValue target, float t)
     {
         t = Mathf.Saturate(t);
 
-        if (current.Type != target.Type) return target;
+        if (current.Type != target.Type) 
+            return target;
 
-        switch (current.Type)
+        return current.Type switch
         {
-            case ValueType.Float:
-                return new GameplayValue(Mathf.Lerp(current.FloatValue, target.FloatValue, t));
-
-            case ValueType.Int:
-                return new GameplayValue((int)Math.Round((float)Mathf.Lerp(current.IntValue, target.IntValue, t)));
-            
-            case ValueType.Vector2:
-                return new GameplayValue(Vector2.Lerp(current.Vector2Value, target.Vector2Value, t));
-
-            case ValueType.Vector3:
-                return new GameplayValue(Vector3.Lerp(current.Vector3Value, target.Vector3Value, t));
-
-            case ValueType.Vector4:
-                return new GameplayValue(Vector4.Lerp(current.Vector4Value, target.Vector4Value, t));
-            
-            case ValueType.Color:
-                return new GameplayValue(Color.Lerp(current.ColorValue, target.ColorValue, t));
-
-            case ValueType.Bool:
-                return t > 0.5f ? target : current;
-
-            case ValueType.String:
-                return target;
-
-            case ValueType.Quaternion:
-                return new GameplayValue(Quaternion.Lerp(current.QuaternionValue,target.QuaternionValue, t));
-
-            default:
-                return target;
-        }
-
+            ValueType.Float => new GameplayValue(Mathf.Lerp(current.FloatValue, target.FloatValue, t)),
+            ValueType.Int => new GameplayValue((int)Math.Round((float)Mathf.Lerp(current.IntValue, target.IntValue, t))),
+            ValueType.Vector2 => new GameplayValue(Vector2.Lerp(current.Vector2Value, target.Vector2Value, t)),
+            ValueType.Vector3 => new GameplayValue(Vector3.Lerp(current.Vector3Value, target.Vector3Value, t)),
+            ValueType.Vector4 => new GameplayValue(Vector4.Lerp(current.Vector4Value, target.Vector4Value, t)),
+            ValueType.Color => new GameplayValue(Color.Lerp(current.ColorValue, target.ColorValue, t)),
+            ValueType.Quaternion => new GameplayValue(Quaternion.Lerp(current.QuaternionValue, target.QuaternionValue, t)),
+            ValueType.Bool => t > 0.5f ? target : current,
+            _ or ValueType.String => target
+        };
     }
 
     public static bool IsNearTarget(GameplayValue current, GameplayValue target, float threshold = 0.01f)
     {
-        if (current.Type != target.Type) return false;
+        if (current.Type != target.Type) 
+            return false;
 
-        switch (current.Type)
+        return current.Type switch
         {
-            case ValueType.Float:
-                return Math.Abs(current.FloatValue - target.FloatValue) < threshold;
-
-            case ValueType.Int:
-                return current.IntValue == target.IntValue;
-
-            case ValueType.Vector2:
-                return Vector2.Distance(current.Vector2Value, target.Vector2Value) < threshold;
-
-            case ValueType.Vector3:
-                return Vector3.Distance(current.Vector3Value, target.Vector3Value) < threshold;
-
-            case ValueType.Vector4:
-                return Vector4.Distance(current.Vector4Value, target.Vector4Value) < threshold;
-
-            case ValueType.Color:
-                return current.ColorValue == target.ColorValue;
-
-            case ValueType.Bool:
-                return current.BoolValue == target.BoolValue;
-
-            case ValueType.String:
-                return current.StringValue == target.StringValue;
-
-            case ValueType.Quaternion:
-                return Quaternion.Dot(current.QuaternionValue, target.QuaternionValue) > 1.0f - threshold;
-
-            case ValueType.Texture:
-                return current.TextureValue == target.TextureValue;
-
-            case ValueType.CubeTexture:
-                return current.CubeTextureValue == target.CubeTextureValue;
-
-            default:
-                return true;
-        }
+            ValueType.Float => Math.Abs(current.FloatValue - target.FloatValue) < threshold,
+            ValueType.Vector2 => Vector2.Distance(current.Vector2Value, target.Vector2Value) < threshold,
+            ValueType.Vector3 => Vector3.Distance(current.Vector3Value, target.Vector3Value) < threshold,
+            ValueType.Vector4 => Vector4.Distance(current.Vector4Value, target.Vector4Value) < threshold,
+            ValueType.Quaternion => Quaternion.Dot(current.QuaternionValue, target.QuaternionValue) > 1.0f - threshold,
+            ValueType.Int => current.IntValue == target.IntValue,
+            ValueType.Color => current.ColorValue == target.ColorValue,
+            ValueType.Bool => current.BoolValue == target.BoolValue,
+            ValueType.String => current.StringValue == target.StringValue,
+            ValueType.Texture => current.TextureValue == target.TextureValue,
+            ValueType.CubeTexture => current.CubeTextureValue == target.CubeTextureValue,
+            _ => true
+        };
     }
 }
