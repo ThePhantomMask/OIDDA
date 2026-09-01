@@ -373,7 +373,7 @@ public static class GameplayValueOperations
         {
             ValueType.Float => new GameplayValue(Mathf.Clamp(value.FloatValue, min.FloatValue, max.FloatValue)),
             ValueType.Int => new GameplayValue(Mathf.Clamp(value.IntValue, min.IntValue, max.IntValue)),
-            ValueType.Vector2 => new GameplayValue(new Vector2 (
+            ValueType.Vector2 => new GameplayValue(new Vector2(
                     Mathf.Clamp(value.Vector2Value.X, min.Vector2Value.X, max.Vector2Value.X),
                     Mathf.Clamp(value.Vector2Value.Y, min.Vector2Value.Y, max.Vector2Value.Y))),
             ValueType.Vector3 => new GameplayValue(new Vector3(
@@ -390,6 +390,28 @@ public static class GameplayValueOperations
                     Mathf.Clamp(value.QuaternionValue.Y, min.QuaternionValue.Y, max.QuaternionValue.Y),
                     Mathf.Clamp(value.QuaternionValue.Z, min.QuaternionValue.Z, max.QuaternionValue.Z),
                     Mathf.Clamp(value.QuaternionValue.W, min.QuaternionValue.W, max.QuaternionValue.W))),
+            ValueType.Matrix => new GameplayValue(new Matrix(
+                     Mathf.Clamp(value.MatrixValue.M11, min.MatrixValue.M11, max.MatrixValue.M11),
+                     Mathf.Clamp(value.MatrixValue.M12, min.MatrixValue.M12, max.MatrixValue.M12),
+                     Mathf.Clamp(value.MatrixValue.M13, min.MatrixValue.M13, max.MatrixValue.M13),
+                     Mathf.Clamp(value.MatrixValue.M14, min.MatrixValue.M14, max.MatrixValue.M14),
+                     Mathf.Clamp(value.MatrixValue.M21, min.MatrixValue.M21, max.MatrixValue.M21),
+                     Mathf.Clamp(value.MatrixValue.M22, min.MatrixValue.M22, max.MatrixValue.M22),
+                     Mathf.Clamp(value.MatrixValue.M23, min.MatrixValue.M23, max.MatrixValue.M23),
+                     Mathf.Clamp(value.MatrixValue.M24, min.MatrixValue.M24, max.MatrixValue.M24),
+                     Mathf.Clamp(value.MatrixValue.M31, min.MatrixValue.M31, max.MatrixValue.M31),
+                     Mathf.Clamp(value.MatrixValue.M32, min.MatrixValue.M32, max.MatrixValue.M32),
+                     Mathf.Clamp(value.MatrixValue.M33, min.MatrixValue.M33, max.MatrixValue.M33),
+                     Mathf.Clamp(value.MatrixValue.M34, min.MatrixValue.M34, max.MatrixValue.M34),
+                     Mathf.Clamp(value.MatrixValue.M41, min.MatrixValue.M41, max.MatrixValue.M41),
+                     Mathf.Clamp(value.MatrixValue.M42, min.MatrixValue.M42, max.MatrixValue.M42),
+                     Mathf.Clamp(value.MatrixValue.M43, min.MatrixValue.M43, max.MatrixValue.M43),
+                     Mathf.Clamp(value.MatrixValue.M44, min.MatrixValue.M44, max.MatrixValue.M44))),
+            ValueType.Color => new GameplayValue(new Color(
+                    Mathf.Clamp(value.ColorValue.R, min.ColorValue.R, max.ColorValue.R),
+                    Mathf.Clamp(value.ColorValue.G, min.ColorValue.G, max.ColorValue.G),
+                    Mathf.Clamp(value.ColorValue.B, min.ColorValue.B, max.ColorValue.B),
+                    Mathf.Clamp(value.ColorValue.A, min.ColorValue.A, max.ColorValue.A))),
             _ => value // No clamp for other types
         };
     }
@@ -510,6 +532,8 @@ public static class GameplayValueOperations
             ValueType.Vector4 => new GameplayValue(Vector4.Lerp(current.Vector4Value, target.Vector4Value, t)),
             ValueType.Color => new GameplayValue(Color.Lerp(current.ColorValue, target.ColorValue, t)),
             ValueType.Quaternion => new GameplayValue(Quaternion.Lerp(current.QuaternionValue, target.QuaternionValue, t)),
+            ValueType.Matrix => new GameplayValue(Matrix.Lerp(current.MatrixValue, target.MatrixValue, t)),
+            ValueType.Transform => new GameplayValue(Transform.Lerp(current.TransformValue, target.TransformValue, t)),
             ValueType.Bool => t > 0.5f ? target : current,
             _ or ValueType.String => target
         };
