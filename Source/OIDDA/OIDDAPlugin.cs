@@ -59,12 +59,8 @@ public class OIDDAPlugin : GamePlugin
 
     private void OnSceneLoaded(Scene currentscene, Guid guid)
     {
-        foreach (var actor in currentscene.Children)
-        {
-            Manager = actor.GetScript<OIDDAManager>();
-            if (Manager) break;
-        }
-        
+        Manager = currentscene.FindScript<OIDDAManager>();
+
         if (!Manager)
         {
             #if FLAX_EDITOR
