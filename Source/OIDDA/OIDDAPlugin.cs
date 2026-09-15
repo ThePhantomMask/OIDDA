@@ -15,6 +15,7 @@ public class OIDDAPlugin : GamePlugin
     public static OIDDAPlugin Instance { get => PluginManager.GetPlugin<OIDDAPlugin>(); }
 
     public OIDDASettings Settings;
+    public OIDDAManager Manager;
 
     public GameplayGlobals CurrentGlobals;
     public List<StaticORSAgentEntry> CurrentStaticORSAgents;
@@ -35,7 +36,7 @@ public class OIDDAPlugin : GamePlugin
         };
     }
 
-    int FindIndex(Scene scene) => Settings.GlobalType == GlobalType.Single ? 0 :
+    private int FindIndex(Scene scene) => Settings.GlobalType == GlobalType.Single ? 0 :
         Settings.Globals.FindIndex(mg => mg.Tags.Exists(tag => scene.Tags.ToString().Contains(tag)));
 
     public override void Initialize()
@@ -56,11 +57,25 @@ public class OIDDAPlugin : GamePlugin
         base.Deinitialize();
     }
 
-    void OnSceneLoaded(Scene currentscene, Guid guid)
+    private void OnSceneLoaded(Scene currentscene, Guid guid)
     {
+        foreach (var actor in currentscene.Children)
+        {
+            Manager = actor.GetScript<OIDDAManager>();
+            if (Manager) break;
+        }
+        
+        if (!Manager)
+        {
+            #if FLAX_EDITOR
+                Debug.LogError("No actor with OIDDAManager script found in scene!");
+            #endif
+            return;
+        }
+
         int currentIndex = FindIndex(currentscene);
 
-        if(currentIndex >= 0)
+        if (currentIndex >= 0)
         {
             CurrentStaticORSAgents = Settings.StaticORSGroup[currentIndex];
 

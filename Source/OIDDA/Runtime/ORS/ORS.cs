@@ -1,7 +1,6 @@
 ﻿using FlaxEngine;
 using OIDDA.Data;
 using System;
-using System.Collections.Generic;
 
 namespace OIDDA;
 
@@ -58,10 +57,12 @@ public class ORS : ORSAgent
 {
     public static ORS Instance = new();
 
+    private static OIDDAManager _oiddaManager => OIDDAPlugin.Instance.Manager;
+
     #region DDA API methods
 
     string ORSID, ORSName;
-    public bool IsConnected => !string.IsNullOrEmpty(ORSID) && OIDDAUtils.OIDDAManager.ORSIsConnected(ORSID) || !string.IsNullOrEmpty(ORSName) && OIDDAUtils.OIDDAManager.StaticORSIsConnected(ORSName);
+    public bool IsConnected => !string.IsNullOrEmpty(ORSID) && _oiddaManager.ORSIsConnected(ORSID) || !string.IsNullOrEmpty(ORSName) && _oiddaManager.StaticORSIsConnected(ORSName);
 
     /// <summary>
     /// Initializes the ORS agent connection using the specified script and agent type (Static ORS Agent).
@@ -69,8 +70,8 @@ public class ORS : ORSAgent
     /// <param name="AgentName">The script instance that defines the connection parameters and logic for the ORS agent.</param>
     public override void ConnectORSAgent(string AgentName)
     {
-        if (!OIDDAUtils.OIDDAManager) return;
-        OIDDAUtils.OIDDAManager.Connect(ORSName = AgentName);
+        if (!_oiddaManager) return;
+        _oiddaManager.Connect(ORSName = AgentName);
     }
 
     /// <summary>
@@ -79,8 +80,8 @@ public class ORS : ORSAgent
     /// <param name="type">The ORS type to use for the agent connection. Determines the configuration and behavior of the agent.</param>
     public override void ConnectORSAgent(ORSType type)
     {
-        if (!OIDDAUtils.OIDDAManager) return;
-        OIDDAUtils.OIDDAManager.Connect(ORSID = ORSUtils.GeneratedID, new IORSAgentD
+        if (!_oiddaManager) return;
+        _oiddaManager.Connect(ORSID = ORSUtils.GeneratedID, new IORSAgentD
         {
             ORSType = type
         });
@@ -91,8 +92,8 @@ public class ORS : ORSAgent
     /// </summary>
     public override void DisconnectORSAgent()
     {
-        if (!OIDDAUtils.OIDDAManager) return;
-        OIDDAUtils.OIDDAManager.Disconnect(ORSName);
+        if (!_oiddaManager) return;
+        _oiddaManager.Disconnect(ORSName);
     }
 
     /// <summary>
@@ -101,79 +102,79 @@ public class ORS : ORSAgent
     /// /// <param name="type">The type of ORS agent to connect to. Specifies the agent category or behavior.</param>
     public override void DisconnectORSAgent(ORSType type)
     {
-        if (!OIDDAUtils.OIDDAManager) return;
-        OIDDAUtils.OIDDAManager.Disconnect(ORSID, type);
+        if (!_oiddaManager) return;
+        _oiddaManager.Disconnect(ORSID, type);
     }
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
-        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsReceiver(ORSID))) 
+        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsReceiver(ORSID))) 
         {
             result = default; return false; 
         }
-        result = OIDDAUtils.OIDDAManager.GetGlobal<T>(nameValue); return true;
+        result = _oiddaManager.GetGlobal<T>(nameValue); return true;
     }
 
     public override bool TryReceiverValue<T>(out T result)
     {
-        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticReceiver(ORSName))) 
+        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsStaticReceiver(ORSName))) 
         {
             result = default; return false; 
         }
-        result = OIDDAUtils.OIDDAManager.GetStaticGlobal<T>(ORSName); return true;
+        result = _oiddaManager.GetStaticGlobal<T>(ORSName); return true;
     }
 
     public override T QuickReceiver<T>(string NameValue)
     {
-        if (!OIDDAUtils.OIDDAManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
-        return OIDDAUtils.OIDDAManager.QuickReceiver<T>(NameValue);
+        if (!_oiddaManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
+        return _oiddaManager.QuickReceiver<T>(NameValue);
         throw new InvalidCastException($"Value for static receiver '{ORSName}' is not of type {typeof(T).Name}");
     }
 
     public override T ReceiverValue<T>()
     {
-        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticReceiver(ORSName))) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
-        return OIDDAUtils.OIDDAManager.GetStaticGlobal<T>(ORSName);
+        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsStaticReceiver(ORSName))) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
+        return _oiddaManager.GetStaticGlobal<T>(ORSName);
         throw new InvalidCastException($"Value for static receiver '{ORSName}' is not of type {typeof(T).Name}");
     }
 
     public override T ReceiverValue<T>(string nameValue)
     {
-        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsReceiver(ORSID))) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
-        return OIDDAUtils.OIDDAManager.GetGlobal<T>(nameValue);
+        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsReceiver(ORSID))) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
+        return _oiddaManager.GetGlobal<T>(nameValue);
         throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
     }
 
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
-        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsSender(ORSID))) return false;
-        OIDDAUtils.OIDDAManager.SetGlobal(nameValue, senderValue);
+        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsSender(ORSID))) return false;
+        _oiddaManager.SetGlobal(nameValue, senderValue);
         return true;
     }
 
     public override bool TrySenderValue(object senderValue)
     {
-        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticSender(ORSName))) return false;
-        OIDDAUtils.OIDDAManager.SetStaticGlobal(ORSName, senderValue);
+        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsStaticSender(ORSName))) return false;
+        _oiddaManager.SetStaticGlobal(ORSName, senderValue);
         return true;
     }
 
     public override void SenderValue(string nameValue, object senderValue)
     {
-        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsSender(ORSID))) return;
-        OIDDAUtils.OIDDAManager.SetGlobal(nameValue, senderValue);
+        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsSender(ORSID))) return;
+        _oiddaManager.SetGlobal(nameValue, senderValue);
     }
 
     public override void SenderValue(object senderValue)
     {
-        if (!(OIDDAUtils.OIDDAManager || IsConnected && OIDDAUtils.OIDDAManager.VerifyIsStaticSender(ORSName))) return;
-        OIDDAUtils.OIDDAManager.SetStaticGlobal(ORSName, senderValue);
+        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsStaticSender(ORSName))) return;
+        _oiddaManager.SetStaticGlobal(ORSName, senderValue);
     }
 
     public override void QuickSender(string nameValue, object senderValue)
     {
-        if (!OIDDAUtils.OIDDAManager) return;
-        OIDDAUtils.OIDDAManager.QuickSender(nameValue, senderValue);
+        if (!_oiddaManager) return;
+        _oiddaManager.QuickSender(nameValue, senderValue);
     }
 
     #endregion
@@ -187,31 +188,31 @@ public class ORS : ORSAgent
     /// <param name="reason">An optional description of the reason for the intensity adjustment. This value may be used for logging or debugging purposes.</param>
     public override void AddDirectorIntensity(float amount, string reason = "")
     {
-        if (!OIDDAUtils.OIDDAManager) return;
-        OIDDAUtils.OIDDAManager.AddDirectorIntensity(amount, reason);
+        if (!_oiddaManager) return;
+        _oiddaManager.AddDirectorIntensity(amount, reason);
     }
 
     /// <summary>
     /// Gets a value indicating whether an encounter should be spawned based on the current pacing settings.
     /// </summary>
     /// <remarks>If pacing is enabled, this property reflects the recommendation of the pacing director. If pacing is disabled, it always returns <see langword="true"/>.</remarks>
-    public bool IsShouldSpawnEncounter => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.IsShouldSpawnEncounter : false;
+    public bool IsShouldSpawnEncounter => (_oiddaManager) ? _oiddaManager.IsShouldSpawnEncounter : false;
     /// <summary>
     /// Gets the current pacing state of the director.
     /// </summary>
-    public DirectorState CurrentState => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.DirectorState : DirectorState.Build;
+    public DirectorState CurrentState => (_oiddaManager) ? _oiddaManager.DirectorState : DirectorState.Build;
     /// <summary>
     /// Gets the current intensity level of the game loop.
     /// </summary>
-    public float CurrentIntensity => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.Intensity : 0.0f;
+    public float CurrentIntensity => (_oiddaManager) ? _oiddaManager.Intensity : 0.0f;
     /// <summary>
     /// Gets the current stress level of the player as determined by the Pacing Director.
     /// </summary>
-    public float CurrentStress => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.PlayerStress : 0.0f;
+    public float CurrentStress => (_oiddaManager) ? _oiddaManager.PlayerStress : 0.0f;
     /// <summary>
     /// Gets the current fatigue level of the player.
     /// </summary>
-    public float CurrentFatigue => (OIDDAUtils.OIDDAManager) ? OIDDAUtils.OIDDAManager.PlayerFatigue : 0.0f;
+    public float CurrentFatigue => (_oiddaManager) ? _oiddaManager.PlayerFatigue : 0.0f;
 
     #endregion
 }
