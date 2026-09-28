@@ -62,6 +62,11 @@ public class OIDDAManager : Script
         }
     }
 
+    public override void OnEnable()
+    {
+        Initialize();
+    }
+
     public override void OnDisable()
     {
         OIDDAReset();
