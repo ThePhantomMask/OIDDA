@@ -33,10 +33,11 @@ public class OIDDAManager : Script
 
     public DirectorManager Director = new();
 
+    private OIDDAPlugin pluginInstance;
+
     bool isUseSmoothing, isUseDirector;
     Dictionary<string, IORSAgentD> ORSAgentDB = new();
     Dictionary<string, IORSAgentS> StaticORSDB = new();
-    GameplayGlobals GameplayValues;
     float updateInterval, delay, timerSender, timerReceiver, score, timeSinceLastUpdate = 0f, timeSinceLastAdjustment = 0f;
 
     OIDDAConfig currentConfig;
@@ -45,20 +46,18 @@ public class OIDDAManager : Script
 
     public override void OnStart()
     {
-        var Instance = OIDDAPlugin.Instance;
+        pluginInstance = OIDDAPlugin.Instance;
         
-        if (Instance)
+        if (pluginInstance)
         {
-            GameplayValues = Instance.CurrentGlobals;
-
-            if (Instance.CurrentStaticORSAgents != null && Instance.CurrentStaticORSAgents.Count > 0)
+            if (pluginInstance.CurrentStaticORSAgents != null && pluginInstance.CurrentStaticORSAgents.Count > 0)
             {
-                Instance.CurrentStaticORSAgents.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
+                pluginInstance.CurrentStaticORSAgents.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
             }
 
-            if (Instance.CurrentOIDDAConfig) Director.currentConfig = currentConfig = Instance.CurrentOIDDAConfig.Instance;
+            if (pluginInstance.CurrentOIDDAConfig) Director.currentConfig = currentConfig = pluginInstance.CurrentOIDDAConfig.Instance;
 
-            var OIDDASettings = OIDDAPlugin.Instance.Settings;
+            var OIDDASettings = pluginInstance.Settings;
 
             if (OIDDASettings != null)
             {
@@ -77,7 +76,7 @@ public class OIDDAManager : Script
 
     void OIDDAReset()
     {
-        if (GameplayValues) GameplayValues.ResetValues();  
+        if (pluginInstance.CurrentGlobals) pluginInstance.CurrentGlobals.ResetValues();  
         if (ORSAgentDB.Count != 0) ORSAgentDB.Clear(); 
         if (StaticORSDB.Count != 0) StaticORSDB.Clear();
     }
@@ -89,14 +88,14 @@ public class OIDDAManager : Script
 
         if (timeSinceLastAdjustment < AdjustmentCooldown) return;
 
-        if (DebugMode) LogAnalysis(analyze = MetricsAggregator.Analyze(currentConfig.Metrics, GameplayValues.Values));
+        if (DebugMode) LogAnalysis(analyze = MetricsAggregator.Analyze(currentConfig.Metrics, pluginInstance.CurrentGlobals.Values));
 
-        score = (DebugMode) ? analyze.OverallScore : MetricsAggregator.CalculateOverallScore(currentConfig.Metrics, GameplayValues.Values);
+        score = (DebugMode) ? analyze.OverallScore : MetricsAggregator.CalculateOverallScore(currentConfig.Metrics, pluginInstance.CurrentGlobals.Values);
 
         if (isUseDirector) score = ApplyDirectorInfluence(score);
         if (timeSinceLastAdjustment < dynamicCooldown(score)) return; 
 
-        int rulesApplied = ApplyRules(GameplayValues.Values, score);
+        int rulesApplied = ApplyRules(pluginInstance.CurrentGlobals.Values, score);
         
         if (rulesApplied > 0)
         {
@@ -211,7 +210,7 @@ public class OIDDAManager : Script
         analysisLog.AppendLine($"Overall Score: {analysis.OverallScore:F3} ({analysis.OverallState})");
         analysisLog.AppendLine($"Individual Metrics: {string.Join("\n", analysis.MetricInfos.Select(info => $"[{info.State}] {info.MetricName}: {info.NormalizedScore: F3}"))}");
 
-        var problematic = MetricsAggregator.GetProblematicMetrics(currentConfig.Metrics, GameplayValues.Values, DifficultThreshold);
+        var problematic = MetricsAggregator.GetProblematicMetrics(currentConfig.Metrics, pluginInstance.CurrentGlobals.Values, DifficultThreshold);
         if (problematic.Count > 0)
         {
             analysisLog.AppendLine($"Problematic Metrics ({problematic.Count}):");
@@ -225,11 +224,11 @@ public class OIDDAManager : Script
 
     void OIDDAUpdate()
     {
-        if (GameplayValues == null)
+        if (pluginInstance.CurrentGlobals == null)
             return;
 
         if (isUseSmoothing) smoothingManager.SmoothUpdate(Time.DeltaTime);
-        if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, GameplayValues.Values);
+        if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, pluginInstance.CurrentGlobals.Values);
         timeSinceLastUpdate += Time.DeltaTime;
         timeSinceLastAdjustment += Time.DeltaTime;
 
@@ -314,7 +313,7 @@ public class OIDDAManager : Script
         if (timerSender >= delay)
         {
             AnalyzeAndApply();
-            GameplayValues.SetValue(name, value);
+            pluginInstance.CurrentGlobals.SetValue(name, value);
             timerSender = 0;
         }
     }
@@ -325,7 +324,7 @@ public class OIDDAManager : Script
         if (timerReceiver >= delay)
         {
             timerReceiver = 0;
-            return GameplayValues.GetValue<T>(name);
+            return pluginInstance.CurrentGlobals.GetValue<T>(name);
         }
         return default(T);
     }
@@ -338,17 +337,17 @@ public class OIDDAManager : Script
 
     public bool VerifyIsStaticSender(string Name) => StaticORSDB[Name].ORSType == ORSType.ReceiverSender || StaticORSDB[Name].ORSType == ORSType.Sender;
 
-    public void SetGlobal(string name, object value) => (delay != 0f ? (Action)(() => DelaySender(name, value)) : () => GameplayValues.SetValue(name, value))();
+    public void SetGlobal(string name, object value) => (delay != 0f ? (Action)(() => DelaySender(name, value)) : () => pluginInstance.CurrentGlobals.SetValue(name, value))();
 
-    public void SetStaticGlobal(string NameAgent, object value) => (delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => { AnalyzeAndApply(); GameplayValues.SetValue(StaticORSDB[NameAgent].GlobalVariable, value); })();
+    public void SetStaticGlobal(string NameAgent, object value) => (delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => { AnalyzeAndApply(); pluginInstance.CurrentGlobals.SetValue(StaticORSDB[NameAgent].GlobalVariable, value); })();
 
-    public void QuickSender(string name, object value) { GameplayValues.SetValue(name, value); AnalyzeAndApply(); }
+    public void QuickSender(string name, object value) { pluginInstance.CurrentGlobals.SetValue(name, value); AnalyzeAndApply(); }
 
-    public T GetGlobal<T>(string name) => (delay != 0f) ? DelayReceiver<T>(name) : GameplayValues.GetValue<T>(name);
+    public T GetGlobal<T>(string name) => (delay != 0f) ? DelayReceiver<T>(name) : pluginInstance.CurrentGlobals.GetValue<T>(name);
 
-    public T GetStaticGlobal<T>(string NameAgent) => (delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : GameplayValues.GetValue<T>(StaticORSDB[NameAgent].GlobalVariable);
+    public T GetStaticGlobal<T>(string NameAgent) => (delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : pluginInstance.CurrentGlobals.GetValue<T>(StaticORSDB[NameAgent].GlobalVariable);
 
-    public T QuickReceiver<T>(string name) => GameplayValues.GetValue<T>(name);
+    public T QuickReceiver<T>(string name) => pluginInstance.CurrentGlobals.GetValue<T>(name);
     #endregion
 
     public override void OnUpdate()
