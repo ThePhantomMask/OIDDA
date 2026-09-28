@@ -50,15 +50,6 @@ public class OIDDAManager : Script
         
         if (_pluginInstance)
         {
-            if (_pluginInstance.CurrentStaticORSAgents != null && _pluginInstance.CurrentStaticORSAgents.Count > 0)
-            {
-                _pluginInstance.CurrentStaticORSAgents.ForEach(kv => _staticORSDB.Add(kv.Key, kv.Value));
-            }
-
-            _currentGlobal = _pluginInstance.CurrentGlobals;
-
-            if (_pluginInstance.CurrentOIDDAConfig) Director.currentConfig = _pluginInstance.CurrentOIDDAConfig.Instance;
-
             var OIDDASettings = _pluginInstance.Settings;
 
             if (OIDDASettings != null)
@@ -71,9 +62,25 @@ public class OIDDAManager : Script
         }
     }
 
+    public override void OnEnable()
+    {
+        OIDDAInitialize();
+    }
+
     public override void OnDisable()
     {
         OIDDAReset();
+    }
+
+    private void OIDDAInitialize()
+    {
+        if (_pluginInstance)
+        {
+            if (_pluginInstance.CurrentStaticORSAgents != null && _pluginInstance.CurrentStaticORSAgents.Count > 0)
+                _pluginInstance.CurrentStaticORSAgents.ForEach(kv => _staticORSDB[kv.Key] = kv.Value);
+            _currentGlobal = _pluginInstance.CurrentGlobals;
+            if (_pluginInstance.CurrentOIDDAConfig) Director.currentConfig = _pluginInstance.CurrentOIDDAConfig.Instance;
+        }
     }
 
     void OIDDAReset()
@@ -354,13 +361,6 @@ public class OIDDAManager : Script
 
     public override void OnUpdate()
     {
-        if (Director.currentConfig == null || !_currentGlobal)
-        {
-            _currentGlobal = _pluginInstance.CurrentGlobals;
-            Director.currentConfig = _pluginInstance.CurrentOIDDAConfig.Instance;
-            return;
-        }
-
         OIDDAUpdate();
     }
 }
