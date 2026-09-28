@@ -62,17 +62,12 @@ public class OIDDAManager : Script
         }
     }
 
-    public override void OnEnable()
-    {
-        OIDDAInitialize();
-    }
-
     public override void OnDisable()
     {
         OIDDAReset();
     }
 
-    private void OIDDAInitialize()
+    public void Initialize()
     {
         if (_pluginInstance)
         {
