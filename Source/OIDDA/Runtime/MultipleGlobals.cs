@@ -9,12 +9,6 @@ namespace OIDDA;
 /// </summary>
 public class MultipleGlobals
 {
-    public MultipleGlobals()
-    {
-        Tags = GameSettings.Load<LayersAndTagsSettings>().Tags;
-        PlayGlobal = null;
-    }
-
-    public List<string> Tags = new List<string>();
+    public string Tag;
     public GameplayGlobals PlayGlobal;
 }
