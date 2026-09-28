@@ -4,6 +4,7 @@ using OIDDA.Data;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace OIDDA;
@@ -43,8 +44,11 @@ public class OIDDAPlugin : GamePlugin
         };
     }
 
-    private int FindIndex(Scene scene) => Settings.GlobalType == GlobalType.Single ? 0 :
-        Settings.Globals.FindIndex(mg => mg.Tags.Exists(tag => scene.Tags.ToString().Contains(tag)));
+    private int FindIndex(Scene scene) => 
+        Settings.GlobalType == GlobalType.Single 
+        ? 0 
+        : Settings.Globals.FindIndex(mg => mg.Tags.Any(tag => scene.Tags.Any(st =>
+        string.Equals(st.ToString().Trim(), tag.Trim(), StringComparison.OrdinalIgnoreCase))));
 
     public override void Initialize()
     {
