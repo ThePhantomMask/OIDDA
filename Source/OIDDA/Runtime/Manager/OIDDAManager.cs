@@ -228,7 +228,7 @@ public class OIDDAManager : Script
             return;
 
         if (isUseSmoothing) smoothingManager.SmoothUpdate(Time.DeltaTime);
-        if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, pluginInstance.CurrentGlobals.Values);
+        if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, pluginInstance.CurrentGlobals);
         timeSinceLastUpdate += Time.DeltaTime;
         timeSinceLastAdjustment += Time.DeltaTime;
 

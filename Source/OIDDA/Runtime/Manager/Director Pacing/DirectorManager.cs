@@ -1,6 +1,5 @@
 ﻿using FlaxEngine;
 using FlaxEngine.Utilities;
-using Newtonsoft.Json.Linq;
 using OIDDA.Data;
 using System;
 using System.Collections.Generic;
@@ -51,20 +50,20 @@ public class DirectorManager
     /// <param name="deltaTime">The amount of time, in seconds, that has elapsed since the last update. Must be non-negative.</param>
     /// <param name="GameplayValues">A dictionary containing current gameplay values that influence pacing and psychological metrics. Keys represent value names;
     /// values provide the corresponding data.</param>
-    public void OnDirectorUpdate(float deltaTime , Dictionary<string, object> GameplayValues)
+    public void OnDirectorUpdate(float deltaTime , GameplayGlobals GameplayValues)
     {
-        if (GameplayValues != null)
-        {
-            timeInCurrentState += deltaTime;
-            timeSinceLastPeak += deltaTime;
-            StateTimer += deltaTime;
+        if (!GameplayValues)
+            return;
 
-            smoothingManager.SmoothUpdate(deltaTime);
-            UpdatePsychologicalMetrics(deltaTime, GameplayValues);
-            UpdatePacingState(StateTimer);
-            ApplyIntensityDecay(deltaTime);
-            RecordIntensityEvent();
-        }
+        timeInCurrentState += deltaTime;
+        timeSinceLastPeak += deltaTime;
+        StateTimer += deltaTime;
+
+        smoothingManager.SmoothUpdate(deltaTime);
+        UpdatePsychologicalMetrics(deltaTime, GameplayValues.Values);
+        UpdatePacingState(StateTimer);
+        ApplyIntensityDecay(deltaTime);
+        RecordIntensityEvent();
     }
 
     /// <summary>
