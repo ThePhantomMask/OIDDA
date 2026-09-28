@@ -33,38 +33,38 @@ public class OIDDAManager : Script
 
     public DirectorManager Director = new();
 
-    private OIDDAPlugin pluginInstance;
+    private OIDDAPlugin _pluginInstance;
 
-    bool isUseSmoothing, isUseDirector;
-    Dictionary<string, IORSAgentD> ORSAgentDB = new();
-    Dictionary<string, IORSAgentS> StaticORSDB = new();
-    float updateInterval, delay, timerSender, timerReceiver, score, timeSinceLastUpdate = 0f, timeSinceLastAdjustment = 0f;
+    private bool _isUseSmoothing, _isUseDirector;
+    private Dictionary<string, IORSAgentD> ORSAgentDB = new();
+    private Dictionary<string, IORSAgentS> StaticORSDB = new();
+    private float updateInterval, delay, timerSender, timerReceiver, score, timeSinceLastUpdate = 0f, timeSinceLastAdjustment = 0f;
 
-    OIDDAConfig currentConfig;
-    SmoothingManager smoothingManager = new();
-    MetricsAnalysis analyze;
+    private OIDDAConfig currentConfig;
+    private SmoothingManager smoothingManager = new();
+    private MetricsAnalysis analyze;
 
     public override void OnStart()
     {
-        pluginInstance = OIDDAPlugin.Instance;
+        _pluginInstance = OIDDAPlugin.Instance;
         
-        if (pluginInstance)
+        if (_pluginInstance)
         {
-            if (pluginInstance.CurrentStaticORSAgents != null && pluginInstance.CurrentStaticORSAgents.Count > 0)
+            if (_pluginInstance.CurrentStaticORSAgents != null && _pluginInstance.CurrentStaticORSAgents.Count > 0)
             {
-                pluginInstance.CurrentStaticORSAgents.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
+                _pluginInstance.CurrentStaticORSAgents.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
             }
 
-            if (pluginInstance.CurrentOIDDAConfig) Director.currentConfig = currentConfig = pluginInstance.CurrentOIDDAConfig.Instance;
+            if (_pluginInstance.CurrentOIDDAConfig) Director.currentConfig = currentConfig = _pluginInstance.CurrentOIDDAConfig.Instance;
 
-            var OIDDASettings = pluginInstance.Settings;
+            var OIDDASettings = _pluginInstance.Settings;
 
             if (OIDDASettings != null)
             {
-                Director.isDirectorSmoothing = isUseSmoothing = OIDDASettings.UseDDASmoothing;
+                Director.isDirectorSmoothing = _isUseSmoothing = OIDDASettings.UseDDASmoothing;
                 updateInterval = OIDDASettings.UpdateInterval;
                 delay = OIDDASettings.Delay;
-                isUseDirector = OIDDASettings.UseDirector;
+                _isUseDirector = OIDDASettings.UseDirector;
             }
         }
     }
@@ -76,7 +76,7 @@ public class OIDDAManager : Script
 
     void OIDDAReset()
     {
-        if (pluginInstance.CurrentGlobals) pluginInstance.CurrentGlobals.ResetValues();  
+        if (_pluginInstance.CurrentGlobals) _pluginInstance.CurrentGlobals.ResetValues();  
         if (ORSAgentDB.Count != 0) ORSAgentDB.Clear(); 
         if (StaticORSDB.Count != 0) StaticORSDB.Clear();
     }
@@ -88,14 +88,14 @@ public class OIDDAManager : Script
 
         if (timeSinceLastAdjustment < AdjustmentCooldown) return;
 
-        if (DebugMode) LogAnalysis(analyze = MetricsAggregator.Analyze(currentConfig.Metrics, pluginInstance.CurrentGlobals.Values));
+        if (DebugMode) LogAnalysis(analyze = MetricsAggregator.Analyze(currentConfig.Metrics, _pluginInstance.CurrentGlobals.Values));
 
-        score = (DebugMode) ? analyze.OverallScore : MetricsAggregator.CalculateOverallScore(currentConfig.Metrics, pluginInstance.CurrentGlobals.Values);
+        score = (DebugMode) ? analyze.OverallScore : MetricsAggregator.CalculateOverallScore(currentConfig.Metrics, _pluginInstance.CurrentGlobals.Values);
 
-        if (isUseDirector) score = ApplyDirectorInfluence(score);
+        if (_isUseDirector) score = ApplyDirectorInfluence(score);
         if (timeSinceLastAdjustment < dynamicCooldown(score)) return; 
 
-        int rulesApplied = ApplyRules(pluginInstance.CurrentGlobals.Values, score);
+        int rulesApplied = ApplyRules(_pluginInstance.CurrentGlobals.Values, score);
         
         if (rulesApplied > 0)
         {
@@ -103,7 +103,7 @@ public class OIDDAManager : Script
 
             if (DebugMode)
             {
-                if (isUseSmoothing && smoothingManager.HasActiveSmoothings)
+                if (_isUseSmoothing && smoothingManager.HasActiveSmoothings)
                 {
                     Debug.Log($"[OIDDA] Smoothing {smoothingManager.ActiveSmoothingCount} value(s)");
                 }
@@ -138,7 +138,7 @@ public class OIDDAManager : Script
         var baseCooldown = score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.0f : AdjustmentCooldown;
 
         // Change cooldown based on director status
-        if (isUseDirector)
+        if (_isUseDirector)
         {
             baseCooldown *= Director.CurrentState switch
             {
@@ -159,7 +159,7 @@ public class OIDDAManager : Script
             if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
             if (!ShouldApplyRule(overallScore, rule)) continue;
 
-            if(isUseSmoothing) ApplyRuleSmooth(rule, currentValues);
+            if(_isUseSmoothing) ApplyRuleSmooth(rule, currentValues);
             rule.Apply(currentValues);
             rulesApplied++;
         }
@@ -210,25 +210,25 @@ public class OIDDAManager : Script
         analysisLog.AppendLine($"Overall Score: {analysis.OverallScore:F3} ({analysis.OverallState})");
         analysisLog.AppendLine($"Individual Metrics: {string.Join("\n", analysis.MetricInfos.Select(info => $"[{info.State}] {info.MetricName}: {info.NormalizedScore: F3}"))}");
 
-        var problematic = MetricsAggregator.GetProblematicMetrics(currentConfig.Metrics, pluginInstance.CurrentGlobals.Values, DifficultThreshold);
+        var problematic = MetricsAggregator.GetProblematicMetrics(currentConfig.Metrics, _pluginInstance.CurrentGlobals.Values, DifficultThreshold);
         if (problematic.Count > 0)
         {
             analysisLog.AppendLine($"Problematic Metrics ({problematic.Count}):");
             problematic.ForEach(metric => analysisLog.AppendLine($"{metric.MetricName}: {metric.NormalizedScore:F3}"));
         }
 
-        if (isUseDirector) analysisLog.AppendLine($"[Director] {Director.DebugInfo}");
+        if (_isUseDirector) analysisLog.AppendLine($"[Director] {Director.DebugInfo}");
 
         Debug.Log(analysisLog.ToString());
     }
 
     void OIDDAUpdate()
     {
-        if (pluginInstance.CurrentGlobals == null)
+        if (_pluginInstance.CurrentGlobals == null)
             return;
 
-        if (isUseSmoothing) smoothingManager.SmoothUpdate(Time.DeltaTime);
-        if (isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, pluginInstance.CurrentGlobals);
+        if (_isUseSmoothing) smoothingManager.SmoothUpdate(Time.DeltaTime);
+        if (_isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, _pluginInstance.CurrentGlobals);
         timeSinceLastUpdate += Time.DeltaTime;
         timeSinceLastAdjustment += Time.DeltaTime;
 
@@ -243,13 +243,13 @@ public class OIDDAManager : Script
 
     public void AddDirectorIntensity(float amount, string reason = "")
     {
-        if (!isUseDirector) return;
+        if (!_isUseDirector) return;
         Director.AddIntensity(amount, reason);
 
         if (DebugMode) Debug.Log($"[Director] Intensity added: + {amount} ({reason})");
     }
 
-    public bool IsShouldSpawnEncounter => isUseDirector ? Director.ShouldSpawnEncounter() : true;
+    public bool IsShouldSpawnEncounter => _isUseDirector ? Director.ShouldSpawnEncounter() : true;
     public DirectorState DirectorState => Director.CurrentState;
     public float Intensity => Director.CurrentIntensity;
     public float PlayerStress => Director.StressLevel;
@@ -313,7 +313,7 @@ public class OIDDAManager : Script
         if (timerSender >= delay)
         {
             AnalyzeAndApply();
-            pluginInstance.CurrentGlobals.SetValue(name, value);
+            _pluginInstance.CurrentGlobals.SetValue(name, value);
             timerSender = 0;
         }
     }
@@ -324,7 +324,7 @@ public class OIDDAManager : Script
         if (timerReceiver >= delay)
         {
             timerReceiver = 0;
-            return pluginInstance.CurrentGlobals.GetValue<T>(name);
+            return _pluginInstance.CurrentGlobals.GetValue<T>(name);
         }
         return default(T);
     }
@@ -337,21 +337,27 @@ public class OIDDAManager : Script
 
     public bool VerifyIsStaticSender(string Name) => StaticORSDB[Name].ORSType == ORSType.ReceiverSender || StaticORSDB[Name].ORSType == ORSType.Sender;
 
-    public void SetGlobal(string name, object value) => (delay != 0f ? (Action)(() => DelaySender(name, value)) : () => pluginInstance.CurrentGlobals.SetValue(name, value))();
+    public void SetGlobal(string name, object value) => (delay != 0f ? (Action)(() => DelaySender(name, value)) : () => _pluginInstance.CurrentGlobals.SetValue(name, value))();
 
-    public void SetStaticGlobal(string NameAgent, object value) => (delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => { AnalyzeAndApply(); pluginInstance.CurrentGlobals.SetValue(StaticORSDB[NameAgent].GlobalVariable, value); })();
+    public void SetStaticGlobal(string NameAgent, object value) => (delay != 0f ? (Action)(() => DelaySender(StaticORSDB[NameAgent].GlobalVariable, value)) : () => { AnalyzeAndApply(); _pluginInstance.CurrentGlobals.SetValue(StaticORSDB[NameAgent].GlobalVariable, value); })();
 
-    public void QuickSender(string name, object value) { pluginInstance.CurrentGlobals.SetValue(name, value); AnalyzeAndApply(); }
+    public void QuickSender(string name, object value) { _pluginInstance.CurrentGlobals.SetValue(name, value); AnalyzeAndApply(); }
 
-    public T GetGlobal<T>(string name) => (delay != 0f) ? DelayReceiver<T>(name) : pluginInstance.CurrentGlobals.GetValue<T>(name);
+    public T GetGlobal<T>(string name) => (delay != 0f) ? DelayReceiver<T>(name) : _pluginInstance.CurrentGlobals.GetValue<T>(name);
 
-    public T GetStaticGlobal<T>(string NameAgent) => (delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : pluginInstance.CurrentGlobals.GetValue<T>(StaticORSDB[NameAgent].GlobalVariable);
+    public T GetStaticGlobal<T>(string NameAgent) => (delay != 0f) ? DelayReceiver<T>(StaticORSDB[NameAgent].GlobalVariable) : _pluginInstance.CurrentGlobals.GetValue<T>(StaticORSDB[NameAgent].GlobalVariable);
 
-    public T QuickReceiver<T>(string name) => pluginInstance.CurrentGlobals.GetValue<T>(name);
+    public T QuickReceiver<T>(string name) => _pluginInstance.CurrentGlobals.GetValue<T>(name);
     #endregion
 
     public override void OnUpdate()
     {
+        if (Director.currentConfig == null || currentConfig == null)
+        {
+            Director.currentConfig = currentConfig = _pluginInstance.CurrentOIDDAConfig.Instance;
+            return;
+        }
+
         OIDDAUpdate();
     }
 }
