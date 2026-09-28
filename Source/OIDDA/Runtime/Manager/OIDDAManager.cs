@@ -81,6 +81,7 @@ public class OIDDAManager : Script
             _currentGlobal = _pluginInstance.CurrentGlobals;
             if (_pluginInstance.CurrentOIDDAConfig) Director.currentConfig = _pluginInstance.CurrentOIDDAConfig.Instance;
         }
+        _timeSinceLastUpdate = _timeSinceLastAdjustment = 0;
     }
 
     void OIDDAReset()
