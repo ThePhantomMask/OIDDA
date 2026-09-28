@@ -72,7 +72,7 @@ public class OIDDAManager : Script
         OIDDAReset();
     }
 
-    public void Initialize()
+    private void Initialize()
     {
         if (_pluginInstance)
         {
