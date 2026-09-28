@@ -7,7 +7,7 @@ namespace OIDDA;
 /// <summary>
 /// Multiple Globals
 /// </summary>
-public struct MultipleGlobals
+public class MultipleGlobals
 {
     public MultipleGlobals()
     {
@@ -15,6 +15,6 @@ public struct MultipleGlobals
         PlayGlobal = null;
     }
 
-    public List<string> Tags;
+    public List<string> Tags = new List<string>();
     public GameplayGlobals PlayGlobal;
 }
