@@ -4,6 +4,7 @@ using OIDDA.Data;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 
 namespace OIDDA;
 
@@ -21,15 +22,21 @@ public class OIDDAPlugin : GamePlugin
     public List<StaticORSAgentEntry> CurrentStaticORSAgents;
     public JsonAssetReference<OIDDAConfig> CurrentOIDDAConfig;
 
+    private StringBuilder _logTextBuilder;
+
     public OIDDAPlugin()
     {
+        var description = new StringBuilder();
+        description.AppendLine("A plugin that adds intelligent difficulty adaptation system designed to create personalised and seamless gaming experiences.");
+        description.AppendLine("Simple and out-of-the-box way.");
+
         _description = new PluginDescription()
         {
             Name = "OIDDA",
             Category = "Other",
             Author = "Phantom Raptor Studio",
             RepositoryUrl = "https://github.com/ThePhantomMask/OIDDA",
-            Description = "A plugin that adds intelligent difficulty adaptation system designed to create personalised and seamless gaming experiences in a simple, out-of-the-box way.",
+            Description = description.ToString(),
             Version = new Version(0, 0, 9250),
             IsAlpha = false,
             IsBeta = true,
@@ -64,7 +71,9 @@ public class OIDDAPlugin : GamePlugin
         if (!Manager)
         {
             #if FLAX_EDITOR
-                Debug.LogError("No actor with OIDDAManager script found in scene!");
+                _logTextBuilder = new StringBuilder();
+                _logTextBuilder.AppendLine("No actor with OIDDAManager script found in scene!");
+                Debug.LogError(_logTextBuilder.ToString());
             #endif
             return;
         }
@@ -78,8 +87,11 @@ public class OIDDAPlugin : GamePlugin
             if (Settings.Global == null || Settings.Globals[currentIndex].PlayGlobal == null)
             {
                #if FLAX_EDITOR
-                string globalType = Settings.GlobalType == GlobalType.Single ? "Global" : "Globals";
-                Debug.LogError($"No OIDDA {globalType} found. \n Please check your OIDDA settings.");
+                    string globalType = Settings.GlobalType == GlobalType.Single ? "Global" : "Globals";
+                    _logTextBuilder = new StringBuilder();
+                    _logTextBuilder.AppendLine($"No OIDDA {globalType} found.");
+                    _logTextBuilder.AppendLine("Please check your OIDDA settings.");
+                    Debug.LogError(_logTextBuilder.ToString());
                #endif
                 return;
             }
@@ -89,8 +101,11 @@ public class OIDDAPlugin : GamePlugin
             if (Settings.Config == null || Settings.Configs == null)
             {
                #if FLAX_EDITOR
-                string configType = Settings.GlobalType == GlobalType.Single ? "Config" : "Configs";
-                Debug.LogError($"No OIDDA {configType} found. \n Please check your OIDDA settings.");
+                    string configType = Settings.GlobalType == GlobalType.Single ? "Config" : "Configs";
+                    _logTextBuilder = new StringBuilder();
+                    _logTextBuilder.AppendLine($"No OIDDA {configType} found.");
+                    _logTextBuilder.AppendLine("Please check your OIDDA settings.");
+                    Debug.LogError(_logTextBuilder.ToString());
                #endif
                 return;
             }
