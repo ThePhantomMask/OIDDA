@@ -50,7 +50,12 @@ public class OIDDAManager : Script
         if (Instance)
         {
             GameplayValues = Instance.CurrentGlobals;
-            Instance.CurrentStaticORSAgents.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
+
+            if (Instance.CurrentStaticORSAgents != null && Instance.CurrentStaticORSAgents.Count > 0)
+            {
+                Instance.CurrentStaticORSAgents.ForEach(kv => StaticORSDB.Add(kv.Key, kv.Value));
+            }
+
             if (Instance.CurrentOIDDAConfig) Director.currentConfig = currentConfig = Instance.CurrentOIDDAConfig.Instance;
 
             var OIDDASettings = OIDDAPlugin.Instance.Settings;

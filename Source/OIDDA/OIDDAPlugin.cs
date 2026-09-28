@@ -84,7 +84,7 @@ public class OIDDAPlugin : GamePlugin
         {
             CurrentStaticORSAgents = Settings.StaticORSGroup[currentIndex];
 
-            if (Settings.Global == null || Settings.Globals[currentIndex].PlayGlobal == null)
+            if (Settings.Global == null || Settings.Globals == null && Settings.Globals[currentIndex].PlayGlobal == null)
             {
                #if FLAX_EDITOR
                     string globalType = Settings.GlobalType == GlobalType.Single ? "Global" : "Globals";

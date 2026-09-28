@@ -53,6 +53,9 @@ public class DirectorManager
     /// values provide the corresponding data.</param>
     public void OnDirectorUpdate(float deltaTime , Dictionary<string, object> GameplayValues)
     {
+        if (GameplayValues == null || GameplayValues.Values.Count == 0)
+            return;
+
         timeInCurrentState += deltaTime;
         timeSinceLastPeak += deltaTime;
         StateTimer += deltaTime;
