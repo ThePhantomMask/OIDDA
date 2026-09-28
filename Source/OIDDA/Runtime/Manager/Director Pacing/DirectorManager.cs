@@ -53,18 +53,18 @@ public class DirectorManager
     /// values provide the corresponding data.</param>
     public void OnDirectorUpdate(float deltaTime , Dictionary<string, object> GameplayValues)
     {
-        if (GameplayValues == null || GameplayValues.Values.Count == 0)
-            return;
+        if (GameplayValues != null)
+        {
+            timeInCurrentState += deltaTime;
+            timeSinceLastPeak += deltaTime;
+            StateTimer += deltaTime;
 
-        timeInCurrentState += deltaTime;
-        timeSinceLastPeak += deltaTime;
-        StateTimer += deltaTime;
-
-        smoothingManager.SmoothUpdate(deltaTime);
-        UpdatePsychologicalMetrics(deltaTime, GameplayValues);
-        UpdatePacingState(StateTimer);
-        ApplyIntensityDecay(deltaTime);
-        RecordIntensityEvent();
+            smoothingManager.SmoothUpdate(deltaTime);
+            UpdatePsychologicalMetrics(deltaTime, GameplayValues);
+            UpdatePacingState(StateTimer);
+            ApplyIntensityDecay(deltaTime);
+            RecordIntensityEvent();
+        }
     }
 
     /// <summary>

@@ -85,7 +85,9 @@ public class OIDDAPlugin : GamePlugin
         {
             CurrentStaticORSAgents = Settings.StaticORSGroup[currentIndex];
 
-            if (Settings.Global == null || Settings.Globals == null && Settings.Globals[currentIndex].PlayGlobal == null)
+            CurrentGlobals = Settings.GlobalType == GlobalType.Single ? Settings.Global : Settings.Globals[currentIndex].PlayGlobal;
+
+            if (!CurrentGlobals)
             {
                #if FLAX_EDITOR
                     string globalType = Settings.GlobalType == GlobalType.Single ? "Global" : "Globals";
@@ -97,9 +99,9 @@ public class OIDDAPlugin : GamePlugin
                 return;
             }
 
-            CurrentGlobals = Settings.GlobalType == GlobalType.Single ? Settings.Global : Settings.Globals[currentIndex].PlayGlobal;
+            CurrentOIDDAConfig = Settings.GlobalType == GlobalType.Single ? Settings.Config : Settings.Configs[currentIndex];
 
-            if (Settings.Config == null || Settings.Configs == null)
+            if (!CurrentOIDDAConfig)
             {
                #if FLAX_EDITOR
                     string configType = Settings.GlobalType == GlobalType.Single ? "Config" : "Configs";
@@ -110,8 +112,6 @@ public class OIDDAPlugin : GamePlugin
                #endif
                 return;
             }
-
-            CurrentOIDDAConfig = Settings.GlobalType == GlobalType.Single ? Settings.Config : Settings.Configs[currentIndex];
         }
     }
 }
