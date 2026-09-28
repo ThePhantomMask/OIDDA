@@ -45,7 +45,7 @@ public class OIDDAPlugin : GamePlugin
     }
 
     private int FindIndex(Scene scene) => Settings.GlobalType == GlobalType.Single ? 0
-        : Settings.Globals.FindIndex(tag => tag.Tag.Equals(scene.HasTag(Tags.Get(tag.Tag))));
+        : Settings.Globals.FindIndex(mg => scene.HasTag(Tags.Get(mg.Tag)));
 
     public override void Initialize()
     {
