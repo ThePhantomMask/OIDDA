@@ -17,7 +17,7 @@ public class DirectorRule
     public RuleApplicationContext Context = RuleApplicationContext.Always;
     public EmotionType Emotion = EmotionType.Stress;
     public DirectorCondition Condition;
-    [VisibleIf(nameof(isNotException))] public List<DirectorRuleException> RuleExceptions;
+    [VisibleIf(nameof(isNotException))] public virtual List<DirectorRuleException> RuleExceptions { get; set; }
 
     protected virtual bool FilterValuesByScore => true;
 

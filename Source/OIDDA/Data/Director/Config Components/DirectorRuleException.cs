@@ -13,7 +13,7 @@ public class DirectorRuleException : DirectorRule
     public string RuleExceptionName;
     public ExceptionType RuleType;
 
-    public new List<RuleException> RuleExceptions;
+    public override List<DirectorRuleException> RuleExceptions { get; set; }
 
     protected override bool FilterValuesByScore => false;
 }
