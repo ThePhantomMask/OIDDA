@@ -15,9 +15,5 @@ public class DirectorRuleException : DirectorRule
 
     public new List<RuleException> RuleExceptions;
 
-    public override void Apply(Dictionary<string, object> metrics)
-    {
-        Debug.Write(LogType.Info, $"Director Exception rule {RuleExceptionName} triggered");
-        base.Apply(metrics);
-    }
+    protected override bool FilterValuesByScore => false;
 }

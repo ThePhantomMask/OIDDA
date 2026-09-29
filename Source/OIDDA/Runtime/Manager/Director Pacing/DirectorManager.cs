@@ -230,46 +230,46 @@ public class DirectorManager
 
     protected int ApplyRules(Dictionary<string, object> currentValues, float overallScore, float deltaTime)
     {
+        var easy = Mathf.Min(stressRate, fatigueRate);
+        var difficult = Mathf.Max(stressRate, fatigueRate);
+
         int rulesApplied = 0;
         foreach (var rule in currentConfig.DirectorRules)
         {
-            if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
-            overallScore += CalculateScoreByEmotion(rule, deltaTime);
-            if (!ShouldApplyRule(overallScore, rule)) continue;
-            if (isDirectorSmoothing) ApplyRuleSmooth(rule, currentValues);
-            rule.Apply(currentValues);
+            if (rule == null) continue;
+
+            var score = overallScore + CalculateScoreByEmotion(rule, deltaTime);
+            var ctx = new DifficultyContext(score, easy, difficult);
+
+            var toApply = rule.GetValuesToApply(currentValues, ctx).ToList();
+            if (toApply.Count == 0) continue;
+
+            foreach (var rv in toApply)
+            {
+                if (isDirectorSmoothing) ApplyValueSmooth(rv, currentValues);
+                else rv.ApplyToGlobals();
+            }
+
             rulesApplied++;
         }
         return rulesApplied;
     }
 
-    void ApplyRuleSmooth(DirectorRule rule, Dictionary<string, object> currentValues)
+    void ApplyValueSmooth(RuleValue rv, Dictionary<string, object> currentValues)
     {
+        if (string.IsNullOrEmpty(rv.TargetGlobal)) return;
+
         try
         {
-            var targetValue = GameplayValue.ConvertObject(currentValues[rule.TargetGlobal]);
-            var newValue = GameplayValueOperations.Apply(targetValue, rule.Value, rule.Operator);
-            newValue = GameplayValueOperations.Clamp(newValue, rule.MinValue, rule.MaxValue);
-            smoothingManager.SetTarget(rule.TargetGlobal, newValue, currentConfig.SmoothingSpeed);
+            var targetValue = GameplayValue.ConvertObject(currentValues[rv.TargetGlobal]);
+            var newValue = GameplayValueOperations.Apply(targetValue, rv.Value, rv.Operator);
+            newValue = GameplayValueOperations.Clamp(newValue, rv.MinValue, rv.MaxValue);
+            smoothingManager.SetTarget(rv.TargetGlobal, newValue, currentConfig.SmoothingSpeed);
         }
-        catch(Exception e)
+        catch (Exception e)
         {
             Debug.LogError(e.Message);
         }
-    }
-
-    bool ShouldApplyRule(float overallScore, DirectorRule rule)
-    {
-        return (rule is DirectorRuleException ruleException) ? ruleException.Context switch
-        {
-            RuleApplicationContext.Always => true,
-            RuleApplicationContext.WhenTooDifficult => overallScore > fatigueRate || overallScore > stressRate,
-            RuleApplicationContext.WhenTooEasy => overallScore < fatigueRate || overallScore < stressRate,
-            RuleApplicationContext.WhenBalanced => overallScore >= stressRate && overallScore <= fatigueRate,
-            _ => false,
-        } :
-        (overallScore > fatigueRate || overallScore > stressRate) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
-            (overallScore < fatigueRate || overallScore < stressRate) ? rule.Operator == AdjustmentOperator.Add || rule.Operator == AdjustmentOperator.Multiply : false;
     }
 
     float CalculateScoreByEmotion(DirectorRule rule, float deltaTime) => rule.Emotion switch

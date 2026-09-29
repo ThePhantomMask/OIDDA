@@ -13,40 +13,56 @@ public class DirectorRule
     bool isNotException => this is not DirectorRuleException;
 
     [VisibleIf(nameof(isNotException))] public string RuleName;
-    public string TargetGlobal;
-    public GameplayValue Value;
-    public GameplayValue MinValue;
-    public GameplayValue MaxValue;
+    public List<RuleValue> Values = new();
     public RuleApplicationContext Context = RuleApplicationContext.Always;
     public EmotionType Emotion = EmotionType.Stress;
     public DirectorCondition Condition;
-    public AdjustmentOperator Operator;
     [VisibleIf(nameof(isNotException))] public List<DirectorRuleException> RuleExceptions;
 
+    protected virtual bool FilterValuesByScore => true;
 
-    public virtual void Apply(Dictionary<string, object> metrics)
+    public bool IsContextSatisfied(in DifficultyContext ctx) => ctx.Matches(Context);
+
+    public IEnumerable<RuleValue> GetValuesToApply(Dictionary<string, object> metrics, DifficultyContext ctx)
     {
-        if (!Condition.IsMet(metrics)) return;
+        if (TryGetActiveException(metrics, ctx, out var exception))
+            return exception.GetOwnValues(ctx);
 
-        if (IsHasActiveException(metrics, out var exception))
+        if (Condition != null && !Condition.IsMet(metrics)) return Array.Empty<RuleValue>();
+        if (!IsContextSatisfied(ctx)) return Array.Empty<RuleValue>();
+
+        return GetOwnValues(ctx);
+    }
+
+    protected IEnumerable<RuleValue> GetOwnValues(DifficultyContext ctx)
+    {
+        if (Values == null) yield break;
+
+        foreach (var v in Values)
         {
-            exception.Apply(metrics);
-            return;
+            if (v == null) continue;
+            if (FilterValuesByScore && !v.MatchesScore(ctx)) continue;
+            yield return v;
         }
+    }
 
+    public virtual void Apply(Dictionary<string, object> metrics, DifficultyContext ctx)
+    {
         if (isNotException) Debug.Write(LogType.Info, $"Applying Director rule {RuleName}");
-        ApplyToGlobalsVariables();
+        
+        foreach (var v in GetValuesToApply(metrics, ctx))
+            v.ApplyToGlobals();
     }
 
 
-    protected bool IsHasActiveException(Dictionary<string, object> metrics, out DirectorRuleException activeException)
+    protected bool TryGetActiveException(Dictionary<string, object> metrics, in DifficultyContext ctx, out DirectorRuleException activeException)
     {
         activeException = null;
         if (RuleExceptions is null || RuleExceptions.Count is 0) return false;
 
         foreach (var exception in RuleExceptions)
         {
-            if (exception.Condition.IsMet(metrics))
+            if (exception?.Condition != null && exception.Condition.IsMet(metrics) && exception.IsContextSatisfied(ctx))
             {
                 activeException = exception;
                 return true;
