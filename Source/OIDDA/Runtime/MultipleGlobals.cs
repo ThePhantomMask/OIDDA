@@ -10,5 +10,5 @@ namespace OIDDA;
 public class MultipleGlobals
 {
     public string Tag;
-    public GameplayGlobals PlayGlobal;
+    public GameplayGlobals GlobalValue;
 }

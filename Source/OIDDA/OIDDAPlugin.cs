@@ -85,7 +85,7 @@ public class OIDDAPlugin : GamePlugin
         {
             CurrentStaticORSAgents = Settings.StaticORSGroup[currentIndex];
 
-            CurrentGlobals = Settings.GlobalType == GlobalType.Single ? Settings.Global : Settings.Globals[currentIndex].PlayGlobal;
+            CurrentGlobals = Settings.GlobalType == GlobalType.Single ? Settings.Global : Settings.Globals[currentIndex].GlobalValue;
 
             if (!CurrentGlobals)
             {
