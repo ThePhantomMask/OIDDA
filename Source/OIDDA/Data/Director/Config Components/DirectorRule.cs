@@ -70,12 +70,4 @@ public class DirectorRule
         }
         return false;
     }
-
-    protected virtual void ApplyToGlobalsVariables()
-    {
-        var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(TargetGlobal));
-        var newValue = GameplayValueOperations.Apply(currentValue, new GameplayValue(), Operator);
-        newValue = GameplayValueOperations.Clamp(newValue, MinValue, MaxValue);
-        ORS.Instance.QuickSender(TargetGlobal, newValue.Value);
-    }
 }
