@@ -163,54 +163,43 @@ public class OIDDAManager : Script
 
     int ApplyRules(Dictionary<string, object> currentValues, float overallScore)
     {
+        var ctx = new DifficultyContext(overallScore, EasyThreshold, DifficultThreshold);
         int rulesApplied = 0;
+
         foreach (var rule in Director.currentConfig.Rules)
         {
-            if (rule.Condition != null && !rule.Condition.IsMet(currentValues)) continue;
-            if (!ShouldApplyRule(overallScore, rule)) continue;
+            if (rule == null) continue;
+            var toApply = rule.GetValuesToApply(currentValues, ctx).ToList();
+            if (toApply.Count == 0) continue;
 
-            if(_isUseSmoothing) ApplyRuleSmooth(rule, currentValues);
-            rule.Apply(currentValues);
+            foreach(var rv in toApply)
+            {
+                if (_isUseSmoothing) ApplyValueSmooth(rv, currentValues);
+                else rv.ApplyToGlobals();
+            }
             rulesApplied++;
         }
         return rulesApplied;
     }
 
-    void ApplyRuleSmooth(Rule rule, Dictionary<string, object> currentValues)
+    void ApplyValueSmooth(RuleValue rv, Dictionary<string, object> currentValues)
     {
+        if (string.IsNullOrEmpty(rv.TargetGlobal)) return;
+
         try
         {
-            var targetValue = GameplayValue.ConvertObject(currentValues[rule.TargetGlobal]);
-            var newValue = GameplayValueOperations.Apply(targetValue, rule.Value, rule.Operator);
-            newValue = GameplayValueOperations.Clamp(newValue, rule.MinValue, rule.MaxValue);
-            _smoothingManager.SetTarget(rule.TargetGlobal, newValue, Director.currentConfig.SmoothingSpeed);
+            var targetValue = GameplayValue.ConvertObject(currentValues[rv.TargetGlobal]);
+            var newValue = GameplayValueOperations.Apply(targetValue, rv.Value, rv.Operator);
+            newValue = GameplayValueOperations.Clamp(newValue, rv.MinValue, rv.MaxValue);
+            _smoothingManager.SetTarget(rv.TargetGlobal, newValue, Director.currentConfig.SmoothingSpeed);
 
             if (DebugMode)
-            {
-                Debug.Log($"[OIDDA] Smoothing: {rule.TargetGlobal} " +
-                          $"{targetValue.Value} -> {newValue.Value} " +
-                          $"(speed: {Director.currentConfig.SmoothingSpeed})");
-            }
-
+                Debug.Log($"[OIDDA] Smoothing: {rv.TargetGlobal} {targetValue.Value} -> {newValue.Value} (speed: {Director.currentConfig.SmoothingSpeed})");
         }
         catch (Exception e)
         {
-            Debug.LogError($"[OIDDA] Error in smooth apply: {e.Message}");
+            Debug.LogError($"[OIDDA] Error in smooth apply ({rv.TargetGlobal}): {e.Message}");
         }
-    }
-
-    bool ShouldApplyRule(float overallScore, Rule rule)
-    {
-        return (rule is RuleException ruleException) ? ruleException.Context switch
-        {
-            RuleApplicationContext.Always => true,
-            RuleApplicationContext.WhenTooDifficult => overallScore > DifficultThreshold,
-            RuleApplicationContext.WhenTooEasy => overallScore < EasyThreshold,
-            RuleApplicationContext.WhenBalanced => overallScore >= EasyThreshold && overallScore <= DifficultThreshold,
-            _ => false,
-        } :
-        (overallScore > DifficultThreshold) ? rule.Operator == AdjustmentOperator.Subtract || rule.Operator == AdjustmentOperator.Set :
-            (overallScore < EasyThreshold) ? rule.Operator == AdjustmentOperator.Add || rule.Operator == AdjustmentOperator.Multiply : false;
     }
 
     void LogAnalysis(MetricsAnalysis analysis)
