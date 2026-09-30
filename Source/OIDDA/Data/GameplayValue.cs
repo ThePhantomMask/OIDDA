@@ -1,8 +1,6 @@
 ﻿using FlaxEngine;
 using OIDDA.Data;
 using System;
-using System.Collections.Generic;
-using static OIDDA.ConditionClause;
 
 namespace OIDDA;
 
