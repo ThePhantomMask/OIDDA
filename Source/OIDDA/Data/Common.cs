@@ -1,8 +1,54 @@
-﻿using System;
+﻿using FlaxEngine;
+using System;
 using System.Collections.Generic;
-using FlaxEngine;
 
 namespace OIDDA.Data;
+
+public abstract class ConditionBase
+{
+    public List<ConditionClause> Clauses;
+    public bool RequireAll = true;  // true = AND, false = OR
+
+    public bool IsMet(Dictionary<string, object> metrics)
+    {
+        if (Clauses == null || Clauses.Count == 0) return true;
+        
+        if (RequireAll)
+        {
+            foreach (var clause in Clauses)
+            {
+                if (clause != null && !clause.Evaluate(metrics))
+                    return false;
+            }
+
+            return true;
+        }
+
+        foreach (var clause in Clauses)
+        {
+            if (clause != null && clause.Evaluate(metrics))
+                return true;
+        }
+
+        return false;
+    }
+}
+
+[Serializable]
+public class ConditionClause
+{
+    public string MetricName;
+    public ComparisonOperator Operator;
+    public GameplayValue CompareValue;
+
+    public bool Evaluate(Dictionary<string, object> metrics)
+    {
+        if (!metrics.ContainsKey(MetricName)) return false;
+
+        var metricValue = GameplayValue.ConvertObject(metrics[MetricName]);
+        return GameplayValueOperations.Compare(metricValue, CompareValue, Operator);
+    }
+}
 
 public abstract class MetricBase
 {
