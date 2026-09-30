@@ -11,7 +11,11 @@ namespace OIDDA;
 [Category(name: "OIDDA Data")]
 public class Rule
 {
-    bool isNotException => this is not RuleException;
+    public Rule()
+    {
+    }
+
+    private bool isNotException => this is not RuleException;
 
     [VisibleIf(nameof(isNotException))] public string RuleName;
     public List<RuleValue> Values = new();

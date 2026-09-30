@@ -10,6 +10,10 @@ namespace OIDDA;
 [Category(name: "OIDDA Data")]
 public class DDAMetrics
 {
+    public DDAMetrics()
+    {
+    }
+
     public string MetricName;
     [Range(0, 1)] public float Weight = 0.5f;
     public float ThresholdMin;

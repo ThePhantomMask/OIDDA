@@ -9,6 +9,10 @@ namespace OIDDA;
 /// </summary>
 public class DirectorMetrics
 {
+    public DirectorMetrics()
+    {
+    }
+
     public string MetricName;
     [Range(0, 1)] public float Weight = 0.5f;
     public float ThresholdMin;

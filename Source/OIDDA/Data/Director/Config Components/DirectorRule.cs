@@ -10,7 +10,11 @@ namespace OIDDA;
 /// </summary>
 public class DirectorRule
 {
-    bool isNotException => this is not DirectorRuleException;
+    public DirectorRule()
+    {
+    }
+
+    private bool isNotException => this is not DirectorRuleException;
 
     [VisibleIf(nameof(isNotException))] public string RuleName;
     public List<RuleValue> Values = new();
