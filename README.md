@@ -21,8 +21,8 @@ To add this plugin project to your game, follow the instructions in the [Flax En
 # Setup
 1. Install the plugin into the Flax Engine game project.
 2. Create GameplayGlobals and assign the variables that are indispensable.
-3. Create a OODDAMetrics JsonAsset and assign the metrics and rules/exceptions.
-4. Assign the relevant GameplayGlobals and OODDAMetrics JsonAsset within OIDDA Settings.
+3. Create a OIDDAMetrics JsonAsset and assign the metrics and rules/exceptions.
+4. Assign the relevant GameplayGlobals and OIDDAMetrics JsonAsset within OIDDA Settings.
 5. Assign any static agents you feel you are using with a name and then script, agent type.
 6. Add in the scene on an actor the OIDDA Manager script.
 
@@ -38,6 +38,9 @@ There are three types of agents:
 * **ReceiverSender** -> Can send and receive data
 * **Receiver** -> Can only receive data
 * **Sender** -> Can only send data 
+
+It can also Adds the specified amount of pacing intensity to the pacing director using the following command:
+* **AddDirectorIntensity**
 
 `ORS` - a static class used to interact with the ORS class.
 
