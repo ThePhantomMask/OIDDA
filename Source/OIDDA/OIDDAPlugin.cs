@@ -38,7 +38,7 @@ public class OIDDAPlugin : GamePlugin
             Author = "Phantom Raptor Studio",
             RepositoryUrl = "https://github.com/ThePhantomMask/OIDDA",
             Description = description.ToString(),
-            Version = new Version(0, 0, 9250),
+            Version = new Version(0, 0, 92550),
             IsAlpha = false,
             IsBeta = true,
         };

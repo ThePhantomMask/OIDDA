@@ -45,20 +45,10 @@ public class OIDDASettings : SettingsBase
     [VisibleIf(nameof(isMultiple)), EditorOrder(1), EditorDisplay("DDA Config")]
     public List<JsonAssetReference<OIDDAConfig>> Configs;
     /// <summary>
-    /// Gets or sets a value indicating whether DDA smoothing is enabled.
-    /// </summary>
-    [EditorOrder(1), EditorDisplay("DDA Config")]
-    public bool UseDDASmoothing = true;
-    /// <summary>
     /// Metrics update interval
     /// </summary>
     [EditorOrder(1), EditorDisplay("DDA Config"), Tooltip("Metrics update interval (seconds)")]
     public float UpdateInterval = 1.0f;
-    /// <summary>
-    /// Gets or sets a value indicating whether Director pacing is enabled.
-    /// </summary>
-    [EditorOrder(2), EditorDisplay("Director Config")]
-    public bool UseDirector = true;
     /// <summary>
     /// Collection of Static ORS (OIDDA Receiver Sender) agents for managing the OIDDA data.
     /// </summary>

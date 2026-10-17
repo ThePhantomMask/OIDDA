@@ -51,10 +51,8 @@ public class OIDDAManager : Script
 
             if (OIDDASettings != null)
             {
-                Director.isDirectorSmoothing = _isUseSmoothing = OIDDASettings.UseDDASmoothing;
                 _updateInterval = OIDDASettings.UpdateInterval;
                 _delay = OIDDASettings.Delay;
-                _isUseDirector = OIDDASettings.UseDirector;
             }
         }
     }
@@ -76,7 +74,12 @@ public class OIDDAManager : Script
             if (_pluginInstance.CurrentStaticORSAgents != null && _pluginInstance.CurrentStaticORSAgents.Count > 0)
                 _pluginInstance.CurrentStaticORSAgents.ForEach(kv => _staticORSDB[kv.Key] = kv.Value);
             _currentGlobal = _pluginInstance.CurrentGlobals;
-            if (_pluginInstance.CurrentOIDDAConfig) Director.currentConfig = _pluginInstance.CurrentOIDDAConfig.Instance;
+            if (_pluginInstance.CurrentOIDDAConfig)
+            {
+                Director.currentConfig = _pluginInstance.CurrentOIDDAConfig.Instance;
+                Director.isDirectorSmoothing = _isUseSmoothing = Director.currentConfig.UseDDASmoothing;
+                _isUseDirector = Director.currentConfig.UseDirector;
+            }
         }
         _timeSinceLastUpdate = _timeSinceLastAdjustment = 0;
     }
