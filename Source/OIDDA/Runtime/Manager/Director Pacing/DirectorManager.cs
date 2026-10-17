@@ -104,8 +104,8 @@ public class DirectorManager
     /// keys and value types depend on the implementation context.</param>
     internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
     {
-        if (values == null || currentConfig == null || currentConfig.DirectorMetrics == null || currentConfig.DirectorRules == null ||
-            values.Count is 0 || currentConfig.DirectorMetrics.Count is 0 || currentConfig.DirectorRules.Count is 0) return;
+        if (values == null || currentConfig == null || currentConfig.Metrics == null || currentConfig.DirectorRules == null ||
+            values.Count is 0 || currentConfig.Metrics.Count is 0 || currentConfig.DirectorRules.Count is 0) return;
 
         var scoreContribution = CalculateScoreByData(values, deltaTime);
 
@@ -223,7 +223,7 @@ public class DirectorManager
 
     protected float CalculateScoreByData(Dictionary<string,object> values, float deltatime)
     {
-        var score = MetricsAggregator.CalculateOverallScore(currentConfig.DirectorMetrics, values);
+        var score = MetricsAggregator.CalculateOverallScore(currentConfig.Metrics, values);
         int rulesApplied = ApplyRules(values, score, deltatime);
         return rulesApplied > 0 ? score : 0;
     }
