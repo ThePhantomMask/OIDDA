@@ -242,8 +242,8 @@ public static class GameplayValueOperations
 {
     public static GameplayValue Apply(GameplayValue current, GameplayValue adjustment, AdjustmentOperator op)
     {
-        // Type mismatch check
-        if (current.Type != adjustment.Type && op != AdjustmentOperator.Set)
+        // Type mismatch check (Toggle ignores the adjustment value, so it is exempt)
+        if (op != AdjustmentOperator.Toggle && current.Type != adjustment.Type)
         {
             Debug.LogWarning($"Type mismatch: {current.Type} vs {adjustment.Type}");
             return current;
@@ -280,7 +280,7 @@ public static class GameplayValueOperations
                 AdjustmentOperator.Add => current.Vector2Value + adjustment.Vector2Value,
                 AdjustmentOperator.Subtract => current.Vector2Value - adjustment.Vector2Value,
                 AdjustmentOperator.Multiply => current.Vector2Value * adjustment.Vector2Value,
-                AdjustmentOperator.Divide => adjustment.Vector2Value != Vector2.Zero ? current.Vector2Value / adjustment.Vector2Value : current.Vector2Value,
+                AdjustmentOperator.Divide => SafeDivide(current.Vector2Value, adjustment.Vector2Value),
                 AdjustmentOperator.Set => adjustment.Vector2Value,
                 _ => current.Vector2Value
             }),
@@ -289,7 +289,7 @@ public static class GameplayValueOperations
                 AdjustmentOperator.Add => current.Vector3Value + adjustment.Vector3Value,
                 AdjustmentOperator.Subtract => current.Vector3Value - adjustment.Vector3Value,
                 AdjustmentOperator.Multiply => current.Vector3Value * adjustment.Vector3Value,
-                AdjustmentOperator.Divide => adjustment.Vector3Value != Vector3.Zero ? current.Vector3Value / adjustment.Vector3Value : current.Vector3Value,
+                AdjustmentOperator.Divide => SafeDivide(current.Vector3Value, adjustment.Vector3Value),
                 AdjustmentOperator.Set => adjustment.Vector3Value,
                 _ => current.Vector3Value
             }),
@@ -298,7 +298,7 @@ public static class GameplayValueOperations
                 AdjustmentOperator.Add => current.Vector4Value + adjustment.Vector4Value,
                 AdjustmentOperator.Subtract => current.Vector4Value - adjustment.Vector4Value,
                 AdjustmentOperator.Multiply => current.Vector4Value * adjustment.Vector4Value,
-                AdjustmentOperator.Divide => adjustment.Vector4Value != Vector4.Zero ? current.Vector4Value / adjustment.Vector4Value : current.Vector4Value,
+                AdjustmentOperator.Divide => SafeDivide(current.Vector4Value, adjustment.Vector4Value),
                 AdjustmentOperator.Set => adjustment.Vector4Value,
                 _ => current.Vector4Value
             }),
@@ -307,6 +307,11 @@ public static class GameplayValueOperations
                 AdjustmentOperator.Set => adjustment.StringValue,
                 AdjustmentOperator.Append => current.StringValue + adjustment.StringValue,
                 _ => current.StringValue
+            }),
+            ValueType.Color => new GameplayValue(op switch
+            {
+                AdjustmentOperator.Set => adjustment.ColorValue,
+                _ => current.ColorValue
             }),
             ValueType.Quaternion => new GameplayValue(op switch
             {
@@ -361,6 +366,13 @@ public static class GameplayValueOperations
         };
     }
 
+    // Component-wise division: a zero component in the divisor leaves that component unchanged instead of producing Inf/NaN.
+    static Vector2 SafeDivide(Vector2 a, Vector2 b) => new(b.X != 0f ? a.X / b.X : a.X, b.Y != 0f ? a.Y / b.Y : a.Y);
+
+    static Vector3 SafeDivide(Vector3 a, Vector3 b) => new(b.X != 0f ? a.X / b.X : a.X, b.Y != 0f ? a.Y / b.Y : a.Y, b.Z != 0f ? a.Z / b.Z : a.Z);
+
+    static Vector4 SafeDivide(Vector4 a, Vector4 b) => new(b.X != 0f ? a.X / b.X : a.X, b.Y != 0f ? a.Y / b.Y : a.Y, b.Z != 0f ? a.Z / b.Z : a.Z, b.W != 0f ? a.W / b.W : a.W);
+
     public static GameplayValue Clamp(GameplayValue value, GameplayValue min, GameplayValue max)
     {
         // Type mismatch, no clamp
@@ -414,6 +426,17 @@ public static class GameplayValueOperations
         };
     }
 
+    static bool CompareScalar(float a, float b, ComparisonOperator op) => op switch
+    {
+        ComparisonOperator.Greater => a > b,
+        ComparisonOperator.Less => a < b,
+        ComparisonOperator.GreaterOrEqual => a >= b,
+        ComparisonOperator.LessOrEqual => a <= b,
+        ComparisonOperator.Equal => a == b,
+        ComparisonOperator.NotEqual => a != b,
+        _ => false
+    };
+
     public static bool Compare(GameplayValue a, GameplayValue b, ComparisonOperator op)
     {
         if (a.Type != b.Type) 
@@ -454,46 +477,10 @@ public static class GameplayValueOperations
                 ComparisonOperator.Contains => a.StringValue.Contains(b.StringValue),
                 _ => false
             },
-            ValueType.Vector2 => op switch
-            {
-                ComparisonOperator.Greater => a.Vector2Value.ValuesSum > b.Vector2Value.ValuesSum,
-                ComparisonOperator.Less => a.Vector2Value.ValuesSum < b.Vector2Value.ValuesSum,
-                ComparisonOperator.GreaterOrEqual => a.Vector2Value.ValuesSum >= b.Vector2Value.ValuesSum,
-                ComparisonOperator.LessOrEqual => a.Vector2Value.ValuesSum <= b.Vector2Value.ValuesSum,
-                ComparisonOperator.Equal => a.Vector2Value.ValuesSum == b.Vector2Value.ValuesSum,
-                ComparisonOperator.NotEqual => a.Vector2Value.ValuesSum != b.Vector2Value.ValuesSum,
-                _ => false
-            },
-            ValueType.Vector3 => op switch
-            {
-                ComparisonOperator.Greater => a.Vector3Value.ValuesSum > b.Vector3Value.ValuesSum,
-                ComparisonOperator.Less => a.Vector3Value.ValuesSum < b.Vector3Value.ValuesSum,
-                ComparisonOperator.GreaterOrEqual => a.Vector3Value.ValuesSum >= b.Vector3Value.ValuesSum,
-                ComparisonOperator.LessOrEqual => a.Vector3Value.ValuesSum <= b.Vector3Value.ValuesSum,
-                ComparisonOperator.Equal => a.Vector3Value.ValuesSum == b.Vector3Value.ValuesSum,
-                ComparisonOperator.NotEqual => a.Vector3Value.ValuesSum != b.Vector3Value.ValuesSum,
-                _ => false
-            },
-            ValueType.Vector4 => op switch
-            {
-                ComparisonOperator.Greater => a.Vector4Value.ValuesSum > b.Vector4Value.ValuesSum,
-                ComparisonOperator.Less => a.Vector4Value.ValuesSum < b.Vector4Value.ValuesSum,
-                ComparisonOperator.GreaterOrEqual => a.Vector4Value.ValuesSum >= b.Vector4Value.ValuesSum,
-                ComparisonOperator.LessOrEqual => a.Vector4Value.ValuesSum <= b.Vector4Value.ValuesSum,
-                ComparisonOperator.Equal => a.Vector4Value.ValuesSum == b.Vector4Value.ValuesSum,
-                ComparisonOperator.NotEqual => a.Vector4Value.ValuesSum != b.Vector4Value.ValuesSum,
-                _ => false
-            },
-            ValueType.Color => op switch
-            {
-                ComparisonOperator.Greater => a.ColorValue.ValuesSum > b.ColorValue.ValuesSum,
-                ComparisonOperator.Less => a.ColorValue.ValuesSum < b.ColorValue.ValuesSum,
-                ComparisonOperator.GreaterOrEqual => a.ColorValue.ValuesSum >= b.ColorValue.ValuesSum,
-                ComparisonOperator.LessOrEqual => a.ColorValue.ValuesSum <= b.ColorValue.ValuesSum,
-                ComparisonOperator.Equal => a.ColorValue.ValuesSum == b.ColorValue.ValuesSum,
-                ComparisonOperator.NotEqual => a.ColorValue.ValuesSum != b.ColorValue.ValuesSum,
-                _ => false
-            },
+            ValueType.Vector2 => CompareScalar(a.Vector2Value.ValuesSum, b.Vector2Value.ValuesSum, op),
+            ValueType.Vector3 => CompareScalar(a.Vector3Value.ValuesSum, b.Vector3Value.ValuesSum, op),
+            ValueType.Vector4 => CompareScalar(a.Vector4Value.ValuesSum, b.Vector4Value.ValuesSum, op),
+            ValueType.Color => CompareScalar(a.ColorValue.ValuesSum, b.ColorValue.ValuesSum, op),
             ValueType.Quaternion => op switch
             {
                 ComparisonOperator.Greater => a.QuaternionValue.Angle > b.QuaternionValue.Angle &&
@@ -506,7 +493,7 @@ public static class GameplayValueOperations
                 a.QuaternionValue.Axis.ValuesSum <= b.QuaternionValue.Axis.ValuesSum,
                 ComparisonOperator.Equal => a.QuaternionValue.Angle == b.QuaternionValue.Angle &&
                 a.QuaternionValue.Axis.ValuesSum == b.QuaternionValue.Axis.ValuesSum,
-                ComparisonOperator.NotEqual => a.QuaternionValue.Angle != b.QuaternionValue.Angle &&
+                ComparisonOperator.NotEqual => a.QuaternionValue.Angle != b.QuaternionValue.Angle ||
                 a.QuaternionValue.Axis.ValuesSum != b.QuaternionValue.Axis.ValuesSum,
                 _ => false
             },
@@ -524,7 +511,7 @@ public static class GameplayValueOperations
         return current.Type switch
         {
             ValueType.Float => new GameplayValue(Mathf.Lerp(current.FloatValue, target.FloatValue, t)),
-            ValueType.Int => new GameplayValue((int)Math.Round((float)Mathf.Lerp(current.IntValue, target.IntValue, t))),
+            ValueType.Int => new GameplayValue(LerpInt(current.IntValue, target.IntValue, t)),
             ValueType.Vector2 => new GameplayValue(Vector2.Lerp(current.Vector2Value, target.Vector2Value, t)),
             ValueType.Vector3 => new GameplayValue(Vector3.Lerp(current.Vector3Value, target.Vector3Value, t)),
             ValueType.Vector4 => new GameplayValue(Vector4.Lerp(current.Vector4Value, target.Vector4Value, t)),
@@ -532,10 +519,26 @@ public static class GameplayValueOperations
             ValueType.Quaternion => new GameplayValue(Quaternion.Lerp(current.QuaternionValue, target.QuaternionValue, t)),
             ValueType.Matrix => new GameplayValue(Matrix.Lerp(current.MatrixValue, target.MatrixValue, t)),
             ValueType.Transform => new GameplayValue(Transform.Lerp(current.TransformValue, target.TransformValue, t)),
-            ValueType.Bool => t > 0.5f ? target : current,
-            _ or ValueType.String => target
+            // Booleans and strings cannot be blended: apply the target immediately.
+            _ => target
         };
     }
+
+    // Plain rounding stalls when the per-frame step is below 0.5, so always move at least one unit towards the target.
+    static int LerpInt(int current, int target, float t)
+    {
+        var next = (int)MathF.Round(Mathf.Lerp(current, target, t));
+        return next == current && current != target ? current + Math.Sign(target - current) : next;
+    }
+
+    static bool NearColor(Color a, Color b, float th) =>
+        Math.Abs(a.R - b.R) < th && Math.Abs(a.G - b.G) < th && Math.Abs(a.B - b.B) < th && Math.Abs(a.A - b.A) < th;
+
+    static bool NearMatrix(Matrix a, Matrix b, float th) =>
+        Math.Abs(a.M11 - b.M11) < th && Math.Abs(a.M12 - b.M12) < th && Math.Abs(a.M13 - b.M13) < th && Math.Abs(a.M14 - b.M14) < th &&
+        Math.Abs(a.M21 - b.M21) < th && Math.Abs(a.M22 - b.M22) < th && Math.Abs(a.M23 - b.M23) < th && Math.Abs(a.M24 - b.M24) < th &&
+        Math.Abs(a.M31 - b.M31) < th && Math.Abs(a.M32 - b.M32) < th && Math.Abs(a.M33 - b.M33) < th && Math.Abs(a.M34 - b.M34) < th &&
+        Math.Abs(a.M41 - b.M41) < th && Math.Abs(a.M42 - b.M42) < th && Math.Abs(a.M43 - b.M43) < th && Math.Abs(a.M44 - b.M44) < th;
 
     public static bool IsNearTarget(GameplayValue current, GameplayValue target, float threshold = 0.01f)
     {
@@ -548,9 +551,14 @@ public static class GameplayValueOperations
             ValueType.Vector2 => Vector2.Distance(current.Vector2Value, target.Vector2Value) < threshold,
             ValueType.Vector3 => Vector3.Distance(current.Vector3Value, target.Vector3Value) < threshold,
             ValueType.Vector4 => Vector4.Distance(current.Vector4Value, target.Vector4Value) < threshold,
-            ValueType.Quaternion => Quaternion.Dot(current.QuaternionValue, target.QuaternionValue) > 1.0f - threshold,
+            // q and -q are the same rotation
+            ValueType.Quaternion => Math.Abs(Quaternion.Dot(current.QuaternionValue, target.QuaternionValue)) > 1.0f - threshold,
             ValueType.Int => current.IntValue == target.IntValue,
-            ValueType.Color => current.ColorValue == target.ColorValue,
+            ValueType.Color => NearColor(current.ColorValue, target.ColorValue, threshold),
+            ValueType.Transform => Vector3.Distance(current.TransformValue.Translation, target.TransformValue.Translation) < threshold
+                && Vector3.Distance(current.TransformValue.Scale, target.TransformValue.Scale) < threshold
+                && Math.Abs(Quaternion.Dot(current.TransformValue.Orientation, target.TransformValue.Orientation)) > 1.0f - threshold,
+            ValueType.Matrix => NearMatrix(current.MatrixValue, target.MatrixValue, threshold),
             ValueType.Bool => current.BoolValue == target.BoolValue,
             ValueType.String => current.StringValue == target.StringValue,
             ValueType.Texture => current.TextureValue == target.TextureValue,

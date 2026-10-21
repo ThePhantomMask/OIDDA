@@ -43,9 +43,9 @@ public class ConditionClause
 
     public bool Evaluate(Dictionary<string, object> metrics)
     {
-        if (!metrics.ContainsKey(MetricName)) return false;
+        if (!metrics.TryGetValue(MetricName, out var rawValue)) return false;
 
-        var metricValue = GameplayValue.ConvertObject(metrics[MetricName]);
+        var metricValue = GameplayValue.ConvertObject(rawValue);
         return GameplayValueOperations.Compare(metricValue, CompareValue, Operator);
     }
 }
@@ -122,15 +122,15 @@ public abstract class MetricBase
 
     protected static MetricState DetermineState(float score) => score switch
     {
-        > 0.7f => MetricState.Critical,
-        > 0.5f => MetricState.Warning,
-        > 0.3f => MetricState.Normal,
+        > OIDDADefaults.DifficultThreshold => MetricState.Critical,
+        > OIDDADefaults.WarningThreshold => MetricState.Warning,
+        > OIDDADefaults.EasyThreshold => MetricState.Normal,
         _ => MetricState.Good
     };
 }
 
 public abstract class RuleBase<TCondition, TException>
-    where TCondition : class
+    where TCondition : ConditionBase
     where TException : RuleBase<TCondition, TException>
 {
     protected bool isNotException => this is not TException;
@@ -145,7 +145,7 @@ public abstract class RuleBase<TCondition, TException>
 
     protected virtual bool FilterValuesByScore => true;
 
-    protected abstract bool IsConditionMet(TCondition condition, Dictionary<string, object> metrics);
+    protected bool IsConditionMet(TCondition condition, Dictionary<string, object> metrics) => condition.IsMet(metrics);
 
     public virtual bool IsContextSatisfied(in DifficultyContext ctx) => ctx.Matches(Context);
 
@@ -171,26 +171,6 @@ public abstract class RuleBase<TCondition, TException>
             yield return v;
         }
     }
-    /// <summary>
-    /// Applies the current rule to the specified metrics if the associated condition is satisfied.
-    /// </summary>
-    /// <param name="metrics">A dictionary representing metrics that influence the evaluation and application of the rule, cannot be null.</param>
-    /// <param name="ctx">.</param>
-    public virtual void Apply(Dictionary<string, object> metrics, DifficultyContext ctx)
-    {
-        bool logged = false;
-
-        foreach (var v in GetValuesToApply(metrics, ctx))
-        {
-            if (!logged && isNotException)
-            {
-                logged = true;
-            }
-
-            v.ApplyToGlobals();
-        }
-    }
-
     /// <summary>
     /// Determines whether there is an active exception that satisfies the specified conditions based on the provided metrics.
     /// </summary>
@@ -240,9 +220,11 @@ public class RuleValue
     public void ApplyToGlobals()
     {
         var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(TargetGlobal));
-        var newValue = GameplayValueOperations.Apply(currentValue, new GameplayValue(), Operator);
+        var newValue = GameplayValueOperations.Apply(currentValue, Value, Operator);
         newValue = GameplayValueOperations.Clamp(newValue, MinValue, MaxValue);
-        ORS.Instance.QuickSender(TargetGlobal, newValue.Value);
+
+        // Internal write: must not trigger a new analysis while rules are being applied.
+        ORS.Instance.WriteValue(TargetGlobal, newValue.Value);
     }
 }
 

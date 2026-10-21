@@ -119,6 +119,13 @@ public enum ORSStatus
     Connected,
 }
 
+public static class ORSTypeExtensions
+{
+    public static bool CanReceive(this ORSType type) => type is ORSType.ReceiverSender or ORSType.Receiver;
+
+    public static bool CanSend(this ORSType type) => type is ORSType.ReceiverSender or ORSType.Sender;
+}
+
 #endregion
 
 #region Director enums

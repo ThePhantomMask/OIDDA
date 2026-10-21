@@ -1,6 +1,5 @@
 ﻿using FlaxEngine;
 using OIDDA.Data;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,10 +13,10 @@ namespace OIDDA;
 public class OIDDAManager : Script
 {
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Range(0, 1)]
-    public float DifficultThreshold = 0.7f;
+    public float DifficultThreshold = OIDDADefaults.DifficultThreshold;
 
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Range(0, 1)]
-    public float EasyThreshold = 0.3f;
+    public float EasyThreshold = OIDDADefaults.EasyThreshold;
 
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("OIDDA Manager"), Tooltip("Enable debug logging")]
     public bool DebugMode = false;
@@ -35,26 +34,27 @@ public class OIDDAManager : Script
     private bool _isUseSmoothing, _isUseDirector;
     private Dictionary<string, IORSAgentD> _orsAgentDB = new();
     private Dictionary<string, IORSAgentS> _staticORSDB = new();
-    private float _updateInterval, _delay, _timerSender, _timerReceiver, _score, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
+    private float _updateInterval, _delay, _timerSender, _timerReceiver, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
 
     private GameplayGlobals _currentGlobal;
     private SmoothingManager _smoothingManager = new();
-    private MetricsAnalysis _analyze;
 
     public override void OnStart()
     {
-        _pluginInstance = OIDDAPlugin.Instance;
-        
-        if (_pluginInstance)
-        {
-            var OIDDASettings = _pluginInstance.Settings;
+        LoadSettings();
+    }
 
-            if (OIDDASettings != null)
-            {
-                _updateInterval = OIDDASettings.UpdateInterval;
-                _delay = OIDDASettings.Delay;
-            }
-        }
+    void LoadSettings()
+    {
+        // OnEnable runs before OnStart: never rely on OnStart having cached the plugin.
+        if (!_pluginInstance) _pluginInstance = OIDDAPlugin.Instance;
+        if (!_pluginInstance) return;
+
+        var OIDDASettings = _pluginInstance.Settings;
+        if (OIDDASettings == null) return;
+
+        _updateInterval = OIDDASettings.UpdateInterval;
+        _delay = OIDDASettings.Delay;
     }
 
     public override void OnEnable()
@@ -69,6 +69,8 @@ public class OIDDAManager : Script
 
     private void Initialize()
     {
+        LoadSettings();
+
         if (_pluginInstance)
         {
             if (_pluginInstance.CurrentStaticORSAgents != null && _pluginInstance.CurrentStaticORSAgents.Count > 0)
@@ -89,35 +91,57 @@ public class OIDDAManager : Script
         if (_currentGlobal) _currentGlobal.ResetValues();  
         if (_orsAgentDB.Count != 0) _orsAgentDB.Clear(); 
         if (_staticORSDB.Count != 0) _staticORSDB.Clear();
+        _smoothingManager.Clear();
+        Director.ResetSmoothing();
     }
+
+    bool _isAnalyzing;
 
     void AnalyzeAndApply()
     {
-        if (Director.currentConfig == null || Director.currentConfig.Rules == null || Director.currentConfig.Metrics == null ||
-            Director.currentConfig.Rules.Count == 0 || Director.currentConfig.Metrics.Count == 0) return;
+        // Safety net against re-entrancy (e.g. user code calling QuickSender from a rule callback).
+        if (_isAnalyzing) return;
 
-        if (_timeSinceLastAdjustment < AdjustmentCooldown) return;
+        _isAnalyzing = true;
+        try { AnalyzeAndApplyInternal(); }
+        finally { _isAnalyzing = false; }
+    }
 
-        if (DebugMode) LogAnalysis(_analyze = MetricsAggregator.Analyze(Director.currentConfig.Metrics, _pluginInstance.CurrentGlobals.Values));
+    void AnalyzeAndApplyInternal()
+    {
+        var config = Director.currentConfig;
+        if (config == null || config.Rules == null || config.Metrics == null ||
+            config.Rules.Count == 0 || config.Metrics.Count == 0) return;
 
-        _score = (DebugMode) ? _analyze.OverallScore : MetricsAggregator.CalculateOverallScore(Director.currentConfig.Metrics, _pluginInstance.CurrentGlobals.Values);
+        // Cheap early exit: nothing below can use a cooldown shorter than the smallest multiplier.
+        if (_timeSinceLastAdjustment < AdjustmentCooldown * MinCooldownFactor) return;
 
-        if (_isUseDirector) _score = ApplyDirectorInfluence(_score);
-        if (_timeSinceLastAdjustment < dynamicCooldown(_score)) return; 
+        // GameplayGlobals.Values can be a marshalled copy: read it once per cycle.
+        var values = _pluginInstance.CurrentGlobals.Values;
+        float score;
 
-        int rulesApplied = ApplyRules(_pluginInstance.CurrentGlobals.Values, _score);
-        
+        if (DebugMode)
+        {
+            var analysis = MetricsAggregator.Analyze(config.Metrics, values, EasyThreshold, DifficultThreshold);
+            LogAnalysis(analysis);
+            score = analysis.OverallScore;
+        }
+        else
+        {
+            score = MetricsAggregator.CalculateOverallScore(config.Metrics, values);
+        }
+
+        if (_isUseDirector) score = ApplyDirectorInfluence(score);
+        if (_timeSinceLastAdjustment < dynamicCooldown(score)) return;
+
+        int rulesApplied = ApplyRules(values, score);
+
         if (rulesApplied > 0)
         {
             _timeSinceLastAdjustment = 0f;
 
-            if (DebugMode)
-            {
-                if (_isUseSmoothing && _smoothingManager.HasActiveSmoothings)
-                {
-                    Debug.Log($"[OIDDA] Smoothing {_smoothingManager.ActiveSmoothingCount} value(s)");
-                }
-            }
+            if (DebugMode && _isUseSmoothing && _smoothingManager.HasActiveSmoothings)
+                Debug.Log($"[OIDDA] Smoothing {_smoothingManager.ActiveSmoothingCount} value(s)");
         }
     }
 
@@ -143,17 +167,22 @@ public class OIDDAManager : Script
         return adjustedScore;
     }
 
+    const float EasyCooldownFactor = 0.5f, PeakCooldownFactor = 0.7f, RelaxCooldownFactor = 2.0f;
+
+    // Smallest multiplier dynamicCooldown can return (easy score, and Peak when the Director is on).
+    float MinCooldownFactor => _isUseDirector ? EasyCooldownFactor * PeakCooldownFactor : EasyCooldownFactor;
+
     float dynamicCooldown(float score)
     {
-        var baseCooldown = score < EasyThreshold ? AdjustmentCooldown * 0.5f : score > DifficultThreshold ? AdjustmentCooldown * 1.0f : AdjustmentCooldown;
+        var baseCooldown = score < EasyThreshold ? AdjustmentCooldown * EasyCooldownFactor : AdjustmentCooldown;
 
         // Change cooldown based on director status
         if (_isUseDirector)
         {
             baseCooldown *= Director.CurrentState switch
             {
-                DirectorState.Peak => 0.7f,    // Faster during peaks
-                DirectorState.Relax => 2.0f,   // Slower during rest
+                DirectorState.Peak => PeakCooldownFactor,    // Faster during peaks
+                DirectorState.Relax => RelaxCooldownFactor,  // Slower during rest
                 _ => 1.0f
             };
         }
@@ -163,43 +192,17 @@ public class OIDDAManager : Script
 
     int ApplyRules(Dictionary<string, object> currentValues, float overallScore)
     {
+        var config = Director.currentConfig;
         var ctx = new DifficultyContext(overallScore, EasyThreshold, DifficultThreshold);
         int rulesApplied = 0;
 
-        foreach (var rule in Director.currentConfig.Rules)
+        foreach (var rule in config.Rules)
         {
             if (rule == null) continue;
-            var toApply = rule.GetValuesToApply(currentValues, ctx).ToList();
-            if (toApply.Count == 0) continue;
-
-            foreach(var rv in toApply)
-            {
-                if (_isUseSmoothing) ApplyValueSmooth(rv, currentValues);
-                else rv.ApplyToGlobals();
-            }
-            rulesApplied++;
+            if (RuleApplier.ApplyRule(rule, currentValues, ctx, _isUseSmoothing, _smoothingManager, config.SmoothingSpeed, DebugMode))
+                rulesApplied++;
         }
         return rulesApplied;
-    }
-
-    void ApplyValueSmooth(RuleValue rv, Dictionary<string, object> currentValues)
-    {
-        if (string.IsNullOrEmpty(rv.TargetGlobal)) return;
-
-        try
-        {
-            var targetValue = GameplayValue.ConvertObject(currentValues[rv.TargetGlobal]);
-            var newValue = GameplayValueOperations.Apply(targetValue, rv.Value, rv.Operator);
-            newValue = GameplayValueOperations.Clamp(newValue, rv.MinValue, rv.MaxValue);
-            _smoothingManager.SetTarget(rv.TargetGlobal, newValue, Director.currentConfig.SmoothingSpeed);
-
-            if (DebugMode)
-                Debug.Log($"[OIDDA] Smoothing: {rv.TargetGlobal} {targetValue.Value} -> {newValue.Value} (speed: {Director.currentConfig.SmoothingSpeed})");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[OIDDA] Error in smooth apply ({rv.TargetGlobal}): {e.Message}");
-        }
     }
 
     void LogAnalysis(MetricsAnalysis analysis)
@@ -207,9 +210,11 @@ public class OIDDAManager : Script
         var analysisLog = new StringBuilder();
         analysisLog.AppendLine("OIDDA Analysis:");
         analysisLog.AppendLine($"Overall Score: {analysis.OverallScore:F3} ({analysis.OverallState})");
-        analysisLog.AppendLine($"Individual Metrics: {string.Join("\n", analysis.MetricInfos.Select(info => $"[{info.State}] {info.MetricName}: {info.NormalizedScore: F3}"))}");
+        analysisLog.AppendLine($"Individual Metrics: {string.Join("\n", analysis.MetricInfos.Select(info => $"[{info.State}] {info.MetricName}: {info.NormalizedScore:F3}"))}");
 
-        var problematic = MetricsAggregator.GetProblematicMetrics(Director.currentConfig.Metrics, _pluginInstance.CurrentGlobals.Values, DifficultThreshold);
+        var problematic = analysis.MetricInfos.Where(info => info.NormalizedScore > DifficultThreshold)
+                                              .OrderByDescending(info => info.NormalizedScore)
+                                              .ToList();
         if (problematic.Count > 0)
         {
             analysisLog.AppendLine($"Problematic Metrics ({problematic.Count}):");
@@ -223,8 +228,14 @@ public class OIDDAManager : Script
 
     void OIDDAUpdate()
     {
+        // The plugin fills CurrentGlobals on scene load, possibly after this script's OnEnable: retry until available.
         if (!_currentGlobal)
-            return;
+        {
+            Initialize();
+            if (!_currentGlobal) return;
+        }
+
+        Director.DebugMode = DebugMode;
 
         if (_isUseSmoothing) _smoothingManager.SmoothUpdate(Time.DeltaTime);
         if (_isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, _currentGlobal);
@@ -328,23 +339,44 @@ public class OIDDAManager : Script
         return default(T);
     }
 
-    public bool VerifyIsReceiver(string ID) => _orsAgentDB[ID].ORSType == ORSType.ReceiverSender || _orsAgentDB[ID].ORSType == ORSType.Receiver;
+    public bool VerifyIsReceiver(string ID) => _orsAgentDB[ID].ORSType.CanReceive();
 
-    public bool VerifyIsStaticReceiver(string Name) => _staticORSDB[Name].ORSType == ORSType.ReceiverSender || _staticORSDB[Name].ORSType == ORSType.Receiver;
+    public bool VerifyIsStaticReceiver(string Name) => _staticORSDB[Name].ORSType.CanReceive();
 
-    public bool VerifyIsSender(string ID) => _orsAgentDB[ID].ORSType == ORSType.ReceiverSender || _orsAgentDB[ID].ORSType == ORSType.Sender;
+    public bool VerifyIsSender(string ID) => _orsAgentDB[ID].ORSType.CanSend();
 
-    public bool VerifyIsStaticSender(string Name) => _staticORSDB[Name].ORSType == ORSType.ReceiverSender || _staticORSDB[Name].ORSType == ORSType.Sender;
+    public bool VerifyIsStaticSender(string Name) => _staticORSDB[Name].ORSType.CanSend();
 
-    public void SetGlobal(string name, object value) => (_delay != 0f ? (Action)(() => DelaySender(name, value)) : () => _currentGlobal.SetValue(name, value))();
+    public void SetGlobal(string name, object value)
+    {
+        if (_delay != 0f) DelaySender(name, value);
+        else _currentGlobal.SetValue(name, value);
+    }
 
-    public void SetStaticGlobal(string NameAgent, object value) => (_delay != 0f ? (Action)(() => DelaySender(_staticORSDB[NameAgent].GlobalVariable, value)) : () => { AnalyzeAndApply(); _currentGlobal.SetValue(_staticORSDB[NameAgent].GlobalVariable, value); })();
+    public void SetStaticGlobal(string NameAgent, object value)
+    {
+        var variable = _staticORSDB[NameAgent].GlobalVariable;
+
+        if (_delay != 0f)
+        {
+            DelaySender(variable, value);
+            return;
+        }
+
+        AnalyzeAndApply();
+        _currentGlobal.SetValue(variable, value);
+    }
 
     public void QuickSender(string name, object value) { _currentGlobal.SetValue(name, value); AnalyzeAndApply(); }
 
+    /// <summary>
+    /// Writes a value without triggering an analysis (internal use by rules and smoothing).
+    /// </summary>
+    internal void WriteGlobal(string name, object value) => _currentGlobal.SetValue(name, value);
+
     public T GetGlobal<T>(string name) => (_delay != 0f) ? DelayReceiver<T>(name) : _currentGlobal.GetValue<T>(name);
 
-    public T GetStaticGlobal<T>(string NameAgent) => (_delay != 0f) ? DelayReceiver<T>(_staticORSDB[NameAgent].GlobalVariable) : _currentGlobal.GetValue<T>(_staticORSDB[NameAgent].GlobalVariable);
+    public T GetStaticGlobal<T>(string NameAgent) => GetGlobal<T>(_staticORSDB[NameAgent].GlobalVariable);
 
     public T QuickReceiver<T>(string name) => _currentGlobal.GetValue<T>(name);
     #endregion

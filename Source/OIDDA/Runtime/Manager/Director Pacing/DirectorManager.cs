@@ -1,9 +1,7 @@
 ﻿using FlaxEngine;
 using FlaxEngine.Utilities;
 using OIDDA.Data;
-using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace OIDDA;
 
@@ -14,21 +12,25 @@ public class DirectorManager
 {
     // Configuration
     public float IntensityDecayRate = 0.5f;
-    public float IntensityBuildRate = 1.0f;
     public float PeakThreshold = 80f;
     public float RelaxThreshold = 20f;
     public float MinRelaxDuration = 10f;
     public float MaxPeakDuration = 30f;
     [HideInEditor] public bool isDirectorSmoothing;
+    [HideInEditor] public bool DebugMode;
     [HideInEditor] public OIDDAConfig currentConfig;
 
     // Current state
     public DirectorState CurrentState {  get; private set; }
     public float CurrentIntensity {  get; private set; }
-    public float StateTimer { get; private set; }
+    /// <summary> Seconds spent in the current pacing state. </summary>
+    public float StateTimer => timeInCurrentState;
 
     //  Historical data for analysis
-    Queue<IntensityEvent> intensityHistory = new(50);
+    const int MaxHistory = 50;
+    const float FadeBlendSeconds = 10f;
+    Queue<IntensityEvent> intensityHistory = new(MaxHistory);
+    float lastHistoryTime;
     float timeSinceLastPeak = 0f, timeInCurrentState = 0f;
     float stressRate => StressLevel * 0.01f; float fatigueRate => FatigueLevel * 0.01f;
     SmoothingManager smoothingManager = new();
@@ -57,11 +59,10 @@ public class DirectorManager
 
         timeInCurrentState += deltaTime;
         timeSinceLastPeak += deltaTime;
-        StateTimer += deltaTime;
 
         smoothingManager.SmoothUpdate(deltaTime);
         UpdatePsychologicalMetrics(deltaTime, GameplayValues.Values);
-        UpdatePacingState(StateTimer);
+        UpdatePacingState();
         ApplyIntensityDecay(deltaTime);
         RecordIntensityEvent();
     }
@@ -69,7 +70,7 @@ public class DirectorManager
     /// <summary>
     /// Increases the current intensity by the specified amount and records the change in the intensity history.
     /// </summary>
-    /// <remarks>If the intensity history exceeds 50 entries, the oldest entry is removed. This method
+    /// <remarks>If the intensity history exceeds the maximum of 50 entries, the oldest entry is removed. This method
     /// maintains a bounded history of recent intensity changes for tracking or auditing purposes.</remarks>
     /// <param name="amount">The amount by which to increase the current intensity. Can be negative to decrease intensity. The resulting
     /// intensity is clamped between 0 and 100.</param>
@@ -80,17 +81,21 @@ public class DirectorManager
         var oldIntensity = CurrentIntensity;
         CurrentIntensity = Mathf.Clamp(oldIntensity + amount, 0f, 100f);
 
-        intensityHistory.Enqueue(
-           new IntensityEvent
-           {
-               Time = Time.GameTime,
-               Intensity = CurrentIntensity,
-               Delta = amount,
-               Reason = reason
-           }
-        );
+        PushHistory(new IntensityEvent
+        {
+            Time = Time.GameTime,
+            Intensity = CurrentIntensity,
+            Delta = amount,
+            Reason = reason
+        });
+    }
 
-        if (intensityHistory.Count > 50) intensityHistory.Dequeue();
+    void PushHistory(IntensityEvent evt)
+    {
+        intensityHistory.Enqueue(evt);
+        lastHistoryTime = evt.Time;
+
+        if (intensityHistory.Count > MaxHistory) intensityHistory.Dequeue();
     }
 
     /// <summary>
@@ -125,8 +130,7 @@ public class DirectorManager
     /// </summary>
     /// <remarks> This method should be called regularly, such as once per frame or update cycle, to ensure the pacing state transitions appropriately. 
     /// State transitions may trigger side effects such as invoking state changem events.</remarks>
-    /// <param name="deltaTime">The time, in seconds, since the last update. Used to advance the pacing state logic.</param>
-    internal void UpdatePacingState(float deltaTime)
+    internal void UpdatePacingState()
     {
         DirectorState newState = CurrentState;
 
@@ -162,7 +166,7 @@ public class DirectorManager
         if (newState != CurrentState)
         {
             OnStateChanged(CurrentState, newState);
-            timeInCurrentState = StateTimer = 0f;
+            timeInCurrentState = 0f;
         }
     }
 
@@ -192,9 +196,14 @@ public class DirectorManager
     /// <param name="newState">The new pacing state after the transition.</param>
     void OnStateChanged(DirectorState oldState, DirectorState newState)
     {
-        Debug.Log($"[Director] State: {oldState} -> {newState} (Intensity: {CurrentIntensity:F1}, Stress: {StressLevel:F1})");
-        oldState = newState;
+        if (DebugMode)
+            Debug.Log($"[Director] State: {oldState} -> {newState} (Intensity: {CurrentIntensity:F1}, Stress: {StressLevel:F1})");
     }
+
+    /// <summary>
+    /// Stops every smoothing currently in progress.
+    /// </summary>
+    public void ResetSmoothing() => smoothingManager.Clear();
 
     /// <summary>
     /// Records the current intensity event and adds it to the intensity history if sufficient time has elapsed since the last event.
@@ -204,21 +213,15 @@ public class DirectorManager
     /// This helps maintain a recent history of intensity changes for further analysis or processing.</remarks>
     internal void RecordIntensityEvent()
     {
-        if (intensityHistory.Count > 0)
-        {
-            var lastEvent = intensityHistory.ToArray().Last();
-            if (Time.GameTime - lastEvent.Time < 1f) return;
-        }
+        if (intensityHistory.Count > 0 && Time.GameTime - lastHistoryTime < 1f) return;
 
-        intensityHistory.Enqueue(new IntensityEvent
+        PushHistory(new IntensityEvent
         {
             Time = Time.GameTime,
             Intensity = CurrentIntensity,
             Delta = 0f,
             Reason = $"State: {CurrentState}"
         });
-
-        if (intensityHistory.Count > 50) intensityHistory.Dequeue();
     }
 
     protected float CalculateScoreByData(Dictionary<string,object> values, float deltatime)
@@ -241,35 +244,10 @@ public class DirectorManager
             var score = overallScore + CalculateScoreByEmotion(rule, deltaTime);
             var ctx = new DifficultyContext(score, easy, difficult);
 
-            var toApply = rule.GetValuesToApply(currentValues, ctx).ToList();
-            if (toApply.Count == 0) continue;
-
-            foreach (var rv in toApply)
-            {
-                if (isDirectorSmoothing) ApplyValueSmooth(rv, currentValues);
-                else rv.ApplyToGlobals();
-            }
-
-            rulesApplied++;
+            if (RuleApplier.ApplyRule(rule, currentValues, ctx, isDirectorSmoothing, smoothingManager, currentConfig.SmoothingSpeed, false))
+                rulesApplied++;
         }
         return rulesApplied;
-    }
-
-    void ApplyValueSmooth(RuleValue rv, Dictionary<string, object> currentValues)
-    {
-        if (string.IsNullOrEmpty(rv.TargetGlobal)) return;
-
-        try
-        {
-            var targetValue = GameplayValue.ConvertObject(currentValues[rv.TargetGlobal]);
-            var newValue = GameplayValueOperations.Apply(targetValue, rv.Value, rv.Operator);
-            newValue = GameplayValueOperations.Clamp(newValue, rv.MinValue, rv.MaxValue);
-            smoothingManager.SetTarget(rv.TargetGlobal, newValue, currentConfig.SmoothingSpeed);
-        }
-        catch (Exception e)
-        {
-            Debug.LogError(e.Message);
-        }
     }
 
     float CalculateScoreByEmotion(DirectorRule rule, float deltaTime) => rule.Emotion switch
@@ -296,7 +274,7 @@ public class DirectorManager
     {
         DirectorState.Build => Mathf.Lerp(0.8f, 1.0f, CurrentIntensity / PeakThreshold),
         DirectorState.Peak => Mathf.Lerp(1.0f, 1.3f, timeInCurrentState / MaxPeakDuration),
-        DirectorState.Fade => Mathf.Lerp(1.0f, 0.7f, timeInCurrentState / 10f),
+        DirectorState.Fade => Mathf.Lerp(1.0f, 0.7f, Mathf.Saturate(timeInCurrentState / FadeBlendSeconds)),
         DirectorState.Relax => 0.5f,
         _ => 1.0f
     };
@@ -344,19 +322,17 @@ public class DirectorManager
         if (intensityHistory.Count == 0) return 0f;
 
         var cutOffTime = Time.GameTime - seconds;
-        var recentEvents = new List<IntensityEvent>();
+        float sum = 0f;
+        int count = 0;
 
-        intensityHistory.ForEach( evt =>
+        foreach (var evt in intensityHistory)
         {
-            if (evt.Time >= cutOffTime) recentEvents.Add(evt);
-        });
+            if (evt.Time < cutOffTime) continue;
+            sum += evt.Intensity;
+            count++;
+        }
 
-        if (recentEvents.Count == 0) return CurrentIntensity;
-
-        float sum = 0;
-        recentEvents.ForEach(evt => sum += evt.Intensity);
-
-        return sum / recentEvents.Count;
+        return count == 0 ? CurrentIntensity : sum / count;
     }
 
     /// <summary>
@@ -379,6 +355,7 @@ public class DirectorManager
         EngagementLevel = EngagementLevel,
         CurrentState = CurrentState,
         TimeInCurrentState = timeInCurrentState,
+        TimeSinceLastPeak = timeSinceLastPeak,
         IsInFlowState = IsInFlowState,
         EventCount = intensityHistory.Count
     };

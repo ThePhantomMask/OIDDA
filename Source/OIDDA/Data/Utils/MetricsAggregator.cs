@@ -30,7 +30,8 @@ public static class MetricsAggregator
         return 0.5f;
     }
 
-    public static MetricsAnalysis Analyze(List<Metrics> metrics, Dictionary<string, object> currentValues)
+    public static MetricsAnalysis Analyze(List<Metrics> metrics, Dictionary<string, object> currentValues,
+        float easyThreshold = OIDDADefaults.EasyThreshold, float difficultThreshold = OIDDADefaults.DifficultThreshold)
     {
         var analysis = new MetricsAnalysis
         {
@@ -40,26 +41,24 @@ public static class MetricsAggregator
 
         foreach (var metric in metrics)
         {
-            if (!currentValues.ContainsKey(metric.MetricName)) continue;
-            var info = metric.GetInfo(currentValues[metric.MetricName]);
-            analysis.MetricInfos.Add(info);
+            if (!currentValues.TryGetValue(metric.MetricName, out var value)) continue;
+            analysis.MetricInfos.Add(metric.GetInfo(value));
         }
 
         return analysis with
         {
-            OverallState = DetermineOverallState(analysis.OverallScore)
+            OverallState = DetermineOverallState(analysis.OverallScore, easyThreshold, difficultThreshold)
         };
     }
 
-    public static List<MetricInfo> GetProblematicMetrics(List<Metrics> metrics, Dictionary<string, object> currentValues, float threshold = 0.7f)
+    public static List<MetricInfo> GetProblematicMetrics(List<Metrics> metrics, Dictionary<string, object> currentValues, float threshold = OIDDADefaults.DifficultThreshold)
     {
         var problematic = new List<MetricInfo>();
 
         foreach (var metric in metrics)
         {
-            if (!currentValues.ContainsKey(metric.MetricName)) continue;
+            if (!currentValues.TryGetValue(metric.MetricName, out var currentValue)) continue;
 
-            var currentValue = currentValues[metric.MetricName];
             if (metric.IndicatesDifficulty(currentValue, threshold))
             {
                 problematic.Add(metric.GetInfo(currentValue));
@@ -71,10 +70,10 @@ public static class MetricsAggregator
         return problematic;
     }
 
-    private static DifficultyState DetermineOverallState(float score) => score switch
+    private static DifficultyState DetermineOverallState(float score, float easyThreshold, float difficultThreshold) => score switch
     {
-        > 1.7f => DifficultyState.TooDifficult,
-        < 0.3f => DifficultyState.TooEasy,
+        var s when s > difficultThreshold => DifficultyState.TooDifficult,
+        var s when s < easyThreshold => DifficultyState.TooEasy,
         _ => DifficultyState.Balanced
     };
 }

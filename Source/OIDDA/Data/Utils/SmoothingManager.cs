@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using FlaxEngine;
 
 namespace OIDDA;
@@ -42,7 +41,8 @@ public class SmoothingManager
             var t = 1f - Mathf.Pow(1f - smoothValue.SmoothSpeed, deltaTime);
             var newValue = GameplayValueOperations.Lerp(currentValue, smoothValue.TargetValue, t);
 
-            ORS.Instance.QuickSender(smoothValue.Variable, newValue.Value);
+            // Internal write: must not trigger an analysis (it could add targets while we are enumerating).
+            ORS.Instance.WriteValue(smoothValue.Variable, newValue.Value);
 
             if (GameplayValueOperations.IsNearTarget(newValue, smoothValue.TargetValue))
                 toRemove.Add(kvp.Key);

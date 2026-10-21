@@ -1,8 +1,4 @@
-﻿using FlaxEngine;
-using System;
-using System.Collections.Generic;
-
-namespace OIDDA.Data;
+﻿namespace OIDDA.Data;
 
 public struct MetricInfo
 {

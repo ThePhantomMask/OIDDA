@@ -57,12 +57,20 @@ public class ORS : ORSAgent
 {
     public static ORS Instance = new();
 
-    private static OIDDAManager _oiddaManager => OIDDAPlugin.Instance.Manager;
+    private static OIDDAManager _oiddaManager => OIDDAPlugin.Instance?.Manager;
 
     #region DDA API methods
 
-    string ORSID, ORSName;
-    public bool IsConnected => !string.IsNullOrEmpty(ORSID) && _oiddaManager.ORSIsConnected(ORSID) || !string.IsNullOrEmpty(ORSName) && _oiddaManager.StaticORSIsConnected(ORSName);
+    private string ORSID, ORSName;
+    private bool CanReceiveDynamic() => IsDynamicConnected && _oiddaManager.VerifyIsReceiver(ORSID);
+    private bool CanSendDynamic() => IsDynamicConnected && _oiddaManager.VerifyIsSender(ORSID);
+    private bool CanReceiveStatic() => IsStaticConnected && _oiddaManager.VerifyIsStaticReceiver(ORSName);
+    private bool CanSendStatic() => IsStaticConnected && _oiddaManager.VerifyIsStaticSender(ORSName);
+
+    private bool IsDynamicConnected => _oiddaManager && !string.IsNullOrEmpty(ORSID) && _oiddaManager.ORSIsConnected(ORSID);
+    private bool IsStaticConnected => _oiddaManager && !string.IsNullOrEmpty(ORSName) && _oiddaManager.StaticORSIsConnected(ORSName);
+
+    public bool IsConnected => IsDynamicConnected || IsStaticConnected;
 
     /// <summary>
     /// Initializes the ORS agent connection using the specified script and agent type (Static ORS Agent).
@@ -81,6 +89,10 @@ public class ORS : ORSAgent
     public override void ConnectORSAgent(ORSType type)
     {
         if (!_oiddaManager) return;
+
+        // Reconnecting must not leave the previous dynamic agent registered.
+        if (!string.IsNullOrEmpty(ORSID)) _oiddaManager.Disconnect(ORSID, type);
+
         _oiddaManager.Connect(ORSID = ORSUtils.GeneratedID, new IORSAgentD
         {
             ORSType = type
@@ -108,7 +120,7 @@ public class ORS : ORSAgent
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
-        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsReceiver(ORSID))) 
+        if (!CanReceiveDynamic()) 
         {
             result = default; return false; 
         }
@@ -117,7 +129,7 @@ public class ORS : ORSAgent
 
     public override bool TryReceiverValue<T>(out T result)
     {
-        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsStaticReceiver(ORSName))) 
+        if (!CanReceiveStatic()) 
         {
             result = default; return false; 
         }
@@ -128,47 +140,47 @@ public class ORS : ORSAgent
     {
         if (!_oiddaManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
         return _oiddaManager.QuickReceiver<T>(NameValue);
-        throw new InvalidCastException($"Value for static receiver '{ORSName}' is not of type {typeof(T).Name}");
     }
 
     public override T ReceiverValue<T>()
     {
-        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsStaticReceiver(ORSName))) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
-        return _oiddaManager.GetStaticGlobal<T>(ORSName);
-        throw new InvalidCastException($"Value for static receiver '{ORSName}' is not of type {typeof(T).Name}");
+        if (!TryReceiverValue(out T result)) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
+        return result;
     }
 
     public override T ReceiverValue<T>(string nameValue)
     {
-        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsReceiver(ORSID))) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
-        return _oiddaManager.GetGlobal<T>(nameValue);
-        throw new InvalidCastException($"Value for key '{nameValue}' is not of type {typeof(T).Name}");
+        if (!TryReceiverValue(nameValue, out T result)) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
+        return result;
     }
 
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
-        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsSender(ORSID))) return false;
+        if (!CanSendDynamic()) return false;
         _oiddaManager.SetGlobal(nameValue, senderValue);
         return true;
     }
 
     public override bool TrySenderValue(object senderValue)
     {
-        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsStaticSender(ORSName))) return false;
+        if (!CanSendStatic()) return false;
         _oiddaManager.SetStaticGlobal(ORSName, senderValue);
         return true;
     }
 
-    public override void SenderValue(string nameValue, object senderValue)
-    {
-        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsSender(ORSID))) return;
-        _oiddaManager.SetGlobal(nameValue, senderValue);
-    }
+    public override void SenderValue(string nameValue, object senderValue) => TrySenderValue(nameValue, senderValue);
 
-    public override void SenderValue(object senderValue)
+    public override void SenderValue(object senderValue) => TrySenderValue(senderValue);
+
+    /// <summary>
+    /// Writes a value straight into the gameplay globals without triggering a new OIDDA analysis.
+    /// Used by rule application and smoothing, which run inside an analysis cycle.
+    /// </summary>
+    internal void WriteValue(string nameValue, object value)
     {
-        if (!(_oiddaManager || IsConnected && _oiddaManager.VerifyIsStaticSender(ORSName))) return;
-        _oiddaManager.SetStaticGlobal(ORSName, senderValue);
+        var manager = _oiddaManager;
+        if (!manager) return;
+        manager.WriteGlobal(nameValue, value);
     }
 
     public override void QuickSender(string nameValue, object senderValue)

@@ -1,5 +1,4 @@
 ﻿using OIDDA.Data;
-using System.Collections.Generic;
 
 namespace OIDDA;
 
@@ -9,7 +8,4 @@ namespace OIDDA;
 public class DirectorRule : RuleBase<DirectorCondition,DirectorRuleException>
 {
     protected override bool showEmotion => true;
-
-    protected override bool IsConditionMet(DirectorCondition condition, Dictionary<string, object> metrics) =>
-        condition.IsMet(metrics);
 }

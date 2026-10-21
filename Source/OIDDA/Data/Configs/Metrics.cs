@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using FlaxEngine;
+﻿using FlaxEngine;
 using OIDDA.Data;
 
 namespace OIDDA;
@@ -11,11 +9,10 @@ namespace OIDDA;
 [Category(name: "OIDDA Data")]
 public class Metrics : MetricBase
 {
-    // For DDA side
-    public bool IndicatesDifficulty(object currentValue, float threshold = 0.7f) => CalculateScore(currentValue) > threshold;
-    public bool IndicatesEasy(object currentValue, float threshold = 0.3f) => CalculateScore(currentValue) < threshold;
+    public bool IndicatesDifficulty(object currentValue, float threshold = OIDDADefaults.DifficultThreshold) => CalculateScore(currentValue) > threshold;
+    public bool IndicatesEasy(object currentValue, float threshold = OIDDADefaults.EasyThreshold) => CalculateScore(currentValue) < threshold;
 
-    // For Director side
-    public bool IndicatesTooStress(object currentValue, float threshold = 0.7f) => CalculateScore(currentValue) > threshold;
-    public bool IndicatesRelax(object currentValue, float threshold = 0.3f) => CalculateScore(currentValue) < threshold;
+    // Director-oriented wording of the same checks, used by Director rules (stress / relax).
+    public bool IndicatesTooStress(object currentValue, float threshold = OIDDADefaults.DifficultThreshold) => CalculateScore(currentValue) > threshold;
+    public bool IndicatesRelax(object currentValue, float threshold = OIDDADefaults.EasyThreshold) => CalculateScore(currentValue) < threshold;
 }
