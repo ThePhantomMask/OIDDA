@@ -1,7 +1,7 @@
 {
 	"Name": "OIDDA",
-	"Version": "1.0",
-	"Company": "My Company",
+	"Version": "0.9.2550",
+	"Company": "Phantom Raptor Studio",
 	"Copyright": "",
 	"GameTarget": "OIDDATarget",
 	"EditorTarget": "OIDDAEditorTarget",

@@ -145,6 +145,13 @@ public abstract class RuleBase<TCondition, TException>
 
     protected virtual bool FilterValuesByScore => true;
 
+    /// <summary>
+    /// By default a rule value only fires for the operators that fit the current score (Add/Multiply when too easy,
+    /// Subtract/Set when too difficult). Enable this to skip that filter and let <see cref="Context"/> alone decide,
+    /// which also makes Divide, Toggle, Append and the WhenBalanced context usable.
+    /// </summary>
+    [VisibleIf(nameof(isNotException))] public bool IgnoreScoreFilter = false;
+
     protected bool IsConditionMet(TCondition condition, Dictionary<string, object> metrics) => condition.IsMet(metrics);
 
     public virtual bool IsContextSatisfied(in DifficultyContext ctx) => ctx.Matches(Context);
@@ -167,7 +174,7 @@ public abstract class RuleBase<TCondition, TException>
         foreach (var v in Values)
         {
             if (v == null) continue;
-            if (FilterValuesByScore && !v.MatchesScore(ctx)) continue;
+            if (FilterValuesByScore && !IgnoreScoreFilter && !v.MatchesScore(ctx)) continue;
             yield return v;
         }
     }
@@ -215,13 +222,24 @@ public class RuleValue
         false;
 
     /// <summary>
+    /// True when Min/Max were set. Both left at their default (Float 0, 0) means "no clamp": otherwise a Float result would always be forced to 0.
+    /// </summary>
+    public bool HasClamp => !(MinValue.Type == ValueType.Float && MaxValue.Type == ValueType.Float &&
+                              MinValue.FloatValue == 0f && MaxValue.FloatValue == 0f);
+
+    /// <summary>
+    /// Clamps a result to Min/Max, unless no limits were set.
+    /// </summary>
+    public GameplayValue ClampResult(GameplayValue value) => HasClamp ? GameplayValueOperations.Clamp(value, MinValue, MaxValue) : value;
+
+    /// <summary>
     /// Applies the specified gameplay value operation to the global variables.
     /// </summary>
     public void ApplyToGlobals()
     {
         var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(TargetGlobal));
         var newValue = GameplayValueOperations.Apply(currentValue, Value, Operator);
-        newValue = GameplayValueOperations.Clamp(newValue, MinValue, MaxValue);
+        newValue = ClampResult(newValue);
 
         // Internal write: must not trigger a new analysis while rules are being applied.
         ORS.Instance.WriteValue(TargetGlobal, newValue.Value);

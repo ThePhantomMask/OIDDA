@@ -39,7 +39,7 @@ public class OIDDAPlugin : GamePlugin
             Author = "Phantom Raptor Studio",
             RepositoryUrl = "https://github.com/ThePhantomMask/OIDDA",
             Description = description,
-            Version = new Version(0, 0, 92550),
+            Version = new Version(0, 8, 7),
             IsAlpha = false,
             IsBeta = true,
         };

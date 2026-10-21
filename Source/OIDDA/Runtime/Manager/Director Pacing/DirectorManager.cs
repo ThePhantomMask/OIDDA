@@ -16,6 +16,18 @@ public class DirectorManager
     public float RelaxThreshold = 20f;
     public float MinRelaxDuration = 10f;
     public float MaxPeakDuration = 30f;
+
+    [Tooltip("Seconds between Director evaluations (metrics, rules, pacing). 0 = every frame.")]
+    public float UpdateInterval = 0f;
+
+    [Tooltip("Stress gained per second when the overall score is at its maximum (and lost at its minimum). A neutral score of 0.5 changes nothing.")]
+    public float StressRiseRate = 5f;
+    [Tooltip("Stress lost per second regardless of difficulty, so it settles back on its own.")]
+    public float StressDecayRate = 0.5f;
+    [Tooltip("Fatigue gained per second while in Build or Peak.")]
+    public float FatigueGainRate = 0.5f;
+    [Tooltip("Fatigue lost per second while in Relax.")]
+    public float FatigueRecoveryRate = 2f;
     [HideInEditor] public bool isDirectorSmoothing;
     [HideInEditor] public bool DebugMode;
     [HideInEditor] public OIDDAConfig currentConfig;
@@ -31,6 +43,7 @@ public class DirectorManager
     const float FadeBlendSeconds = 10f;
     Queue<IntensityEvent> intensityHistory = new(MaxHistory);
     float lastHistoryTime;
+    float intervalAccumulator;
     float timeSinceLastPeak = 0f, timeInCurrentState = 0f;
     float stressRate => StressLevel * 0.01f; float fatigueRate => FatigueLevel * 0.01f;
     SmoothingManager smoothingManager = new();
@@ -61,6 +74,17 @@ public class DirectorManager
         timeSinceLastPeak += deltaTime;
 
         smoothingManager.SmoothUpdate(deltaTime);
+
+        // Smoothing and timers run every frame; the heavier evaluation can be throttled.
+        if (UpdateInterval > 0f)
+        {
+            intervalAccumulator += deltaTime;
+            if (intervalAccumulator < UpdateInterval) return;
+
+            deltaTime = intervalAccumulator;
+            intervalAccumulator = 0f;
+        }
+
         UpdatePsychologicalMetrics(deltaTime, GameplayValues.Values);
         UpdatePacingState();
         ApplyIntensityDecay(deltaTime);
@@ -109,13 +133,21 @@ public class DirectorManager
     /// keys and value types depend on the implementation context.</param>
     internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
     {
-        if (values == null || currentConfig == null || currentConfig.Metrics == null || currentConfig.DirectorRules == null ||
-            values.Count is 0 || currentConfig.Metrics.Count is 0 || currentConfig.DirectorRules.Count is 0) return;
+        bool canScore = values != null && values.Count > 0 &&
+                        currentConfig != null && currentConfig.Metrics != null && currentConfig.Metrics.Count > 0;
 
-        var scoreContribution = CalculateScoreByData(values, deltaTime);
+        if (canScore)
+        {
+            // Overall score: 0 = very easy, 1 = very difficult. Also drives the Director rules.
+            var score = CalculateScoreByData(values, deltaTime);
+            UpdateStress(score, deltaTime);
+        }
+        else
+        {
+            UpdateStress(0.5f, deltaTime); // neutral: only the natural decay applies
+        }
 
-        StressLevel = Mathf.Clamp((StressLevel + scoreContribution), 0f, 100f);
-        FatigueLevel = Mathf.Clamp((FatigueLevel + scoreContribution), 0f, 100f);
+        UpdateFatigue(deltaTime);
 
         EngagementLevel = (CurrentIntensity, StressLevel) switch
         {
@@ -123,6 +155,32 @@ public class DirectorManager
             ( < 20f, _) or (_, > 90f) => Mathf.Lerp(EngagementLevel, 30f, deltaTime),
             _ => Mathf.Lerp(EngagementLevel, 60f, deltaTime)
         };
+    }
+
+    /// <summary>
+    /// Stress rises while the overall score indicates difficulty, falls while it indicates the game is easy,
+    /// and always decays slowly on its own. Scaled by time, so it does not depend on the frame rate.
+    /// </summary>
+    void UpdateStress(float overallScore, float deltaTime)
+    {
+        var load = (overallScore - 0.5f) * 2f; // -1 (very easy) .. +1 (very difficult)
+        var change = (load * StressRiseRate - StressDecayRate) * deltaTime;
+        StressLevel = Mathf.Clamp(StressLevel + change, 0f, 100f);
+    }
+
+    /// <summary>
+    /// Fatigue builds up slowly in Build/Peak, recovers in Relax and holds during Fade.
+    /// </summary>
+    void UpdateFatigue(float deltaTime)
+    {
+        var rate = CurrentState switch
+        {
+            DirectorState.Build or DirectorState.Peak => FatigueGainRate,
+            DirectorState.Relax => -FatigueRecoveryRate,
+            _ => 0f
+        };
+
+        FatigueLevel = Mathf.Clamp(FatigueLevel + rate * deltaTime, 0f, 100f);
     }
 
     /// <summary>
@@ -165,8 +223,10 @@ public class DirectorManager
 
         if (newState != CurrentState)
         {
-            OnStateChanged(CurrentState, newState);
+            var oldState = CurrentState;
+            CurrentState = newState;
             timeInCurrentState = 0f;
+            OnStateChanged(oldState, newState);
         }
     }
 
@@ -227,8 +287,9 @@ public class DirectorManager
     protected float CalculateScoreByData(Dictionary<string,object> values, float deltatime)
     {
         var score = MetricsAggregator.CalculateOverallScore(currentConfig.Metrics, values);
-        int rulesApplied = ApplyRules(values, score, deltatime);
-        return rulesApplied > 0 ? score : 0;
+        if (currentConfig.DirectorRules != null && currentConfig.DirectorRules.Count > 0)
+            ApplyRules(values, score, deltatime);
+        return score;
     }
 
     protected int ApplyRules(Dictionary<string, object> currentValues, float overallScore, float deltaTime)

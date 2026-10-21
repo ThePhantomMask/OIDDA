@@ -34,7 +34,12 @@ public class OIDDAManager : Script
     private bool _isUseSmoothing, _isUseDirector;
     private Dictionary<string, IORSAgentD> _orsAgentDB = new();
     private Dictionary<string, IORSAgentS> _staticORSDB = new();
-    private float _updateInterval, _delay, _timerSender, _timerReceiver, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
+    private float _updateInterval, _delay, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
+
+    // Delay (per variable): last send/receive time, the newest value waiting to be sent, and the last value read.
+    private readonly Dictionary<string, float> _lastSendTime = new(), _lastReceiveTime = new();
+    private readonly Dictionary<string, object> _pendingSends = new(), _receiveCache = new();
+    private readonly List<string> _flushKeys = new();
 
     private GameplayGlobals _currentGlobal;
     private SmoothingManager _smoothingManager = new();
@@ -79,7 +84,10 @@ public class OIDDAManager : Script
             if (_pluginInstance.CurrentOIDDAConfig)
             {
                 Director.currentConfig = _pluginInstance.CurrentOIDDAConfig.Instance;
-                Director.isDirectorSmoothing = _isUseSmoothing = Director.currentConfig.UseDDASmoothing;
+                _isUseSmoothing = Director.currentConfig.UseDDASmoothing;
+                Director.isDirectorSmoothing = Director.currentConfig.OverrideDirectorSmoothing
+                    ? Director.currentConfig.UseDirectorSmoothing
+                    : _isUseSmoothing;
                 _isUseDirector = Director.currentConfig.UseDirector;
             }
         }
@@ -93,6 +101,10 @@ public class OIDDAManager : Script
         if (_staticORSDB.Count != 0) _staticORSDB.Clear();
         _smoothingManager.Clear();
         Director.ResetSmoothing();
+        _lastSendTime.Clear();
+        _lastReceiveTime.Clear();
+        _pendingSends.Clear();
+        _receiveCache.Clear();
     }
 
     bool _isAnalyzing;
@@ -237,6 +249,7 @@ public class OIDDAManager : Script
 
         Director.DebugMode = DebugMode;
 
+        if (_delay != 0f) FlushPendingSends();
         if (_isUseSmoothing) _smoothingManager.SmoothUpdate(Time.DeltaTime);
         if (_isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, _currentGlobal);
         _timeSinceLastUpdate += Time.DeltaTime;
@@ -317,26 +330,47 @@ public class OIDDAManager : Script
 
     public bool StaticORSIsConnected(string name) => _staticORSDB.ContainsKey(name) && _staticORSDB[name].ORSStatus is ORSStatus.Connected;
 
+    // Each variable has its own clock (game time, so it does not depend on how many calls are made per frame).
+    // The newest value is kept and written once the delay has passed, instead of being dropped.
     void DelaySender(string name, object value)
     {
-        _timerSender += Time.DeltaTime;
-        if (_timerSender >= _delay)
+        if (!_lastSendTime.ContainsKey(name)) _lastSendTime[name] = Time.GameTime;
+        _pendingSends[name] = value;
+    }
+
+    void FlushPendingSends()
+    {
+        if (_pendingSends.Count == 0) return;
+
+        var now = Time.GameTime;
+        _flushKeys.Clear();
+        foreach (var pending in _pendingSends)
+            if (now - _lastSendTime[pending.Key] >= _delay) _flushKeys.Add(pending.Key);
+
+        foreach (var key in _flushKeys)
         {
+            var value = _pendingSends[key];
+            _pendingSends.Remove(key);
+            _lastSendTime[key] = now;
+
             AnalyzeAndApply();
-            _currentGlobal.SetValue(name, value);
-            _timerSender = 0;
+            _currentGlobal.SetValue(key, value);
         }
     }
 
+    // Reads the real value at most once per delay; in between, the last valid value is returned (never default).
     T DelayReceiver<T>(string name)
     {
-        _timerReceiver += Time.DeltaTime;
-        if (_timerReceiver >= _delay)
-        {
-            _timerReceiver = 0;
-            return _currentGlobal.GetValue<T>(name);
-        }
-        return default(T);
+        var now = Time.GameTime;
+
+        if (_lastReceiveTime.TryGetValue(name, out var last) && now - last < _delay &&
+            _receiveCache.TryGetValue(name, out var cached) && cached is T cachedValue)
+            return cachedValue;
+
+        var value = _currentGlobal.GetValue<T>(name);
+        _receiveCache[name] = value;
+        _lastReceiveTime[name] = now;
+        return value;
     }
 
     public bool VerifyIsReceiver(string ID) => _orsAgentDB[ID].ORSType.CanReceive();

@@ -47,7 +47,7 @@ internal static class RuleApplier
         {
             var targetValue = GameplayValue.ConvertObject(currentValues[rv.TargetGlobal]);
             var newValue = GameplayValueOperations.Apply(targetValue, rv.Value, rv.Operator);
-            newValue = GameplayValueOperations.Clamp(newValue, rv.MinValue, rv.MaxValue);
+            newValue = rv.ClampResult(newValue);
             smoothing.SetTarget(rv.TargetGlobal, newValue, smoothingSpeed);
 
             if (debug)

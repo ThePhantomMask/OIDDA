@@ -20,6 +20,17 @@ public class OIDDAConfig
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("Director")]
     public List<DirectorRule> DirectorRules = new();
     /// <summary>
+    /// When off (default) the Director follows <see cref="UseDDASmoothing"/>, as it always did.
+    /// Turn it on to give the Director its own smoothing setting.
+    /// </summary>
+    [EditorDisplay("Director")]
+    public bool OverrideDirectorSmoothing = false;
+    /// <summary>
+    /// Director smoothing, used only when <see cref="OverrideDirectorSmoothing"/> is on.
+    /// </summary>
+    [EditorDisplay("Director"), VisibleIf(nameof(OverrideDirectorSmoothing))]
+    public bool UseDirectorSmoothing = true;
+    /// <summary>
     /// Gets or sets a value indicating whether Director pacing is enabled.
     /// </summary>
     [Collection(Display = CollectionAttribute.DisplayType.Header), EditorDisplay("Director")]
