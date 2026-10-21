@@ -331,14 +331,30 @@ public class OIDDAManager : Script
     public bool StaticORSIsConnected(string name) => _staticORSDB.ContainsKey(name) && _staticORSDB[name].ORSStatus is ORSStatus.Connected;
 
     // Each variable has its own clock (game time, so it does not depend on how many calls are made per frame).
-    // The newest value is kept and written once the delay has passed, instead of being dropped.
-    void DelaySender(string name, object value)
+    // The first value goes out immediately; later ones are limited to one write per delay, keeping the newest
+    // value instead of dropping it.
+    private void DelaySender(string name, object value)
     {
-        if (!_lastSendTime.ContainsKey(name)) _lastSendTime[name] = Time.GameTime;
+        var now = Time.GameTime;
+
+        if (!_lastSendTime.TryGetValue(name, out var last) || now - last >= _delay)
+        {
+            _pendingSends.Remove(name);
+            SendNow(name, value, now);
+            return;
+        }
+
         _pendingSends[name] = value;
     }
 
-    void FlushPendingSends()
+    private void SendNow(string name, object value, float now)
+    {
+        _lastSendTime[name] = now;
+        AnalyzeAndApply();
+        _currentGlobal.SetValue(name, value);
+    }
+
+    private void FlushPendingSends()
     {
         if (_pendingSends.Count == 0) return;
 
@@ -351,15 +367,12 @@ public class OIDDAManager : Script
         {
             var value = _pendingSends[key];
             _pendingSends.Remove(key);
-            _lastSendTime[key] = now;
-
-            AnalyzeAndApply();
-            _currentGlobal.SetValue(key, value);
+            SendNow(key, value, now);
         }
     }
 
     // Reads the real value at most once per delay; in between, the last valid value is returned (never default).
-    T DelayReceiver<T>(string name)
+    private T DelayReceiver<T>(string name)
     {
         var now = Time.GameTime;
 
