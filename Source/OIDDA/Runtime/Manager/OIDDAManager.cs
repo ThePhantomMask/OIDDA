@@ -27,6 +27,12 @@ public class OIDDAManager : Script
 
     public DirectorManager Director = new();
 
+    /// <summary> Id of the default (local) player. Single-player always uses it. </summary>
+    public const uint DefaultPlayerId = 0;
+
+    [EditorDisplay("Multiplayer"), Range(1, 256), Tooltip("Maximum number of players OIDDA keeps a context for, including the default one. Size it to your game.")]
+    public int MaxPlayers = 8;
+
     private OIDDAPlugin _pluginInstance;
 
     private Dictionary<string, IORSAgentD> _orsAgentDB = new();
@@ -37,10 +43,104 @@ public class OIDDAManager : Script
 
     private OIDDAContext _default;
 
+    // Every player's context by id (the default one included), and the same contexts without the default one in
+    // registration order, so the update loop does not enumerate a dictionary.
+    private readonly Dictionary<uint, OIDDAContext> _players = new();
+    private readonly List<OIDDAContext> _extraContexts = new();
+
+    // Variables as they were when the manager was initialized: what a newly registered player starts from.
+    private Dictionary<string, object> _initialValues;
+
     /// <summary>
-    /// The context used by single-player and by the default (local) player.
+    /// The context used by single-player and by the default (local) player. Its values live in the scene's GameplayGlobals.
     /// </summary>
-    public OIDDAContext DefaultContext => _default ??= new OIDDAContext(this, Director);
+    public OIDDAContext DefaultContext
+    {
+        get
+        {
+            if (_default == null)
+            {
+                _default = new OIDDAContext(this, Director) { PlayerId = DefaultPlayerId };
+                _players[DefaultPlayerId] = _default;
+            }
+            return _default;
+        }
+    }
+
+    #region Players
+
+    /// <summary> Number of players with a context, the default one included. </summary>
+    public int PlayerCount => System.Math.Max(1, _players.Count);
+
+    /// <summary> Every player's context by id, the default one included. </summary>
+    public IReadOnlyDictionary<uint, OIDDAContext> Players
+    {
+        get
+        {
+            _ = DefaultContext;
+            return _players;
+        }
+    }
+
+    public bool HasPlayer(uint playerId) => playerId == DefaultPlayerId || _players.ContainsKey(playerId);
+
+    /// <summary>
+    /// The context of a player, or null if that player is not registered.
+    /// </summary>
+    public OIDDAContext GetContext(uint playerId)
+    {
+        if (playerId == DefaultPlayerId) return DefaultContext;
+        return _players.TryGetValue(playerId, out var context) ? context : null;
+    }
+
+    /// <summary>
+    /// Creates the context of a player. Each player has their own values, personal Director and smoothing; the configuration
+    /// and the manager settings are shared. Registering an existing player returns their context.
+    /// </summary>
+    /// <param name="playerId">Any id that is unique for the player (a local index, or a network client id).</param>
+    /// <param name="initialValues">Starting values. When null, the variables as they were when the manager was initialized.</param>
+    /// <returns>The context, or null if <see cref="MaxPlayers"/> has been reached.</returns>
+    public OIDDAContext RegisterPlayer(uint playerId, IEnumerable<KeyValuePair<string, object>> initialValues = null)
+    {
+        var existing = GetContext(playerId);
+        if (existing != null) return existing;
+
+        if (_players.Count >= MaxPlayers)
+        {
+            Debug.LogWarning($"[OIDDA] Cannot register player {playerId}: MaxPlayers ({MaxPlayers}) reached.");
+            return null;
+        }
+
+        var director = new DirectorManager();
+        director.CopySettingsFrom(Director);
+
+        var context = new OIDDAContext(this, director) { PlayerId = playerId };
+        context.SetStore(new DictionaryValueStore(initialValues ?? _initialValues));
+
+        var config = DefaultContext.Director.currentConfig;
+        if (config != null) context.ApplyConfig(config);
+
+        // Spread the periodic analysis of the players over different frames (golden-ratio steps).
+        context.StaggerTimers(((_extraContexts.Count + 1) * 0.6180339887f) % 1f);
+
+        _players[playerId] = context;
+        _extraContexts.Add(context);
+        return context;
+    }
+
+    /// <summary>
+    /// Removes a player's context. The default player cannot be removed.
+    /// </summary>
+    public bool UnregisterPlayer(uint playerId)
+    {
+        if (playerId == DefaultPlayerId || !_players.TryGetValue(playerId, out var context)) return false;
+
+        _players.Remove(playerId);
+        _extraContexts.Remove(context);
+        return true;
+    }
+
+    #endregion
 
     public override void OnStart()
     {
@@ -84,16 +184,26 @@ public class OIDDAManager : Script
 
             var globals = _pluginInstance.CurrentGlobals;
             context.SetStore(globals ? new GameplayGlobalsStore(globals) : null);
+            _initialValues = globals ? new Dictionary<string, object>(globals.Values) : null;
 
             if (_pluginInstance.CurrentOIDDAConfig)
                 context.ApplyConfig(_pluginInstance.CurrentOIDDAConfig.Instance);
         }
         context.ResetTimers();
+
+        // Players registered before this point get the variables and configuration that were not available yet.
+        var sharedConfig = context.Director.currentConfig;
+        foreach (var player in _extraContexts)
+        {
+            (player.Store as DictionaryValueStore)?.SeedMissing(_initialValues);
+            if (sharedConfig != null) player.ApplyConfig(sharedConfig);
+        }
     }
 
     void OIDDAReset()
     {
         DefaultContext.Reset();
+        foreach (var player in _extraContexts) player.Reset();
         if (_orsAgentDB.Count != 0) _orsAgentDB.Clear();
         if (_staticORSDB.Count != 0) _staticORSDB.Clear();
     }
@@ -109,7 +219,15 @@ public class OIDDAManager : Script
             if (!context.HasStore) return;
         }
 
-        context.Update(Time.DeltaTime);
+        var deltaTime = Time.DeltaTime;
+        context.Update(deltaTime);
+
+        // Index loop: a context can be registered or removed from a callback while the others update.
+        for (int i = 0; i < _extraContexts.Count; i++)
+        {
+            var player = _extraContexts[i];
+            if (player.HasStore) player.Update(deltaTime);
+        }
     }
 
     #region Director Agent Management
@@ -194,6 +312,9 @@ public class OIDDAManager : Script
     internal void WriteGlobal(string name, object value) => DefaultContext.WriteGlobal(name, value);
 
     public T GetGlobal<T>(string name) => DefaultContext.GetGlobal<T>(name);
+
+    /// <summary> Name of the gameplay variable behind a static ORS agent. </summary>
+    internal string StaticVariable(string agentName) => _staticORSDB[agentName].GlobalVariable;
 
     public T GetStaticGlobal<T>(string NameAgent) => DefaultContext.GetGlobal<T>(_staticORSDB[NameAgent].GlobalVariable);
 

@@ -31,6 +31,9 @@ public sealed class OIDDAContext
         _director = director;
     }
 
+    /// <summary> The player this context belongs to. 0 is the default (local) player. </summary>
+    public uint PlayerId { get; internal set; }
+
     /// <summary> Where this context reads and writes its gameplay values. </summary>
     public IValueStore Store { get; private set; }
 
@@ -62,6 +65,12 @@ public sealed class OIDDAContext
     }
 
     internal void ResetTimers() => _timeSinceLastUpdate = _timeSinceLastAdjustment = 0f;
+
+    /// <summary>
+    /// Shifts when this context runs its periodic analysis (fraction of the update interval, 0..1), so that several
+    /// players do not all analyse in the same frame.
+    /// </summary>
+    internal void StaggerTimers(float fraction) => _timeSinceLastUpdate = Mathf.Clamp(fraction, 0f, 0.99f) * _owner.UpdateInterval;
 
     internal void Reset()
     {

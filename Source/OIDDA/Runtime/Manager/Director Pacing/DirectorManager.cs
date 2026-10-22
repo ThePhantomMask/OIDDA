@@ -54,6 +54,24 @@ public class DirectorManager
     public float FatigueLevel { get; private set; }
     public float EngagementLevel { get; private set; }
 
+    /// <summary>
+    /// Copies the tunable settings (not the runtime state) from another Director. Used to give every player's personal
+    /// Director the same settings as the one configured on the manager.
+    /// </summary>
+    public void CopySettingsFrom(DirectorManager other)
+    {
+        IntensityDecayRate = other.IntensityDecayRate;
+        PeakThreshold = other.PeakThreshold;
+        RelaxThreshold = other.RelaxThreshold;
+        MinRelaxDuration = other.MinRelaxDuration;
+        MaxPeakDuration = other.MaxPeakDuration;
+        UpdateInterval = other.UpdateInterval;
+        StressRiseRate = other.StressRiseRate;
+        StressDecayRate = other.StressDecayRate;
+        FatigueGainRate = other.FatigueGainRate;
+        FatigueRecoveryRate = other.FatigueRecoveryRate;
+    }
+
     public DirectorManager()
     {
         CurrentState = DirectorState.Build;

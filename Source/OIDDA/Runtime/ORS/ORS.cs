@@ -191,6 +191,88 @@ public class ORS : ORSAgent
 
     #endregion
 
+    #region Player API methods (multiplayer)
+
+    // The overloads below act on one player's context instead of the default one. The player id comes first so that
+    // a call like SenderValue("health", 5u) can never be mistaken for SenderValue(object, playerId).
+    // Connection state (which agents exist, and whether they send or receive) is shared by every player.
+
+    /// <summary>
+    /// The context of a registered player (see <see cref="OIDDAManager.RegisterPlayer"/>), or null.
+    /// </summary>
+    public OIDDAContext GetPlayerContext(uint playerId) => _oiddaManager ? _oiddaManager.GetContext(playerId) : null;
+
+    private static OIDDAContext RequirePlayer(uint playerId)
+    {
+        var manager = _oiddaManager;
+        if (!manager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
+
+        return manager.GetContext(playerId) ?? throw new InvalidOperationException($"Player {playerId} is not registered.");
+    }
+
+    public T QuickReceiver<T>(uint playerId, string nameValue) => RequirePlayer(playerId).QuickReceiver<T>(nameValue);
+
+    public void QuickSender(uint playerId, string nameValue, object senderValue) => GetPlayerContext(playerId)?.QuickSender(nameValue, senderValue);
+
+    public bool TryReceiverValue<T>(uint playerId, string nameValue, out T result)
+    {
+        var context = GetPlayerContext(playerId);
+        if (context == null || !CanReceiveDynamic())
+        {
+            result = default; return false;
+        }
+        result = context.GetGlobal<T>(nameValue); return true;
+    }
+
+    public bool TryReceiverValue<T>(uint playerId, out T result)
+    {
+        var context = GetPlayerContext(playerId);
+        if (context == null || !CanReceiveStatic())
+        {
+            result = default; return false;
+        }
+        result = context.GetGlobal<T>(_oiddaManager.StaticVariable(ORSName)); return true;
+    }
+
+    public T ReceiverValue<T>(uint playerId, string nameValue)
+    {
+        if (!TryReceiverValue(playerId, nameValue, out T result)) throw new InvalidOperationException($"OIDDA Manager instance is not available, player {playerId} is not registered, or ORS is not connected.");
+        return result;
+    }
+
+    public T ReceiverValue<T>(uint playerId)
+    {
+        if (!TryReceiverValue(playerId, out T result)) throw new InvalidOperationException($"OIDDA Manager instance is not available, player {playerId} is not registered, or ORS is not connected.");
+        return result;
+    }
+
+    public bool TrySenderValue(uint playerId, string nameValue, object senderValue)
+    {
+        var context = GetPlayerContext(playerId);
+        if (context == null || !CanSendDynamic()) return false;
+        context.SetGlobal(nameValue, senderValue);
+        return true;
+    }
+
+    public bool TrySenderValue(uint playerId, object senderValue)
+    {
+        var context = GetPlayerContext(playerId);
+        if (context == null || !CanSendStatic()) return false;
+        context.SetStaticGlobal(_oiddaManager.StaticVariable(ORSName), senderValue);
+        return true;
+    }
+
+    public void SenderValue(uint playerId, string nameValue, object senderValue) => TrySenderValue(playerId, nameValue, senderValue);
+
+    public void SenderValue(uint playerId, object senderValue) => TrySenderValue(playerId, senderValue);
+
+    /// <summary>
+    /// Adds pacing intensity to one player's personal Director.
+    /// </summary>
+    public void AddDirectorIntensity(uint playerId, float amount, string reason = "") => GetPlayerContext(playerId)?.AddDirectorIntensity(amount, reason);
+
+    #endregion
+
     #region  Director API methods
 
     /// <summary>
