@@ -47,6 +47,7 @@ public class DirectorManager
     float timeSinceLastPeak = 0f, timeInCurrentState = 0f;
     float stressRate => StressLevel * 0.01f; float fatigueRate => FatigueLevel * 0.01f;
     SmoothingManager smoothingManager = new();
+    IValueStore _store;
 
     // The psychological parameters of a player
     public float StressLevel { get; private set; }
@@ -65,10 +66,24 @@ public class DirectorManager
     /// <param name="deltaTime">The amount of time, in seconds, that has elapsed since the last update. Must be non-negative.</param>
     /// <param name="GameplayValues">A dictionary containing current gameplay values that influence pacing and psychological metrics. Keys represent value names;
     /// values provide the corresponding data.</param>
-    public void OnDirectorUpdate(float deltaTime , GameplayGlobals GameplayValues)
+    public void OnDirectorUpdate(float deltaTime, GameplayGlobals GameplayValues)
     {
         if (!GameplayValues)
             return;
+
+        OnDirectorUpdate(deltaTime, new GameplayGlobalsStore(GameplayValues));
+    }
+
+    /// <summary>
+    /// Same as <see cref="OnDirectorUpdate(float, GameplayGlobals)"/>, reading and writing through any <see cref="IValueStore"/>.
+    /// </summary>
+    public void OnDirectorUpdate(float deltaTime, IValueStore store)
+    {
+        if (store == null || !store.IsValid)
+            return;
+
+        _store = store;
+        smoothingManager.Store = store;
 
         timeInCurrentState += deltaTime;
         timeSinceLastPeak += deltaTime;
@@ -85,7 +100,7 @@ public class DirectorManager
             intervalAccumulator = 0f;
         }
 
-        UpdatePsychologicalMetrics(deltaTime, GameplayValues.Values);
+        UpdatePsychologicalMetrics(deltaTime, store.Values);
         UpdatePacingState();
         ApplyIntensityDecay(deltaTime);
         RecordIntensityEvent();
@@ -305,7 +320,7 @@ public class DirectorManager
             var score = overallScore + CalculateScoreByEmotion(rule, deltaTime);
             var ctx = new DifficultyContext(score, easy, difficult);
 
-            if (RuleApplier.ApplyRule(rule, currentValues, ctx, isDirectorSmoothing, smoothingManager, currentConfig.SmoothingSpeed, false))
+            if (RuleApplier.ApplyRule(rule, currentValues, ctx, isDirectorSmoothing, _store, smoothingManager, currentConfig.SmoothingSpeed, false))
                 rulesApplied++;
         }
         return rulesApplied;

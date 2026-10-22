@@ -235,14 +235,20 @@ public class RuleValue
     /// <summary>
     /// Applies the specified gameplay value operation to the global variables.
     /// </summary>
-    public void ApplyToGlobals()
+    public void ApplyToGlobals() => ApplyToGlobals(null);
+
+    /// <summary>
+    /// Applies the operation to the given store. With a null store the default ORS (single-player behaviour) is used.
+    /// </summary>
+    public void ApplyToGlobals(IValueStore store)
     {
-        var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(TargetGlobal));
-        var newValue = GameplayValueOperations.Apply(currentValue, Value, Operator);
+        var current = store != null ? store.GetValue<object>(TargetGlobal) : ORS.Instance.QuickReceiver<object>(TargetGlobal);
+        var newValue = GameplayValueOperations.Apply(GameplayValue.ConvertObject(current), Value, Operator);
         newValue = ClampResult(newValue);
 
         // Internal write: must not trigger a new analysis while rules are being applied.
-        ORS.Instance.WriteValue(TargetGlobal, newValue.Value);
+        if (store != null) store.SetValue(TargetGlobal, newValue.Value);
+        else ORS.Instance.WriteValue(TargetGlobal, newValue.Value);
     }
 }
 

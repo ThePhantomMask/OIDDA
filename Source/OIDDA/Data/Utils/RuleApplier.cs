@@ -20,6 +20,7 @@ internal static class RuleApplier
         Dictionary<string, object> currentValues,
         in DifficultyContext ctx,
         bool useSmoothing,
+        IValueStore store,
         SmoothingManager smoothing,
         float smoothingSpeed,
         bool debug)
@@ -33,7 +34,7 @@ internal static class RuleApplier
             anyApplied = true;
 
             if (useSmoothing) ApplySmooth(rv, currentValues, smoothing, smoothingSpeed, debug);
-            else rv.ApplyToGlobals();
+            else rv.ApplyToGlobals(store);
         }
 
         return anyApplied;
