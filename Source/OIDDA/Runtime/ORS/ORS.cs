@@ -1,6 +1,7 @@
 ﻿using FlaxEngine;
 using OIDDA.Data;
 using System;
+using System.Collections.Generic;
 
 namespace OIDDA;
 
@@ -58,6 +59,91 @@ public class ORS : ORSAgent
     public static ORS Instance = new();
 
     private static OIDDAManager _oiddaManager => OIDDAPlugin.Instance?.Manager;
+
+    #region Network state (clients)
+
+    /// <summary>
+    /// Set by a network layer (see <see cref="IOIDDAStateProvider"/>). When it reports no authority, this process is a
+    /// remote client: the manager stays idle, state reads come from the provider, and changes are refused.
+    /// </summary>
+    public static IOIDDAStateProvider StateProvider { get; set; }
+
+    /// <summary> True on a remote client: OIDDA does not run here, the server's state is only read. </summary>
+    public static bool IsRemoteClient => StateProvider != null && !StateProvider.IsAuthority;
+
+    /// <summary>
+    /// The player this process plays as: the provider's local player on a client, the default player everywhere else.
+    /// </summary>
+    public uint LocalPlayerId => IsRemoteClient ? StateProvider.LocalPlayerId : OIDDAManager.DefaultPlayerId;
+
+    /// <summary>
+    /// The state of a player: from the manager where OIDDA runs, from the state provider on a remote client.
+    /// False if it is not available.
+    /// </summary>
+    public bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot)
+    {
+        if (IsRemoteClient) return StateProvider.TryGetPlayerState(playerId, out snapshot);
+
+        var manager = _oiddaManager;
+        if (!manager)
+        {
+            snapshot = default;
+            return false;
+        }
+        return manager.TryGetPlayerState(playerId, out snapshot);
+    }
+
+    /// <summary>
+    /// The state of the group: from the manager where OIDDA runs, from the state provider on a remote client.
+    /// False if there is no group or nothing was received yet.
+    /// </summary>
+    public bool TryGetGroupState(out OIDDAStateSnapshot snapshot)
+    {
+        if (IsRemoteClient) return StateProvider.TryGetGroupState(out snapshot);
+
+        var manager = _oiddaManager;
+        if (!manager)
+        {
+            snapshot = default;
+            return false;
+        }
+        return manager.TryGetGroupState(out snapshot);
+    }
+
+    // The local player's state as seen from a remote client.
+    private static bool TryLocalRemoteState(out OIDDAStateSnapshot snapshot)
+        => StateProvider.TryGetPlayerState(StateProvider.LocalPlayerId, out snapshot);
+
+    private static readonly HashSet<string> _warned = new();
+
+    // Warn once per kind of call, so a per-frame call on a client does not flood the log.
+    private static void WarnRemote(string what)
+    {
+        if (_warned.Add(what))
+            Debug.LogWarning($"[OIDDA] {what} is ignored on a remote client: OIDDA runs on the server.");
+    }
+
+    private static InvalidOperationException RemoteVariableError(string name)
+        => new($"'{name}' is a server-side variable and cannot be read on a remote client. Read the replicated state instead (CurrentState, CurrentIntensity, GroupState, TryGetPlayerState...).");
+
+    // A metric measured on the client: sent to the server if the provider allows it, otherwise ignored.
+    private static bool ForwardMetric(string name, object value)
+    {
+        if (StateProvider.TryReportMetric(name, value)) return true;
+
+        WarnRemote("Sending a value");
+        return false;
+    }
+
+    private static bool ForwardMetricForPlayer(uint playerId, string name, object value)
+    {
+        if (playerId == StateProvider.LocalPlayerId) return ForwardMetric(name, value);
+
+        WarnRemote("Sending a value for another player");
+        return false;
+    }
+
+    #endregion
 
     #region DDA API methods
 
@@ -120,6 +206,10 @@ public class ORS : ORSAgent
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
+        if (IsRemoteClient)
+        {
+            result = default; return false;
+        }
         if (!CanReceiveDynamic()) 
         {
             result = default; return false; 
@@ -129,6 +219,10 @@ public class ORS : ORSAgent
 
     public override bool TryReceiverValue<T>(out T result)
     {
+        if (IsRemoteClient)
+        {
+            result = default; return false;
+        }
         if (!CanReceiveStatic()) 
         {
             result = default; return false; 
@@ -138,18 +232,21 @@ public class ORS : ORSAgent
 
     public override T QuickReceiver<T>(string NameValue)
     {
+        if (IsRemoteClient) throw RemoteVariableError(NameValue);
         if (!_oiddaManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
         return _oiddaManager.QuickReceiver<T>(NameValue);
     }
 
     public override T ReceiverValue<T>()
     {
+        if (IsRemoteClient) throw RemoteVariableError(ORSName);
         if (!TryReceiverValue(out T result)) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
         return result;
     }
 
     public override T ReceiverValue<T>(string nameValue)
     {
+        if (IsRemoteClient) throw RemoteVariableError(nameValue);
         if (!TryReceiverValue(nameValue, out T result)) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
         return result;
     }
@@ -157,6 +254,7 @@ public class ORS : ORSAgent
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
         if (!CanSendDynamic()) return false;
+        if (IsRemoteClient) return ForwardMetric(nameValue, senderValue);
         _oiddaManager.SetGlobal(nameValue, senderValue);
         return true;
     }
@@ -164,6 +262,7 @@ public class ORS : ORSAgent
     public override bool TrySenderValue(object senderValue)
     {
         if (!CanSendStatic()) return false;
+        if (IsRemoteClient) return ForwardMetric(_oiddaManager.StaticVariable(ORSName), senderValue);
         _oiddaManager.SetStaticGlobal(ORSName, senderValue);
         return true;
     }
@@ -185,6 +284,11 @@ public class ORS : ORSAgent
 
     public override void QuickSender(string nameValue, object senderValue)
     {
+        if (IsRemoteClient)
+        {
+            ForwardMetric(nameValue, senderValue);
+            return;
+        }
         if (!_oiddaManager) return;
         _oiddaManager.QuickSender(nameValue, senderValue);
     }
@@ -200,10 +304,12 @@ public class ORS : ORSAgent
     /// <summary>
     /// The context of a registered player (see <see cref="OIDDAManager.RegisterPlayer"/>), or null.
     /// </summary>
-    public OIDDAContext GetPlayerContext(uint playerId) => _oiddaManager ? _oiddaManager.GetContext(playerId) : null;
+    public OIDDAContext GetPlayerContext(uint playerId) => !IsRemoteClient && _oiddaManager ? _oiddaManager.GetContext(playerId) : null;
 
     private static OIDDAContext RequirePlayer(uint playerId)
     {
+        if (IsRemoteClient) throw new InvalidOperationException("Player contexts only exist where OIDDA runs, not on a remote client. Use TryGetPlayerState to read a player's state.");
+
         var manager = _oiddaManager;
         if (!manager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
 
@@ -212,7 +318,15 @@ public class ORS : ORSAgent
 
     public T QuickReceiver<T>(uint playerId, string nameValue) => RequirePlayer(playerId).QuickReceiver<T>(nameValue);
 
-    public void QuickSender(uint playerId, string nameValue, object senderValue) => GetPlayerContext(playerId)?.QuickSender(nameValue, senderValue);
+    public void QuickSender(uint playerId, string nameValue, object senderValue)
+    {
+        if (IsRemoteClient)
+        {
+            ForwardMetricForPlayer(playerId, nameValue, senderValue);
+            return;
+        }
+        GetPlayerContext(playerId)?.QuickSender(nameValue, senderValue);
+    }
 
     public bool TryReceiverValue<T>(uint playerId, string nameValue, out T result)
     {
@@ -248,6 +362,8 @@ public class ORS : ORSAgent
 
     public bool TrySenderValue(uint playerId, string nameValue, object senderValue)
     {
+        if (IsRemoteClient) return CanSendDynamic() && ForwardMetricForPlayer(playerId, nameValue, senderValue);
+
         var context = GetPlayerContext(playerId);
         if (context == null || !CanSendDynamic()) return false;
         context.SetGlobal(nameValue, senderValue);
@@ -256,6 +372,8 @@ public class ORS : ORSAgent
 
     public bool TrySenderValue(uint playerId, object senderValue)
     {
+        if (IsRemoteClient) return CanSendStatic() && ForwardMetricForPlayer(playerId, _oiddaManager.StaticVariable(ORSName), senderValue);
+
         var context = GetPlayerContext(playerId);
         if (context == null || !CanSendStatic()) return false;
         context.SetStaticGlobal(_oiddaManager.StaticVariable(ORSName), senderValue);
@@ -269,7 +387,15 @@ public class ORS : ORSAgent
     /// <summary>
     /// Adds pacing intensity to one player's personal Director.
     /// </summary>
-    public void AddDirectorIntensity(uint playerId, float amount, string reason = "") => GetPlayerContext(playerId)?.AddDirectorIntensity(amount, reason);
+    public void AddDirectorIntensity(uint playerId, float amount, string reason = "")
+    {
+        if (IsRemoteClient)
+        {
+            WarnRemote("AddDirectorIntensity");
+            return;
+        }
+        GetPlayerContext(playerId)?.AddDirectorIntensity(amount, reason);
+    }
 
     #endregion
 
@@ -279,29 +405,53 @@ public class ORS : ORSAgent
     // and report neutral values.
 
     /// <summary> The group level, or null when no group is configured. </summary>
-    public OIDDAGroup Group => _oiddaManager ? _oiddaManager.Group : null;
+    public OIDDAGroup Group => !IsRemoteClient && _oiddaManager ? _oiddaManager.Group : null;
 
     /// <summary>
     /// Adds intensity that belongs to the whole group (for example a boss that threatens everyone).
     /// </summary>
-    public void AddGroupIntensity(float amount, string reason = "") => Group?.AddIntensity(amount, reason);
+    public void AddGroupIntensity(float amount, string reason = "")
+    {
+        if (IsRemoteClient)
+        {
+            WarnRemote("AddGroupIntensity");
+            return;
+        }
+        Group?.AddIntensity(amount, reason);
+    }
 
-    /// <summary> True when no group is configured, so spawning is never blocked by a missing group. </summary>
-    public bool IsShouldSpawnGroupEncounter => Group?.ShouldSpawnEncounter ?? true;
+    /// <summary> True when no group is configured (or its state is not available), so spawning is never blocked by a missing group. </summary>
+    public bool IsShouldSpawnGroupEncounter
+    {
+        get
+        {
+            if (IsRemoteClient) return !StateProvider.TryGetGroupState(out var remote) || remote.ShouldSpawnEncounter;
+            return Group?.ShouldSpawnEncounter ?? true;
+        }
+    }
 
-    public DirectorState GroupState => Group != null ? Group.State : DirectorState.Build;
+    public DirectorState GroupState
+    {
+        get
+        {
+            if (IsRemoteClient) return StateProvider.TryGetGroupState(out var remote) ? remote.State : DirectorState.Build;
+            return Group != null ? Group.State : DirectorState.Build;
+        }
+    }
 
-    public float GroupIntensity => Group?.Intensity ?? 0f;
+    public float GroupIntensity => IsRemoteClient ? (StateProvider.TryGetGroupState(out var remote) ? remote.Intensity : 0f) : Group?.Intensity ?? 0f;
 
-    public float GroupStress => Group?.Stress ?? 0f;
+    public float GroupStress => IsRemoteClient ? (StateProvider.TryGetGroupState(out var remote) ? remote.Stress : 0f) : Group?.Stress ?? 0f;
 
-    public float GroupFatigue => Group?.Fatigue ?? 0f;
+    public float GroupFatigue => IsRemoteClient ? (StateProvider.TryGetGroupState(out var remote) ? remote.Fatigue : 0f) : Group?.Fatigue ?? 0f;
 
     /// <summary>
     /// Reads a group-level variable (including the read-only Group.* ones).
     /// </summary>
     public T GroupQuickReceiver<T>(string nameValue)
     {
+        if (IsRemoteClient) throw RemoteVariableError(nameValue);
+
         var group = Group ?? throw new InvalidOperationException("No group is configured.");
         return group.GetValue<T>(nameValue);
     }
@@ -309,7 +459,15 @@ public class ORS : ORSAgent
     /// <summary>
     /// Writes a group-level variable. Ignored when no group is configured.
     /// </summary>
-    public void GroupQuickSender(string nameValue, object senderValue) => Group?.SetValue(nameValue, senderValue);
+    public void GroupQuickSender(string nameValue, object senderValue)
+    {
+        if (IsRemoteClient)
+        {
+            WarnRemote("GroupQuickSender");
+            return;
+        }
+        Group?.SetValue(nameValue, senderValue);
+    }
 
     #endregion
 
@@ -322,6 +480,11 @@ public class ORS : ORSAgent
     /// <param name="reason">An optional description of the reason for the intensity adjustment. This value may be used for logging or debugging purposes.</param>
     public override void AddDirectorIntensity(float amount, string reason = "")
     {
+        if (IsRemoteClient)
+        {
+            WarnRemote("AddDirectorIntensity");
+            return;
+        }
         if (!_oiddaManager) return;
         _oiddaManager.AddDirectorIntensity(amount, reason);
     }
@@ -330,23 +493,23 @@ public class ORS : ORSAgent
     /// Gets a value indicating whether an encounter should be spawned based on the current pacing settings.
     /// </summary>
     /// <remarks>If pacing is enabled, this property reflects the recommendation of the pacing director. If pacing is disabled, it always returns <see langword="true"/>.</remarks>
-    public bool IsShouldSpawnEncounter => (_oiddaManager) ? _oiddaManager.IsShouldSpawnEncounter : false;
+    public bool IsShouldSpawnEncounter => IsRemoteClient ? TryLocalRemoteState(out var remote) && remote.ShouldSpawnEncounter : (_oiddaManager) ? _oiddaManager.IsShouldSpawnEncounter : false;
     /// <summary>
     /// Gets the current pacing state of the director.
     /// </summary>
-    public DirectorState CurrentState => (_oiddaManager) ? _oiddaManager.DirectorState : DirectorState.Build;
+    public DirectorState CurrentState => IsRemoteClient ? (TryLocalRemoteState(out var remote) ? remote.State : DirectorState.Build) : (_oiddaManager) ? _oiddaManager.DirectorState : DirectorState.Build;
     /// <summary>
     /// Gets the current intensity level of the game loop.
     /// </summary>
-    public float CurrentIntensity => (_oiddaManager) ? _oiddaManager.Intensity : 0.0f;
+    public float CurrentIntensity => IsRemoteClient ? (TryLocalRemoteState(out var remote) ? remote.Intensity : 0f) : (_oiddaManager) ? _oiddaManager.Intensity : 0.0f;
     /// <summary>
     /// Gets the current stress level of the player as determined by the Pacing Director.
     /// </summary>
-    public float CurrentStress => (_oiddaManager) ? _oiddaManager.PlayerStress : 0.0f;
+    public float CurrentStress => IsRemoteClient ? (TryLocalRemoteState(out var remote) ? remote.Stress : 0f) : (_oiddaManager) ? _oiddaManager.PlayerStress : 0.0f;
     /// <summary>
     /// Gets the current fatigue level of the player.
     /// </summary>
-    public float CurrentFatigue => (_oiddaManager) ? _oiddaManager.PlayerFatigue : 0.0f;
+    public float CurrentFatigue => IsRemoteClient ? (TryLocalRemoteState(out var remote) ? remote.Fatigue : 0f) : (_oiddaManager) ? _oiddaManager.PlayerFatigue : 0.0f;
 
     #endregion
 }

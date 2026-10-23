@@ -102,6 +102,41 @@ public class OIDDAManager : Script
         }
     }
 
+    #region State for clients
+
+    /// <summary>
+    /// The current state of a player, in the form clients receive. False if the player is not registered.
+    /// </summary>
+    public bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot)
+    {
+        var context = GetContext(playerId);
+        if (context == null)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        snapshot = OIDDAStateSnapshot.From(context);
+        return true;
+    }
+
+    /// <summary>
+    /// The current state of the group, in the form clients receive. False when no group is configured.
+    /// </summary>
+    public bool TryGetGroupState(out OIDDAStateSnapshot snapshot)
+    {
+        if (_group == null)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        snapshot = OIDDAStateSnapshot.From(_group);
+        return true;
+    }
+
+    #endregion
+
     #region Players
 
     /// <summary> Number of players with a context, the default one included. </summary>
@@ -249,6 +284,9 @@ public class OIDDAManager : Script
 
     void OIDDAUpdate()
     {
+        // A remote client does not run OIDDA: the server does, and its state reaches the ORS through the state provider.
+        if (ORS.IsRemoteClient) return;
+
         var context = DefaultContext;
 
         // The plugin fills CurrentGlobals on scene load, possibly after this script's OnEnable: retry until available.
