@@ -128,6 +128,25 @@ public static class ORSTypeExtensions
 
 #endregion
 
+#region Group enums
+
+/// <summary>
+/// How the values of the individual players are combined into one value for the group.
+/// </summary>
+public enum GroupAggregation
+{
+    /// <summary> Plain average of every player. </summary>
+    Average,
+    /// <summary> The highest value: the group follows its most affected player. </summary>
+    Max,
+    /// <summary> Average weighted by each player's group weight (<see cref="OIDDAContext.GroupWeight"/>). </summary>
+    Weighted,
+    /// <summary> A percentile of the players' values (see <see cref="OIDDAGroupConfig.Percentile"/>). </summary>
+    Percentile
+}
+
+#endregion
+
 #region Director enums
 
 public enum DirectorState

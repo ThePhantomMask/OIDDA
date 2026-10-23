@@ -273,6 +273,46 @@ public class ORS : ORSAgent
 
     #endregion
 
+    #region Group API methods (multiplayer)
+
+    // The group is enabled by assigning an OIDDAGroupConfig to the manager. Without it these members do nothing
+    // and report neutral values.
+
+    /// <summary> The group level, or null when no group is configured. </summary>
+    public OIDDAGroup Group => _oiddaManager ? _oiddaManager.Group : null;
+
+    /// <summary>
+    /// Adds intensity that belongs to the whole group (for example a boss that threatens everyone).
+    /// </summary>
+    public void AddGroupIntensity(float amount, string reason = "") => Group?.AddIntensity(amount, reason);
+
+    /// <summary> True when no group is configured, so spawning is never blocked by a missing group. </summary>
+    public bool IsShouldSpawnGroupEncounter => Group?.ShouldSpawnEncounter ?? true;
+
+    public DirectorState GroupState => Group != null ? Group.State : DirectorState.Build;
+
+    public float GroupIntensity => Group?.Intensity ?? 0f;
+
+    public float GroupStress => Group?.Stress ?? 0f;
+
+    public float GroupFatigue => Group?.Fatigue ?? 0f;
+
+    /// <summary>
+    /// Reads a group-level variable (including the read-only Group.* ones).
+    /// </summary>
+    public T GroupQuickReceiver<T>(string nameValue)
+    {
+        var group = Group ?? throw new InvalidOperationException("No group is configured.");
+        return group.GetValue<T>(nameValue);
+    }
+
+    /// <summary>
+    /// Writes a group-level variable. Ignored when no group is configured.
+    /// </summary>
+    public void GroupQuickSender(string nameValue, object senderValue) => Group?.SetValue(nameValue, senderValue);
+
+    #endregion
+
     #region  Director API methods
 
     /// <summary>

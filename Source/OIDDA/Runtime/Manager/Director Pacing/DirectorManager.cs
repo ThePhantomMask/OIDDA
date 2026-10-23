@@ -164,6 +164,65 @@ public class DirectorManager
     /// <param name="deltaTime">The amount of time, in seconds, since the last update. Must be a non-negative value.</param>
     /// <param name="values">A dictionary containing contextual values that may influence the update of psychological metrics. The expected
     /// keys and value types depend on the implementation context.</param>
+    // Extra intensity that belongs to the group itself (an event that affects everyone). Decays like normal intensity.
+    float _groupBoost;
+
+    /// <summary>
+    /// Group Director only: adds intensity on top of the aggregated players' intensity.
+    /// </summary>
+    public void AddGroupBoost(float amount, string reason = "")
+    {
+        _groupBoost = Mathf.Clamp(_groupBoost + amount, 0f, 100f);
+
+        PushHistory(new IntensityEvent
+        {
+            Time = Time.GameTime,
+            Intensity = Mathf.Clamp(CurrentIntensity + amount, 0f, 100f),
+            Delta = amount,
+            Reason = reason
+        });
+    }
+
+    /// <summary>
+    /// Group Director update: instead of building up its own intensity, stress and fatigue, it takes the values aggregated
+    /// from the players. The pacing state machine, the rules and the smoothing work as for a single player.
+    /// </summary>
+    public void OnGroupUpdate(float deltaTime, IValueStore store, GroupInputs inputs)
+    {
+        if (store == null || !store.IsValid)
+            return;
+
+        _store = store;
+        smoothingManager.Store = store;
+
+        timeInCurrentState += deltaTime;
+        timeSinceLastPeak += deltaTime;
+
+        smoothingManager.SmoothUpdate(deltaTime);
+
+        if (UpdateInterval > 0f)
+        {
+            intervalAccumulator += deltaTime;
+            if (intervalAccumulator < UpdateInterval) return;
+
+            deltaTime = intervalAccumulator;
+            intervalAccumulator = 0f;
+        }
+
+        _groupBoost = Mathf.Max(0f, _groupBoost - CurrentDecayRate * deltaTime);
+
+        StressLevel = Mathf.Clamp(inputs.Stress, 0f, 100f);
+        FatigueLevel = Mathf.Clamp(inputs.Fatigue, 0f, 100f);
+        CurrentIntensity = Mathf.Clamp(inputs.Intensity + _groupBoost, 0f, 100f);
+
+        if (currentConfig != null && currentConfig.DirectorRules != null && currentConfig.DirectorRules.Count > 0)
+            ApplyRules(store.Values, inputs.Score, deltaTime);
+
+        UpdateEngagement(deltaTime);
+        UpdatePacingState();
+        RecordIntensityEvent();
+    }
+
     internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
     {
         bool canScore = values != null && values.Count > 0 &&
@@ -181,7 +240,11 @@ public class DirectorManager
         }
 
         UpdateFatigue(deltaTime);
+        UpdateEngagement(deltaTime);
+    }
 
+    void UpdateEngagement(float deltaTime)
+    {
         EngagementLevel = (CurrentIntensity, StressLevel) switch
         {
             ( > 70f, _) and (_, < 80f) => Mathf.Lerp(EngagementLevel, 100f, deltaTime * 2f),
@@ -269,17 +332,17 @@ public class DirectorManager
     /// <remarks>The rate of intensity decay varies depending on the current pacing state. 
     /// Calling this method repeatedly will gradually reduce the intensity to zero.</remarks>
     /// <param name="deltaTime">The time, in seconds, since the last update. Must be non-negative.</param>
+    float CurrentDecayRate => CurrentState switch
+    {
+        DirectorState.Peak => IntensityDecayRate * 0.3f,
+        DirectorState.Fade => IntensityDecayRate * 2f,
+        DirectorState.Relax => IntensityDecayRate * 1.5f,
+        _ => IntensityDecayRate
+    };
+
     internal void ApplyIntensityDecay(float deltaTime)
     {
-        var decayRate = CurrentState switch
-        {
-            DirectorState.Peak => IntensityDecayRate * 0.3f,
-            DirectorState.Fade => IntensityDecayRate * 2f,
-            DirectorState.Relax => IntensityDecayRate * 1.5f,
-            _ => IntensityDecayRate
-        };
-
-        CurrentIntensity = Mathf.Max(0f, (CurrentIntensity - decayRate * deltaTime));
+        CurrentIntensity = Mathf.Max(0f, (CurrentIntensity - CurrentDecayRate * deltaTime));
     }
 
     /// <summary>

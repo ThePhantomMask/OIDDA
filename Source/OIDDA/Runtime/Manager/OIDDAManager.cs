@@ -33,6 +33,12 @@ public class OIDDAManager : Script
     [EditorDisplay("Multiplayer"), Range(1, 256), Tooltip("Maximum number of players OIDDA keeps a context for, including the default one. Size it to your game.")]
     public int MaxPlayers = 8;
 
+    [EditorDisplay("Multiplayer"), Tooltip("Enables the group Director: it paces the whole session from the aggregated state of every player. Leave empty for no group.")]
+    public JsonAssetReference<OIDDAGroupConfig> GroupConfig;
+
+    [EditorDisplay("Multiplayer"), Tooltip("Thresholds and rates of the group Director. Only used when a group config is assigned.")]
+    public DirectorManager GroupDirector = new();
+
     private OIDDAPlugin _pluginInstance;
 
     private Dictionary<string, IORSAgentD> _orsAgentDB = new();
@@ -50,6 +56,35 @@ public class OIDDAManager : Script
 
     // Variables as they were when the manager was initialized: what a newly registered player starts from.
     private Dictionary<string, object> _initialValues;
+
+    private OIDDAGroup _group;
+
+    /// <summary>
+    /// The group level (null unless a <see cref="GroupConfig"/> is assigned).
+    /// </summary>
+    public OIDDAGroup Group => _group;
+
+    private void ConfigureGroup()
+    {
+        var config = GroupConfig ? GroupConfig.Instance : null;
+
+        if (config == null)
+        {
+            _group = null;
+            AttachGroup(null);
+            return;
+        }
+
+        _group ??= new OIDDAGroup(this, GroupDirector);
+        _group.Configure(config, _initialValues);
+        AttachGroup(_group);
+    }
+
+    private void AttachGroup(OIDDAGroup group)
+    {
+        DefaultContext.AttachGroup(group);
+        foreach (var player in _extraContexts) player.AttachGroup(group);
+    }
 
     /// <summary>
     /// The context used by single-player and by the default (local) player. Its values live in the scene's GameplayGlobals.
@@ -116,6 +151,7 @@ public class OIDDAManager : Script
 
         var context = new OIDDAContext(this, director) { PlayerId = playerId };
         context.SetStore(new DictionaryValueStore(initialValues ?? _initialValues));
+        context.AttachGroup(_group);
 
         var config = DefaultContext.Director.currentConfig;
         if (config != null) context.ApplyConfig(config);
@@ -198,12 +234,15 @@ public class OIDDAManager : Script
             (player.Store as DictionaryValueStore)?.SeedMissing(_initialValues);
             if (sharedConfig != null) player.ApplyConfig(sharedConfig);
         }
+
+        ConfigureGroup();
     }
 
     void OIDDAReset()
     {
         DefaultContext.Reset();
         foreach (var player in _extraContexts) player.Reset();
+        _group?.Reset();
         if (_orsAgentDB.Count != 0) _orsAgentDB.Clear();
         if (_staticORSDB.Count != 0) _staticORSDB.Clear();
     }
@@ -228,6 +267,8 @@ public class OIDDAManager : Script
             var player = _extraContexts[i];
             if (player.HasStore) player.Update(deltaTime);
         }
+
+        _group?.Update(deltaTime, context, _extraContexts);
     }
 
     #region Director Agent Management

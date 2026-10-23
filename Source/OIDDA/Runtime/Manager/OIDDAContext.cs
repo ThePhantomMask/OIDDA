@@ -31,6 +31,35 @@ public sealed class OIDDAContext
         _director = director;
     }
 
+    OIDDAGroup _group;
+    GroupOverlayStore _overlay;
+
+    /// <summary> Seconds since this context started updating. </summary>
+    public float Age { get; private set; }
+
+    /// <summary> Weight of this player when the group uses <see cref="GroupAggregation.Weighted"/>. </summary>
+    public float GroupWeight { get; set; } = 1f;
+
+    // What metrics and rules read: the player's values, plus the Group.* variables when a group is active.
+    IValueStore Effective => _overlay ?? Store;
+
+    internal void AttachGroup(OIDDAGroup group)
+    {
+        _group = group;
+        _overlay = group != null ? new GroupOverlayStore(this, group) : null;
+    }
+
+    /// <summary>
+    /// Overall difficulty score of this player right now (0 = very easy, 1 = very difficult), from their own values only.
+    /// 0.5 when there is no configuration yet.
+    /// </summary>
+    public float EvaluateScore()
+    {
+        var config = _director.currentConfig;
+        if (!HasStore || config == null || config.Metrics == null || config.Metrics.Count == 0) return 0.5f;
+        return MetricsAggregator.CalculateOverallScore(config.Metrics, Store.Values);
+    }
+
     /// <summary> The player this context belongs to. 0 is the default (local) player. </summary>
     public uint PlayerId { get; internal set; }
 
@@ -85,11 +114,12 @@ public sealed class OIDDAContext
 
     internal void Update(float deltaTime)
     {
+        Age += deltaTime;
         _director.DebugMode = _owner.DebugMode;
 
         if (_owner.Delay != 0f) FlushPendingSends();
         if (_isUseSmoothing) _smoothing.SmoothUpdate(deltaTime);
-        if (_isUseDirector) _director.OnDirectorUpdate(deltaTime, Store);
+        if (_isUseDirector) _director.OnDirectorUpdate(deltaTime, Effective);
         _timeSinceLastUpdate += deltaTime;
         _timeSinceLastAdjustment += deltaTime;
 
@@ -124,7 +154,7 @@ public sealed class OIDDAContext
         if (_timeSinceLastAdjustment < _owner.AdjustmentCooldown * MinCooldownFactor) return;
 
         // GameplayGlobals.Values can be a marshalled copy: read it once per cycle.
-        var values = Store.Values;
+        var values = Effective.Values;
         float score;
 
         if (_owner.DebugMode)
