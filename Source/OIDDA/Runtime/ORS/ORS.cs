@@ -13,6 +13,14 @@ namespace OIDDA;
 /// Thread safety and connection state management are the responsibility of the implementing class.</remarks>
 public abstract class ORSAgent
 {
+    #region Network state (clients)
+
+    public abstract bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot);
+
+    public abstract bool TryGetGroupState(out OIDDAStateSnapshot snapshot);
+
+    #endregion
+
     #region DDA API methods
 
     public abstract void ConnectORSAgent(string AgentName);
@@ -42,6 +50,42 @@ public abstract class ORSAgent
     public abstract void SenderValue(object senderValue);
 
     public abstract void QuickSender(string nameValue, object senderValue);
+
+    #endregion
+
+    #region Player API methods (multiplayer)
+
+    public abstract T QuickReceiver<T>(uint playerId, string nameValue);
+
+    public abstract void QuickSender(uint playerId, string nameValue, object senderValue);
+
+    public abstract bool TryReceiverValue<T>(uint playerId, string nameValue, out T result);
+
+    public abstract bool TryReceiverValue<T>(uint playerId, out T result);
+
+    public abstract T ReceiverValue<T>(uint playerId, string nameValue);
+
+    public abstract T ReceiverValue<T>(uint playerId);
+
+    public abstract bool TrySenderValue(uint playerId, string nameValue, object senderValue);
+
+    public abstract bool TrySenderValue(uint playerId, object senderValue);
+
+    public abstract void SenderValue(uint playerId, string nameValue, object senderValue);
+
+    public abstract void SenderValue(uint playerId, object senderValue);
+
+    public abstract void AddDirectorIntensity(uint playerId, float amount, string reason = "");
+
+    #endregion
+
+    #region Group API methods (multiplayer)
+
+    public abstract void AddGroupIntensity(float amount, string reason = "");
+
+    public abstract T GroupQuickReceiver<T>(string nameValue);
+
+    public abstract void GroupQuickSender(string nameValue, object senderValue);
 
     #endregion
 
@@ -78,9 +122,9 @@ public class ORS : ORSAgent
 
     /// <summary>
     /// The state of a player: from the manager where OIDDA runs, from the state provider on a remote client.
-    /// False if it is not available.
+    /// False if it's not available.
     /// </summary>
-    public bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot)
+    public override bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot)
     {
         if (IsRemoteClient) return StateProvider.TryGetPlayerState(playerId, out snapshot);
 
@@ -97,7 +141,7 @@ public class ORS : ORSAgent
     /// The state of the group: from the manager where OIDDA runs, from the state provider on a remote client.
     /// False if there is no group or nothing was received yet.
     /// </summary>
-    public bool TryGetGroupState(out OIDDAStateSnapshot snapshot)
+    public override bool TryGetGroupState(out OIDDAStateSnapshot snapshot)
     {
         if (IsRemoteClient) return StateProvider.TryGetGroupState(out snapshot);
 
@@ -316,9 +360,9 @@ public class ORS : ORSAgent
         return manager.GetContext(playerId) ?? throw new InvalidOperationException($"Player {playerId} is not registered.");
     }
 
-    public T QuickReceiver<T>(uint playerId, string nameValue) => RequirePlayer(playerId).QuickReceiver<T>(nameValue);
+    public override T QuickReceiver<T>(uint playerId, string nameValue) => RequirePlayer(playerId).QuickReceiver<T>(nameValue);
 
-    public void QuickSender(uint playerId, string nameValue, object senderValue)
+    public override void QuickSender(uint playerId, string nameValue, object senderValue)
     {
         if (IsRemoteClient)
         {
@@ -328,7 +372,7 @@ public class ORS : ORSAgent
         GetPlayerContext(playerId)?.QuickSender(nameValue, senderValue);
     }
 
-    public bool TryReceiverValue<T>(uint playerId, string nameValue, out T result)
+    public override bool TryReceiverValue<T>(uint playerId, string nameValue, out T result)
     {
         var context = GetPlayerContext(playerId);
         if (context == null || !CanReceiveDynamic())
@@ -338,7 +382,7 @@ public class ORS : ORSAgent
         result = context.GetGlobal<T>(nameValue); return true;
     }
 
-    public bool TryReceiverValue<T>(uint playerId, out T result)
+    public override bool TryReceiverValue<T>(uint playerId, out T result)
     {
         var context = GetPlayerContext(playerId);
         if (context == null || !CanReceiveStatic())
@@ -348,19 +392,19 @@ public class ORS : ORSAgent
         result = context.GetGlobal<T>(_oiddaManager.StaticVariable(ORSName)); return true;
     }
 
-    public T ReceiverValue<T>(uint playerId, string nameValue)
+    public override T ReceiverValue<T>(uint playerId, string nameValue)
     {
         if (!TryReceiverValue(playerId, nameValue, out T result)) throw new InvalidOperationException($"OIDDA Manager instance is not available, player {playerId} is not registered, or ORS is not connected.");
         return result;
     }
 
-    public T ReceiverValue<T>(uint playerId)
+    public override T ReceiverValue<T>(uint playerId)
     {
         if (!TryReceiverValue(playerId, out T result)) throw new InvalidOperationException($"OIDDA Manager instance is not available, player {playerId} is not registered, or ORS is not connected.");
         return result;
     }
 
-    public bool TrySenderValue(uint playerId, string nameValue, object senderValue)
+    public override bool TrySenderValue(uint playerId, string nameValue, object senderValue)
     {
         if (IsRemoteClient) return CanSendDynamic() && ForwardMetricForPlayer(playerId, nameValue, senderValue);
 
@@ -370,7 +414,7 @@ public class ORS : ORSAgent
         return true;
     }
 
-    public bool TrySenderValue(uint playerId, object senderValue)
+    public override bool TrySenderValue(uint playerId, object senderValue)
     {
         if (IsRemoteClient) return CanSendStatic() && ForwardMetricForPlayer(playerId, _oiddaManager.StaticVariable(ORSName), senderValue);
 
@@ -380,14 +424,14 @@ public class ORS : ORSAgent
         return true;
     }
 
-    public void SenderValue(uint playerId, string nameValue, object senderValue) => TrySenderValue(playerId, nameValue, senderValue);
+    public override void SenderValue(uint playerId, string nameValue, object senderValue) => TrySenderValue(playerId, nameValue, senderValue);
 
-    public void SenderValue(uint playerId, object senderValue) => TrySenderValue(playerId, senderValue);
+    public override void SenderValue(uint playerId, object senderValue) => TrySenderValue(playerId, senderValue);
 
     /// <summary>
     /// Adds pacing intensity to one player's personal Director.
     /// </summary>
-    public void AddDirectorIntensity(uint playerId, float amount, string reason = "")
+    public override void AddDirectorIntensity(uint playerId, float amount, string reason = "")
     {
         if (IsRemoteClient)
         {
@@ -410,7 +454,7 @@ public class ORS : ORSAgent
     /// <summary>
     /// Adds intensity that belongs to the whole group (for example a boss that threatens everyone).
     /// </summary>
-    public void AddGroupIntensity(float amount, string reason = "")
+    public override void AddGroupIntensity(float amount, string reason = "")
     {
         if (IsRemoteClient)
         {
@@ -420,7 +464,9 @@ public class ORS : ORSAgent
         Group?.AddIntensity(amount, reason);
     }
 
-    /// <summary> True when no group is configured (or its state is not available), so spawning is never blocked by a missing group. </summary>
+    /// <summary> 
+    /// True when no group is configured (or its state is not available), so spawning is never blocked by a missing group. 
+    /// </summary>
     public bool IsShouldSpawnGroupEncounter
     {
         get
@@ -448,7 +494,7 @@ public class ORS : ORSAgent
     /// <summary>
     /// Reads a group-level variable (including the read-only Group.* ones).
     /// </summary>
-    public T GroupQuickReceiver<T>(string nameValue)
+    public override T GroupQuickReceiver<T>(string nameValue)
     {
         if (IsRemoteClient) throw RemoteVariableError(nameValue);
 
@@ -459,7 +505,7 @@ public class ORS : ORSAgent
     /// <summary>
     /// Writes a group-level variable. Ignored when no group is configured.
     /// </summary>
-    public void GroupQuickSender(string nameValue, object senderValue)
+    public override void GroupQuickSender(string nameValue, object senderValue)
     {
         if (IsRemoteClient)
         {
