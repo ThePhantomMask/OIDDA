@@ -9,5 +9,8 @@ public class OIDDATarget : GameProjectTarget
 
         // Reference the modules for game
         Modules.Add("OIDDA");
+
+        // Optional: network support. Remove this line (and the OIDDANetwork folder) for a game without networking.
+        Modules.Add("OIDDANetwork");
     }
 }

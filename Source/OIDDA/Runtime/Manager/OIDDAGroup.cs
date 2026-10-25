@@ -134,7 +134,7 @@ public sealed class OIDDAGroup
         _director.DebugMode = _owner.DebugMode;
 
         _scores.Clear(); _intensities.Clear(); _stresses.Clear(); _fatigues.Clear(); _weights.Clear();
-        if (_config.IncludeDefaultPlayer) Collect(defaultContext);
+        if (_config.IncludeDefaultPlayer && _owner.DefaultPlayerIsReal) Collect(defaultContext);
         for (int i = 0; i < extraContexts.Count; i++) Collect(extraContexts[i]);
 
         var mode = _config.Aggregation;

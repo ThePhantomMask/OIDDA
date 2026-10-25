@@ -30,6 +30,12 @@ public class OIDDAManager : Script
     /// <summary> Id of the default (local) player. Single-player always uses it. </summary>
     public const uint DefaultPlayerId = 0;
 
+    /// <summary>
+    /// False on a dedicated server, where the default player is not a person: the group then leaves it out of its aggregation.
+    /// Set by the network layer; true everywhere else.
+    /// </summary>
+    public bool DefaultPlayerIsReal { get; set; } = true;
+
     [EditorDisplay("Multiplayer"), Range(1, 256), Tooltip("Maximum number of players OIDDA keeps a context for, including the default one. Size it to your game.")]
     public int MaxPlayers = 8;
 
