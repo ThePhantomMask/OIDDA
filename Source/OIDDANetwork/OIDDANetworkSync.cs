@@ -142,16 +142,23 @@ public class OIDDANetworkSync : Script
         return true;
     }
 
-    // Runs on the clients that were targeted.
+    // RPCs are declared as in the engine documentation (public, context parameter with a default value).
+    // They are called by this script only: the engine generates the code that sends them to the other peers.
+
+    /// <summary>
+    /// Server to client: the state a client may see. Runs on the clients that were targeted.
+    /// </summary>
     [NetworkRpc(Client = true)]
-    private void ReceiveState(byte[] payload, NetworkRpcParams rpc)
+    public void ReceiveState(byte[] payload, NetworkRpcParams rpc = new NetworkRpcParams())
     {
         ApplyState(payload, rpc.SenderId);
     }
 
-    // Runs on the server, with the sender's client id filled in by the engine.
+    /// <summary>
+    /// Client to server: a metric measured on the client. Runs on the server, with the sender's client id filled in by the engine.
+    /// </summary>
     [NetworkRpc(Server = true)]
-    private void ReportMetric(string name, float value, NetworkRpcParams rpc)
+    public void ReportMetric(string name, float value, NetworkRpcParams rpc = new NetworkRpcParams())
     {
         HandleReport(rpc.SenderId, name, value);
     }

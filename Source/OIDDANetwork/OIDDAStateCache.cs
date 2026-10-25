@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FlaxEngine;
+using System;
 using System.Collections.Generic;
 
 namespace OIDDA.Network;
@@ -86,6 +87,11 @@ public sealed class OIDDAStateCache : IOIDDAStateProvider
             case double d: number = (float)d; return true;
             case int i: number = i; return true;
             case bool b: number = b ? 1f : 0f; return true;
+            case Color c: number = c.ValuesSum; return true;
+            case Vector2 v2: number = v2.ValuesSum; return true;
+            case Vector3 v3: number = v3.ValuesSum; return true;
+            case Vector4 v4: number = v4.ValuesSum; return true;
+            case Quaternion q: number = q.Length; return true;
             default: number = 0f; return false;
         }
     }
