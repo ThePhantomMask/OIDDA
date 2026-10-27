@@ -18,6 +18,12 @@ public class OIDDANetworkSync : Script
     [EditorDisplay("State"), Range(0.02f, 2f), Tooltip("Seconds between state messages to the clients.")]
     public float StateSendInterval = 0.1f;
 
+    [EditorDisplay("Reconnection"), Range(0f, 3600f), Tooltip("Seconds the server keeps a disconnected player's state so they get it back when they reconnect (they are recognised by a secret key their client sends). 0 turns reconnection off.")]
+    public float ReconnectGraceSeconds = 120f;
+
+    [EditorDisplay("Reconnection"), Tooltip("Client side: send the player key to the server so a reconnection is recognised. Turn off to never identify this client.")]
+    public bool SendPlayerKey = true;
+
     [EditorDisplay("Client metrics"), Tooltip("Lets clients report metrics that only exist on the client (for example a reaction time). Off by default: the server is the only source of metrics.")]
     public bool AllowClientMetrics = false;
 
@@ -30,23 +36,51 @@ public class OIDDANetworkSync : Script
     // Test seams: where state and reports go when they are not sent through the network.
     internal Action<byte[], uint[]> StateSender;
     internal Func<string, float, bool> ReportSender;
+    internal Action<string> IdentifySender;
 
     private OIDDAServerSession _session;
     private ManagerPlayerHost _host;
     private OIDDAMetricGate _gate;
     private Func<string, float, bool> _reporter;
+    private readonly List<uint> _remoteIds = new();
     private float _timer;
     private bool _logged;
+    private bool _identified;
+    private bool _duplicate;
+    private int _lastRejected;
+    private OIDDASessionStats _lastStats;
+
+    // Only one script may run: two would send every client the state twice and register players twice.
+    private static OIDDANetworkSync _active;
+
+    internal static void ForgetActive() => _active = null;
 
     /// <inheritdoc />
     public override void OnEnable()
     {
+        if (_active && _active != this)
+        {
+            _duplicate = true;
+            Debug.LogWarning("[OIDDA Network] There is already an active OIDDANetworkSync. Keep only one in the scene; this one does nothing.");
+            return;
+        }
+
+        _active = this;
+        _duplicate = false;
+
+        // The editor limits these, but values loaded from a scene are not checked.
+        if (StateSendInterval < 0.02f) StateSendInterval = 0.02f;
+        if (ReconnectGraceSeconds < 0f) ReconnectGraceSeconds = 0f;
+        if (MaxReportsPerSecond < 1) MaxReportsPerSecond = 1;
+
         NetworkReplicator.AddObject(this);
 
         _gate = AllowClientMetrics ? new OIDDAMetricGate(AllowedClientMetrics, MaxReportsPerSecond) : null;
 
         NetworkManager.ClientConnected += OnClientConnected;
         NetworkManager.ClientDisconnected += OnClientDisconnected;
+        NetworkManager.StateChanged += OnNetworkStateChanged;
+        _identified = false;
 
         var cache = OIDDANetworkPlugin.Cache;
         if (cache != null && AllowClientMetrics)
@@ -59,8 +93,17 @@ public class OIDDANetworkSync : Script
     /// <inheritdoc />
     public override void OnDisable()
     {
+        if (_duplicate)
+        {
+            _duplicate = false;
+            return;
+        }
+
+        if (_active == this) _active = null;
+
         NetworkManager.ClientConnected -= OnClientConnected;
         NetworkManager.ClientDisconnected -= OnClientDisconnected;
+        NetworkManager.StateChanged -= OnNetworkStateChanged;
 
         var cache = OIDDANetworkPlugin.Cache;
         if (cache != null && _reporter != null && cache.MetricReporter == _reporter) cache.MetricReporter = null;
@@ -76,13 +119,41 @@ public class OIDDANetworkSync : Script
     public override void OnUpdate()
     {
         var mode = NetworkManager.Mode;
-        if (mode != NetworkManagerMode.Server && mode != NetworkManagerMode.Host) return;
 
-        ServerTick(Time.UnscaledDeltaTime);
+        if (mode == NetworkManagerMode.Client) ClientTick();
+        else if (mode == NetworkManagerMode.Server || mode == NetworkManagerMode.Host) ServerTick(Time.UnscaledDeltaTime);
+    }
+
+    // Once per connection, tell the server who we are so that a reconnection can be recognised.
+    internal void ClientTick()
+    {
+        if (_duplicate) return;
+        if (_identified || !SendPlayerKey || NetworkManager.State != NetworkConnectionState.Connected) return;
+
+        _identified = true;
+        SendIdentify(OIDDAPlayerKey.Current());
+    }
+
+    private void OnNetworkStateChanged()
+    {
+        if (NetworkManager.State != NetworkConnectionState.Connected) _identified = false;
+    }
+
+    private void SendIdentify(string key)
+    {
+        if (IdentifySender != null)
+        {
+            IdentifySender(key);
+            return;
+        }
+
+        Identify(key);
     }
 
     internal void ServerTick(float deltaTime)
     {
+        if (_duplicate) return;
+
         var manager = OIDDAPlugin.Instance?.Manager;
         if (!manager) return;
 
@@ -90,8 +161,10 @@ public class OIDDANetworkSync : Script
         if (_host == null || _host.Manager != manager)
         {
             _host = new ManagerPlayerHost(manager);
-            _session = new OIDDAServerSession(_host, _gate);
+            _session = new OIDDAServerSession(_host, _gate, ReconnectGraceSeconds);
             _timer = 0f;
+            _lastRejected = 0;
+            _lastStats = default;
         }
 
         _timer += deltaTime;
@@ -100,7 +173,10 @@ public class OIDDANetworkSync : Script
 
         bool defaultPlayerIsReal = NetworkManager.Mode != NetworkManagerMode.Server;
 
-        _session.Reconcile(ConnectedRemoteIds(), defaultPlayerIsReal);
+        FillConnectedRemoteIds(_remoteIds);
+        _session.Reconcile(_remoteIds, defaultPlayerIsReal, Time.UnscaledGameTime);
+
+        ReportProblems(manager);
 
         if (manager.DebugMode && !_logged)
         {
@@ -112,14 +188,39 @@ public class OIDDANetworkSync : Script
             SendState(message.Payload, message.Targets);
     }
 
-    private static IEnumerable<uint> ConnectedRemoteIds()
+    // Clients the manager refused are a configuration problem worth a warning (once per change, not every tick).
+    private void ReportProblems(OIDDAManager manager)
     {
-        foreach (var client in NetworkManager.Clients)
+        int rejected = _session.Rejected.Count;
+        if (rejected != _lastRejected)
         {
+            if (rejected > _lastRejected)
+                Debug.LogWarning($"[OIDDA Network] {rejected} client(s) have no player: OIDDAManager.MaxPlayers ({manager.MaxPlayers}) is reached. Raise it to fit your game.");
+            _lastRejected = rejected;
+        }
+
+        if (!manager.DebugMode) return;
+
+        var stats = _session.Stats;
+        if (stats.Parked != _lastStats.Parked || stats.Resumed != _lastStats.Resumed || stats.Expired != _lastStats.Expired || stats.Evicted != _lastStats.Evicted)
+        {
+            Debug.Log($"[OIDDA Network] Reconnection: kept={_session.ParkedCount}, parked={stats.Parked}, resumed={stats.Resumed}, expired={stats.Expired}, evicted={stats.Evicted}");
+            _lastStats = stats;
+        }
+    }
+
+    private static void FillConnectedRemoteIds(List<uint> ids)
+    {
+        ids.Clear();
+
+        var clients = NetworkManager.Clients;
+        for (int i = 0; i < clients.Length; i++)
+        {
+            var client = clients[i];
             if (client == null || client.State != NetworkConnectionState.Connected) continue;
             if (client.ClientId == NetworkManager.ServerClientId) continue;
 
-            yield return client.ClientId;
+            ids.Add(client.ClientId);
         }
     }
 
@@ -161,6 +262,26 @@ public class OIDDANetworkSync : Script
     public void ReportMetric(string name, float value, NetworkRpcParams rpc = new NetworkRpcParams())
     {
         HandleReport(rpc.SenderId, name, value);
+    }
+
+    /// <summary>
+    /// Client to server: the player key, once per connection. Runs on the server, with the sender's client id filled in by the engine.
+    /// </summary>
+    [NetworkRpc(Server = true)]
+    public void Identify(string key, NetworkRpcParams rpc = new NetworkRpcParams())
+    {
+        HandleIdentify(rpc.SenderId, key);
+    }
+
+    internal IdentifyResult HandleIdentify(uint senderId, string key)
+    {
+        var result = _session?.HandleIdentify(senderId, key, Time.UnscaledGameTime) ?? IdentifyResult.Rejected;
+
+        var manager = OIDDAPlugin.Instance?.Manager;
+        if (manager && manager.DebugMode && result != IdentifyResult.Rejected)
+            Debug.Log($"[OIDDA Network] Client {senderId} identified: {result}");
+
+        return result;
     }
 
     internal bool ApplyState(byte[] payload, uint senderId) => OIDDANetworkPlugin.Cache?.Apply(payload, senderId) ?? false;

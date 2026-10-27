@@ -79,7 +79,7 @@ public sealed class OIDDAStateCache : IOIDDAStateProvider
         _group = null;
     }
 
-    static bool TryToFloat(object value, out float number)
+    private static bool TryToFloat(object value, out float number)
     {
         switch (value)
         {
@@ -92,6 +92,8 @@ public sealed class OIDDAStateCache : IOIDDAStateProvider
             case Vector3 v3: number = v3.ValuesSum; return true;
             case Vector4 v4: number = v4.ValuesSum; return true;
             case Quaternion q: number = q.Length; return true;
+            case Transform t: number = t.Translation.ValuesSum; return true;
+            case Matrix m: number = m.TranslationVector.ValuesSum; return true;
             default: number = 0f; return false;
         }
     }

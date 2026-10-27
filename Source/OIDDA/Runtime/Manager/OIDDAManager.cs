@@ -206,6 +206,49 @@ public class OIDDAManager : Script
     }
 
     /// <summary>
+    /// Takes a player out of play without losing their state: the context stops updating, no longer counts towards
+    /// <see cref="MaxPlayers"/> and cannot be found by id. Hand it back with <see cref="ResumePlayer"/> (typically under a new id,
+    /// when the player reconnects). The state is frozen while parked.
+    /// </summary>
+    /// <returns>The parked context, or null if the player is unknown or is the default player.</returns>
+    public OIDDAContext ParkPlayer(uint playerId)
+    {
+        if (playerId == DefaultPlayerId || !_players.TryGetValue(playerId, out var context)) return null;
+
+        _players.Remove(playerId);
+        _extraContexts.Remove(context);
+        return context;
+    }
+
+    /// <summary>
+    /// Puts a context taken out with <see cref="ParkPlayer"/> back in play under the given id. A fresh context that was
+    /// already created under that id is replaced. The player's values, Director state and age are kept.
+    /// </summary>
+    /// <returns>The context, or null if it cannot be resumed (default player id, already in play, or <see cref="MaxPlayers"/> reached).</returns>
+    public OIDDAContext ResumePlayer(uint playerId, OIDDAContext parked)
+    {
+        if (parked == null || playerId == DefaultPlayerId || _extraContexts.Contains(parked)) return null;
+
+        if (_players.TryGetValue(playerId, out var fresh))
+        {
+            _players.Remove(playerId);
+            _extraContexts.Remove(fresh);
+        }
+        else if (_players.Count >= MaxPlayers)
+        {
+            Debug.LogWarning($"[OIDDA] Cannot resume player {playerId}: MaxPlayers ({MaxPlayers}) reached.");
+            return null;
+        }
+
+        parked.PlayerId = playerId;
+        parked.AttachGroup(_group);
+
+        _players[playerId] = parked;
+        _extraContexts.Add(parked);
+        return parked;
+    }
+
+    /// <summary>
     /// Removes a player's context. The default player cannot be removed.
     /// </summary>
     public bool UnregisterPlayer(uint playerId)

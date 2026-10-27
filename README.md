@@ -75,6 +75,11 @@ ORS.Instance.DisconnectORSAgent("Difficulty Level");
 ORS.Instance.DisconnectORSAgent();
 ```
 
+# Multiplayer
+OIDDA supports multiplayer games with a **per-player** difficulty and an optional **group Director** that paces the whole session. It works for local multiplayer with no networking, and for networked games through the optional `OIDDANetwork` module (server-authoritative, with reconnection). The ORS stays the only API on the server, the host and the clients.
+
+See [Docs/Multiplayer.md](Docs/Multiplayer.md) for the guide.
+
 # Future Roadmap: 
 Current development is laying the groundwork for the 2.0 release, which will introduce neural network-based learning capabilities.
 

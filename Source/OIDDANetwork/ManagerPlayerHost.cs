@@ -13,6 +13,10 @@ public sealed class ManagerPlayerHost : IOIDDAPlayerHost
 
     public bool UnregisterPlayer(uint playerId) => Manager.UnregisterPlayer(playerId);
 
+    public object ParkPlayer(uint playerId) => Manager.ParkPlayer(playerId);
+
+    public bool ResumePlayer(uint playerId, object parked) => parked is OIDDAContext context && Manager.ResumePlayer(playerId, context) != null;
+
     public bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot) => Manager.TryGetPlayerState(playerId, out snapshot);
 
     public bool TryGetGroupState(out OIDDAStateSnapshot snapshot) => Manager.TryGetGroupState(out snapshot);
