@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System;
 
 namespace OIDDA.Network;
 
@@ -38,6 +39,12 @@ public sealed class OIDDAMetricGate
         }
     }
 
+    /// <summary>
+    /// Decides whether to accept or reject a value received from a sender
+    /// </summary>
+    /// <param name="senderId">Sender ID</param>
+    /// <param name="name">Data's name</param>
+    /// <param name="value">Data's value</param>
     /// <param name="now">Current time in seconds, from a clock that always moves forward.</param>
     /// <param name="clamped">The value to use, inside the metric's range.</param>
     public bool TryAccept(uint senderId, string name, float value, float now, out float clamped)
@@ -51,12 +58,14 @@ public sealed class OIDDAMetricGate
         if (!_allowed.TryGetValue(name, out var range)) return Reject();
         if (!float.IsFinite(value)) return Reject();
 
-        clamped = System.Math.Clamp(value, range.Min, range.Max);
+        clamped = Math.Clamp(value, range.Min, range.Max);
         Accepted++;
         return true;
     }
 
-    /// <summary> Forgets a client's rate-limit state (when they leave). </summary>
+    /// <summary> 
+    /// Forgets a client's rate-limit state (when they leave). 
+    /// </summary>
     public void Forget(uint senderId) => _buckets.Remove(senderId);
 
     bool Reject()
@@ -65,7 +74,7 @@ public sealed class OIDDAMetricGate
         return false;
     }
 
-    bool TakeToken(uint senderId, float now)
+    private bool TakeToken(uint senderId, float now)
     {
         if (_perSecond <= 0f) return false;
 
@@ -76,7 +85,7 @@ public sealed class OIDDAMetricGate
         }
 
         float elapsed = now - bucket.LastTime;
-        if (elapsed > 0f) bucket.Tokens = System.Math.Min(_perSecond, bucket.Tokens + elapsed * _perSecond);
+        if (elapsed > 0f) bucket.Tokens = Math.Min(_perSecond, bucket.Tokens + elapsed * _perSecond);
         bucket.LastTime = now;
 
         if (bucket.Tokens < 1f) return false;

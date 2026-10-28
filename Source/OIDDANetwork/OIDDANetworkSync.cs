@@ -6,9 +6,9 @@ using System.Collections.Generic;
 namespace OIDDA.Network;
 
 /// <summary>
-/// Place one in the scene (on the same actor as the OIDDAManager works), on every peer. On the server or host it keeps OIDDA's
-/// players in step with the connected clients and sends each client the state it may see; on a client it receives that state
-/// and, if enabled, sends metrics measured on the client.
+/// Place one in the scene (on the same actor as the OIDDAManager works), on every peer. 
+/// On the server or host it keeps OIDDA's players in step with the connected clients and sends each client the state it may see; 
+/// on a client it receives that state and, if enabled, sends metrics measured on the client.
 /// </summary>
 public class OIDDANetworkSync : Script
 {

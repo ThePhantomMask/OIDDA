@@ -64,7 +64,8 @@ public static class OIDDANetworkCodec
     }
 
     /// <summary>
-    /// Decodes a message. On failure the output is empty and false is returned.
+    /// Decodes a message. 
+    /// On failure the output is empty and false is returned.
     /// </summary>
     public static bool TryDecode(byte[] data, Dictionary<uint, OIDDAStateSnapshot> players, out OIDDAStateSnapshot? group)
     {

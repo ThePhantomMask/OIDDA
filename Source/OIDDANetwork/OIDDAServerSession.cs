@@ -92,6 +92,10 @@ public sealed class OIDDAServerSession
     bool _allTargetsDirty = true;
     OIDDASessionStats _stats;
 
+    /// <summary>
+    /// Initialize the OIDDA Server session.
+    /// </summary>
+    /// <param name="host">Server</param>
     /// <param name="gate">Decides which client metrics are accepted. Null refuses all of them.</param>
     /// <param name="reconnectGraceSeconds">How long a disconnected player's state is kept for them to come back. 0 turns reconnection off.</param>
     /// <param name="maxParked">Most disconnected players kept at once; beyond it the oldest is dropped.</param>
@@ -103,20 +107,27 @@ public sealed class OIDDAServerSession
         _maxParked = maxParked;
     }
 
-    /// <summary> Remote clients that have a player. </summary>
+    /// <summary> 
+    /// Remote clients that have a player. 
+    /// </summary>
     public IReadOnlyCollection<uint> Players => _players;
 
-    /// <summary> Clients that were refused because the manager's MaxPlayers was reached. </summary>
+    /// <summary> 
+    /// Clients that were refused because the manager's MaxPlayers was reached. 
+    /// </summary>
     public IReadOnlyCollection<uint> Rejected => _rejected;
 
-    /// <summary> Disconnected players whose state is being kept. </summary>
+    /// <summary> 
+    /// Disconnected players whose state is being kept. 
+    /// </summary>
     public int ParkedCount => _parked.Count;
 
     public OIDDASessionStats Stats => _stats;
 
     /// <summary>
-    /// Registers a player for each newly connected remote client and removes the ones that left. A player who sent a key keeps
-    /// their state for the grace period instead of losing it. Safe to call every tick.
+    /// Registers a player for each newly connected remote client and removes the ones that left. 
+    /// A player who sent a key keeps their state for the grace period instead of losing it. 
+    /// Safe to call every tick.
     /// </summary>
     /// <param name="connectedRemoteIds">Ids of the connected remote clients. The host's own client (id 0) is ignored.</param>
     /// <param name="defaultPlayerIsReal">False on a dedicated server.</param>
@@ -146,15 +157,14 @@ public sealed class OIDDAServerSession
             if (_players.Contains(id) || _rejected.Contains(id)) continue;
 
             // A refused client is not retried every tick (the manager warns each time): only after someone leaves.
-            if (_host.RegisterPlayer(id))
-            {
-                _players.Add(id);
-                _allTargetsDirty = true;
-            }
-            else
+            if (!_host.RegisterPlayer(id))
             {
                 _rejected.Add(id);
+                continue;
             }
+
+            _players.Add(id);
+            _allTargetsDirty = true;
         }
 
         _scratch.Clear();
