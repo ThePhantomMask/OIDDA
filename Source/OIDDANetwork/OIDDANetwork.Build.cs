@@ -14,10 +14,11 @@ public class OIDDANetwork : GameModule
 
         options.ScriptingAPI.IgnoreMissingDocumentationWarnings = true;
 
+        options.PublicDependencies.Add("OIDDA");
+
         // Network RPCs are only generated for modules carrying this tag.
         Tags["Network"] = string.Empty;
         options.PublicDependencies.Add("Networking");
-        options.PublicDependencies.Add("OIDDA");
 
         BuildNativeCode = false;
     }

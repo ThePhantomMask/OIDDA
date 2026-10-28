@@ -325,10 +325,10 @@ public class OIDDAManager : Script
     void OIDDAReset()
     {
         DefaultContext.Reset();
-        foreach (var player in _extraContexts) player.Reset();
-        _group?.Reset();
         if (_orsAgentDB.Count != 0) _orsAgentDB.Clear();
         if (_staticORSDB.Count != 0) _staticORSDB.Clear();
+        foreach (var player in _extraContexts) player.Reset();
+        _group?.Reset();
     }
 
     void OIDDAUpdate()
