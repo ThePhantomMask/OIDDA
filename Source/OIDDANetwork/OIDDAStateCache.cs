@@ -88,9 +88,9 @@ public sealed class OIDDAStateCache : IOIDDAStateProvider
             case int i: number = i; return true;
             case bool b: number = b ? 1f : 0f; return true;
             case Color c: number = c.ValuesSum; return true;
-            case Vector2 v2: number = v2.ValuesSum; return true;
-            case Vector3 v3: number = v3.ValuesSum; return true;
-            case Vector4 v4: number = v4.ValuesSum; return true;
+            case Vector2 v2: number = v2.Length; return true;
+            case Vector3 v3: number = v3.Length; return true;
+            case Vector4 v4: number = v4.Length; return true;
             case Quaternion q: number = q.Length; return true;
             case Transform t: number = t.Translation.ValuesSum; return true;
             case Matrix m: number = m.TranslationVector.ValuesSum; return true;
