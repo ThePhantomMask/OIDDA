@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using OIDDA;
 
 namespace OIDDA.Network;
 
@@ -48,7 +49,7 @@ public static class OIDDAPlayerKey
     }
 
     /// <summary> Folder of the key file: the user's local application data. </summary>
-    public static string DefaultDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OIDDA");
+    public static string DefaultDirectory => OIDDAPlugin.Instance.FolderPath;
 
     /// <summary>
     /// Reads the saved key, or creates and saves a new one. If the file cannot be written the key still works for this session.

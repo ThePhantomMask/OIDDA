@@ -21,6 +21,7 @@ public class OIDDAPlugin : GamePlugin
 
     public OIDDASettings Settings;
     public OIDDAManager Manager;
+    public string FolderPath;
 
     public GameplayGlobals CurrentGlobals;
     public List<StaticORSAgentEntry> CurrentStaticORSAgents;
@@ -67,8 +68,8 @@ public class OIDDAPlugin : GamePlugin
 
         Settings = settingsAsset.CreateInstance<OIDDASettings>();
         var settings = GameSettings.Load();
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), settings.CompanyName, settings.ProductName, Settings.FolderName);
-        if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+        FolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), settings.CompanyName, settings.ProductName, Settings.FolderName);
+        if (!Directory.Exists(FolderPath)) Directory.CreateDirectory(FolderPath);
         
         Level.SceneLoaded += OnSceneLoaded;
     }
