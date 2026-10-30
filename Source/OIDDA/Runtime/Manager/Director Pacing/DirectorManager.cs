@@ -423,8 +423,8 @@ public class DirectorManager
     /// Gets the current difficulty multiplier based on the pacing state and intensity.
     /// </summary>
     /// <remarks>The multiplier reflects the current challenge level, adjusting dynamically according to the
-    /// pacing state and relevant parameters such as intensity and elapsed time. Typical values range from 0.5 during
-    /// relaxed states up to 1.3 at peak intensity.</remarks>
+    /// pacing state and relevant parameters such as intensity and elapsed time. 
+    /// Typical values range from 0.5 during relaxed states up to 1.3 at peak intensity.</remarks>
     public float DifficultyMultiplier => CurrentState switch
     {
         DirectorState.Build => Mathf.Lerp(0.8f, 1.0f, CurrentIntensity / PeakThreshold),
