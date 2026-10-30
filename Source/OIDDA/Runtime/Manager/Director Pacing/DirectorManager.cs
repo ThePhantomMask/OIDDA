@@ -183,8 +183,7 @@ public class DirectorManager
         if (store == null || !store.IsValid)
             return;
 
-        _store = store;
-        smoothingManager.Store = store;
+        smoothingManager.Store = _store = store;
 
         timeInCurrentState += deltaTime;
         timeSinceLastPeak += deltaTime;
