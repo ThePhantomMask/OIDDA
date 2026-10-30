@@ -306,8 +306,8 @@ public class OIDDAManager : Script
             context.SetStore(globals ? new GameplayGlobalsStore(globals) : null);
             _initialValues = globals ? new Dictionary<string, object>(globals.Values) : null;
 
-            if (_pluginInstance.CurrentOIDDAConfig)
-                context.ApplyConfig(_pluginInstance.CurrentOIDDAConfig.Instance);
+            if (_pluginInstance.CurrentConfig != null)
+                context.ApplyConfig(_pluginInstance.CurrentConfig);
         }
         context.ResetTimers();
 

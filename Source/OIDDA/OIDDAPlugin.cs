@@ -25,7 +25,7 @@ public class OIDDAPlugin : GamePlugin
 
     public GameplayGlobals CurrentGlobals;
     public List<StaticORSAgentEntry> CurrentStaticORSAgents;
-    public JsonAssetReference<OIDDAConfig> CurrentOIDDAConfig;
+    public OIDDAConfig CurrentConfig;
 
     public OIDDAPlugin()
     {
@@ -86,8 +86,8 @@ public class OIDDAPlugin : GamePlugin
         // Never keep state from the previous scene.
         Manager = null;
         CurrentGlobals = null;
-        CurrentStaticORSAgents = null;
-        CurrentOIDDAConfig = default;
+        CurrentStaticORSAgents.Clear();
+        
 
         if (Settings == null) return;
 
@@ -119,10 +119,10 @@ public class OIDDAPlugin : GamePlugin
             return;
         }
 
-        CurrentOIDDAConfig = single ? Settings.Config
-            : HasIndex(Settings.Configs, currentIndex) ? Settings.Configs[currentIndex] : default;
+        CurrentConfig = single ? Settings.Config.Instance
+            : HasIndex(Settings.Configs, currentIndex) ? Settings.Configs[currentIndex].Instance : null; 
 
-        if (!CurrentOIDDAConfig)
+        if (CurrentConfig == null)
         {
            #if FLAX_EDITOR
                 Debug.LogError($"No OIDDA {(single ? "Config" : "Configs")} found.\nPlease check your OIDDA settings.");
