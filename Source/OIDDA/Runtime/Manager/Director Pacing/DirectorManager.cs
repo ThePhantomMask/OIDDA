@@ -155,15 +155,6 @@ public class DirectorManager
         if (intensityHistory.Count > MaxHistory) intensityHistory.Dequeue();
     }
 
-    /// <summary>
-    /// Updates the psychological metrics such as stress, fatigue, and engagement levels based on the elapsed time and provided contextual values.
-    /// </summary>
-    /// <remarks>This method adjusts internal psychological state variables according to the current pacing state and intensity. 
-    /// The specific effects on each metric depend on the current state and may be influenced by the provided values. 
-    /// Call this method regularly to ensure psychological metrics remain up to date with the simulation or game loop.</remarks>
-    /// <param name="deltaTime">The amount of time, in seconds, since the last update. Must be a non-negative value.</param>
-    /// <param name="values">A dictionary containing contextual values that may influence the update of psychological metrics. The expected
-    /// keys and value types depend on the implementation context.</param>
     // Extra intensity that belongs to the group itself (an event that affects everyone). Decays like normal intensity.
     float _groupBoost;
 
@@ -223,6 +214,15 @@ public class DirectorManager
         RecordIntensityEvent();
     }
 
+    /// <summary>
+    /// Updates the psychological metrics such as stress, fatigue, and engagement levels based on the elapsed time and provided contextual values.
+    /// </summary>
+    /// <remarks>This method adjusts internal psychological state variables according to the current pacing state and intensity. 
+    /// The specific effects on each metric depend on the current state and may be influenced by the provided values. 
+    /// Call this method regularly to ensure psychological metrics remain up to date with the simulation or game loop.</remarks>
+    /// <param name="deltaTime">The amount of time, in seconds, since the last update. Must be a non-negative value.</param>
+    /// <param name="values">A dictionary containing contextual values that may influence the update of psychological metrics. 
+    /// The expected keys and value types depend on the implementation context.</param>
     internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
     {
         bool canScore = values != null && values.Count > 0 &&
@@ -331,7 +331,6 @@ public class DirectorManager
     /// </summary>
     /// <remarks>The rate of intensity decay varies depending on the current pacing state. 
     /// Calling this method repeatedly will gradually reduce the intensity to zero.</remarks>
-    /// <param name="deltaTime">The time, in seconds, since the last update. Must be non-negative.</param>
     float CurrentDecayRate => CurrentState switch
     {
         DirectorState.Peak => IntensityDecayRate * 0.3f,
