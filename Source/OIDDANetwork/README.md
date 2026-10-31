@@ -11,6 +11,7 @@ The full guide is in [`Docs/Multiplayer.md`](../../Docs/Multiplayer.md).
 - **The ORS is the only API, on every peer.** `ORS.CurrentState`, `CurrentIntensity`, `CurrentStress`, `CurrentFatigue`,
   `IsShouldSpawnEncounter`, the `Group*` members, `LocalPlayerId` and `TryGetPlayerState` work the same in single player, on
   the host and on a client.
+- **State channel.** `OIDDANetworkSync.StateChannel` is `Reliable` by default. `Unreliable` sends the periodic state without resends: each message is a full picture with a sequence number, and a late one is dropped (see `Docs/Multiplayer.md`).
 - **Player id = client id.** The host plays as player 0; remote clients get the id the engine assigns them (1, 2, 3...).
 
 ## Setup

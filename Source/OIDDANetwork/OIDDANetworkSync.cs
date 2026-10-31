@@ -15,6 +15,9 @@ public class OIDDANetworkSync : Script
     [EditorDisplay("State"), Tooltip("Off: each client only receives its own player's state (and the group's). On: every client receives every player's state, for example to show teammates in the UI.")]
     public bool ReplicateStateToAll = false;
 
+    [EditorDisplay("State"), Tooltip("Channel of the periodic state messages. Unreliable: a lost message is replaced by the next one and a late one is dropped, so there is no waiting for resends. The first message to each client and messages too big for one packet still use the reliable channel.")]
+    public OIDDAStateChannel StateChannel = OIDDAStateChannel.Reliable;
+
     [EditorDisplay("State"), Range(0.02f, 2f), Tooltip("Seconds between state messages to the clients.")]
     public float StateSendInterval = 0.1f;
 
@@ -34,7 +37,7 @@ public class OIDDANetworkSync : Script
     public List<AllowedClientMetric> AllowedClientMetrics = new();
 
     // Test seams: where state and reports go when they are not sent through the network.
-    internal Action<byte[], uint[]> StateSender;
+    internal Action<byte[], uint[], bool> StateSender; // payload, targets, reliable
     internal Func<string, float, bool> ReportSender;
     internal Action<string> IdentifySender;
 
@@ -184,8 +187,8 @@ public class OIDDANetworkSync : Script
             Debug.Log($"[OIDDA Network] Mode={NetworkManager.Mode}, LocalClientId={NetworkManager.LocalClientId}, remote clients=[{string.Join(", ", _session.Players)}]");
         }
 
-        foreach (var message in _session.BuildMessages(ReplicateStateToAll, defaultPlayerIsReal))
-            SendState(message.Payload, message.Targets);
+        foreach (var message in _session.BuildMessages(ReplicateStateToAll, defaultPlayerIsReal, StateChannel == OIDDAStateChannel.Unreliable))
+            SendState(message.Payload, message.Targets, message.Reliable);
     }
 
     // Clients the manager refused are a configuration problem worth a warning (once per change, not every tick).
@@ -224,15 +227,17 @@ public class OIDDANetworkSync : Script
         }
     }
 
-    private void SendState(byte[] payload, uint[] targets)
+    private void SendState(byte[] payload, uint[] targets, bool reliable)
     {
         if (StateSender != null)
         {
-            StateSender(payload, targets);
+            StateSender(payload, targets, reliable);
             return;
         }
 
-        ReceiveState(payload, new NetworkRpcParams { TargetIds = targets });
+        var rpc = new NetworkRpcParams { TargetIds = targets };
+        if (reliable) ReceiveState(payload, rpc);
+        else ReceiveStateUnreliable(payload, rpc);
     }
 
     private bool SendMetric(string name, float value)
@@ -251,6 +256,15 @@ public class OIDDANetworkSync : Script
     /// </summary>
     [NetworkRpc(Client = true)]
     public void ReceiveState(byte[] payload, NetworkRpcParams rpc = new NetworkRpcParams())
+    {
+        ApplyState(payload, rpc.SenderId);
+    }
+
+    /// <summary>
+    /// Same as <see cref="ReceiveState"/>, on an unreliable channel: it may be lost, and the receiver drops it if a newer one has already arrived.
+    /// </summary>
+    [NetworkRpc(Client = true, Channel = NetworkChannelType.Unreliable)]
+    public void ReceiveStateUnreliable(byte[] payload, NetworkRpcParams rpc = new NetworkRpcParams())
     {
         ApplyState(payload, rpc.SenderId);
     }

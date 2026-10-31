@@ -30,10 +30,14 @@ public readonly struct OutgoingState
     public readonly uint[] Targets;
     public readonly byte[] Payload;
 
-    public OutgoingState(uint[] targets, byte[] payload)
+    /// <summary> True if the message must go on the reliable channel. </summary>
+    public readonly bool Reliable;
+
+    public OutgoingState(uint[] targets, byte[] payload, bool reliable)
     {
         Targets = targets;
         Payload = payload;
+        Reliable = reliable;
     }
 }
 
@@ -66,6 +70,12 @@ public struct OIDDASessionStats
 /// </summary>
 public sealed class OIDDAServerSession
 {
+    /// <summary>
+    /// Biggest message (in bytes) sent on an unreliable channel. A bigger one is split into parts by the engine and losing any part
+    /// loses the whole message, so it goes on the reliable channel instead.
+    /// </summary>
+    public const int MaxUnreliableBytes = 1000;
+
     struct Parked
     {
         public object Token;
@@ -77,6 +87,7 @@ public sealed class OIDDAServerSession
     readonly float _graceSeconds;
     readonly int _maxParked;
     readonly HashSet<uint> _players = new();
+    readonly HashSet<uint> _needReliable = new();
     readonly HashSet<uint> _rejected = new();
     readonly HashSet<uint> _connected = new();
     readonly List<uint> _scratch = new();
@@ -91,6 +102,7 @@ public sealed class OIDDAServerSession
     uint[] _allTargets = System.Array.Empty<uint>();
     bool _allTargetsDirty = true;
     OIDDASessionStats _stats;
+    ushort _sequence;
 
     /// <summary>
     /// Initialize the OIDDA Server session.
@@ -164,6 +176,7 @@ public sealed class OIDDAServerSession
             }
 
             _players.Add(id);
+            _needReliable.Add(id);
             _allTargetsDirty = true;
         }
 
@@ -177,6 +190,7 @@ public sealed class OIDDAServerSession
             var id = _scratch[i];
             Leave(id, now);
             _players.Remove(id);
+            _needReliable.Remove(id);
             _targetCache.Remove(id);
             _gate?.Forget(id);
             _allTargetsDirty = true;
@@ -269,6 +283,7 @@ public sealed class OIDDAServerSession
             {
                 _stats.Resumed++;
                 result = IdentifyResult.Resumed;
+                _needReliable.Add(senderId); // their state jumped back: make sure they get it
             }
         }
 
@@ -281,11 +296,16 @@ public sealed class OIDDAServerSession
     /// Builds what to send. By default each client receives only its own player and the group; with
     /// <paramref name="replicateToAll"/> everyone receives every player (and the host's own player, when it is a real player).
     /// The returned list and its target arrays are reused by the next call: send them before building again.
+    /// Every call numbers its messages with the next sequence number. With <paramref name="allowUnreliable"/> a message may go on
+    /// an unreliable channel, except the first one to a client (new or resumed) and any bigger than <see cref="MaxUnreliableBytes"/>:
+    /// those are marked reliable.
     /// </summary>
-    public List<OutgoingState> BuildMessages(bool replicateToAll, bool includeHostPlayer)
+    public List<OutgoingState> BuildMessages(bool replicateToAll, bool includeHostPlayer, bool allowUnreliable = false)
     {
         _messages.Clear();
         if (_players.Count == 0) return _messages;
+
+        unchecked { _sequence++; }
 
         bool hasGroup = _host.TryGetGroupState(out var groupState);
         OIDDAStateSnapshot? group = hasGroup ? groupState : null;
@@ -306,15 +326,15 @@ public sealed class OIDDAServerSession
                 _allTargetsDirty = false;
             }
 
-            _messages.Add(new OutgoingState(_allTargets, OIDDANetworkCodec.Encode(_all, group)));
+            AddMessage(_allTargets, OIDDANetworkCodec.Encode(_all, group, _sequence), allowUnreliable);
             return _messages;
         }
 
         foreach (var id in _players)
         {
             byte[] payload;
-            if (_host.TryGetPlayerState(id, out var own)) payload = OIDDANetworkCodec.EncodeOne(id, own, group);
-            else if (hasGroup) payload = OIDDANetworkCodec.EncodeGroupOnly(groupState);
+            if (_host.TryGetPlayerState(id, out var own)) payload = OIDDANetworkCodec.EncodeOne(id, own, group, _sequence);
+            else if (hasGroup) payload = OIDDANetworkCodec.EncodeGroupOnly(groupState, _sequence);
             else continue;
 
             if (!_targetCache.TryGetValue(id, out var target))
@@ -323,9 +343,27 @@ public sealed class OIDDAServerSession
                 _targetCache[id] = target;
             }
 
-            _messages.Add(new OutgoingState(target, payload));
+            AddMessage(target, payload, allowUnreliable);
         }
         return _messages;
+    }
+
+    void AddMessage(uint[] targets, byte[] payload, bool allowUnreliable)
+    {
+        bool reliable = !allowUnreliable || payload.Length > MaxUnreliableBytes || AnyNeedsReliable(targets);
+        if (reliable && _needReliable.Count > 0)
+            for (int i = 0; i < targets.Length; i++) _needReliable.Remove(targets[i]);
+
+        _messages.Add(new OutgoingState(targets, payload, reliable));
+    }
+
+    bool AnyNeedsReliable(uint[] targets)
+    {
+        if (_needReliable.Count == 0) return false;
+
+        for (int i = 0; i < targets.Length; i++)
+            if (_needReliable.Contains(targets[i])) return true;
+        return false;
     }
 
     /// <summary>

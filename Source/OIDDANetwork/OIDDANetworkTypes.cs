@@ -35,6 +35,21 @@ public interface INetworkEnvironment
 }
 
 /// <summary>
+/// Channel the periodic state messages travel on.
+/// </summary>
+public enum OIDDAStateChannel
+{
+    /// <summary> Every message arrives, in order. </summary>
+    Reliable,
+
+    /// <summary>
+    /// Messages may be lost. Each one is a complete picture, so a lost one is replaced by the next. The first message to a client
+    /// and any message too big for one packet still go on the reliable channel.
+    /// </summary>
+    Unreliable
+}
+
+/// <summary>
 /// A metric a client is allowed to report, with the range its values are clamped to.
 /// </summary>
 public class AllowedClientMetric

@@ -97,6 +97,7 @@ is above 50. They are never written into a player's own values.
 | Setting | Default | Meaning |
 |---|---|---|
 | `ReplicateStateToAll` | off | See above. |
+| `StateChannel` | Reliable | Channel of the state messages: `Reliable` or `Unreliable` (see below). |
 | `StateSendInterval` | 0.1 s | Seconds between state messages. |
 | `ReconnectGraceSeconds` | 120 | How long the server keeps a disconnected player's state. 0 turns reconnection off. |
 | `SendPlayerKey` | on | Client side: send the player key so a reconnection is recognised. |
@@ -105,6 +106,26 @@ is above 50. They are never written into a player's own values.
 | `AllowedClientMetrics` | empty | The only metrics a client may report, with their range. |
 
 Only one `OIDDANetworkSync` may be active: a second one warns and does nothing.
+
+### State channel
+
+State messages travel on a reliable channel by default: every message arrives, in order. With `StateChannel = Unreliable` they
+go on an unreliable channel instead, so a lost message is never resent and nothing waits for it. This is safe because every
+message is a complete picture of what that client may see and replaces the previous one: the next message (by default 0.1 s
+later) makes up for a lost one.
+
+Every message carries a sequence number. A client applies a message only if it is newer than the last one it applied, so a
+message that arrives late (or twice) is dropped and the state never goes back in time. The numbers wrap around, and a new
+connection starts over.
+
+Some messages stay on the reliable channel even when `Unreliable` is set:
+
+* the **first message** to a client, whether it is new or has just been recognised as a returning player, so it always has a state to read;
+* any message **bigger than 1000 bytes** (about 35 players with `ReplicateStateToAll`). The engine splits a message bigger than a packet into parts, and losing
+  one part loses the whole message, so the reliable channel is the better choice there.
+
+`Identify` and the client metric reports always use the reliable channel. The server and the clients must run the same
+version of the plugin: the message format changed with the sequence number (version 2), and a client rejects any other version.
 
 ### Reconnection
 
@@ -124,8 +145,8 @@ oldest is dropped first).
 
 ### Performance
 
-With 8 players the server loop allocates about 560 bytes per state tick (owner-only) or 280 bytes (replicate to all), which
-is essentially the messages themselves. A message with one player and the group is 56 bytes. The engine splits larger RPC
+With 8 players the server loop allocates about 616 bytes per state tick (owner-only) or 280 bytes (replicate to all), which
+is essentially the messages themselves. A message with one player and the group is 58 bytes. The engine splits larger RPC
 messages by itself (see `NetworkSettings.MaxSyncParts`).
 
 ### Client metrics and value types
@@ -155,17 +176,20 @@ conversion.
 | "N client(s) have no player" warning | `OIDDAManager.MaxPlayers` is smaller than the number of connected clients. |
 | `QuickReceiver` throws on a client | By design: game variables live on the server. Read the replicated state instead. |
 | A returning player starts fresh | `ReconnectGraceSeconds` is 0 or expired, `SendPlayerKey` is off on the client, or the key is not valid. Turn on `DebugMode` on the manager to see "identified / resumed" lines. |
+| State seems to lag or skip with `StateChannel = Unreliable` | Expected under packet loss: a lost message is not resent, the next one arrives within `StateSendInterval`. Use `Reliable` if every message matters. |
+| A client ignores every state message | Server and client run different plugin versions (the message version must match), or the client is not connected. |
 | Client metrics are ignored | `AllowClientMetrics` is off, the metric is not in `AllowedClientMetrics`, or the client is over `MaxReportsPerSecond`. |
 
 With `DebugMode` on in the `OIDDAManager`, the network module logs the mode, `LocalClientId`, the ids of connecting
 clients and the reconnection counters.
 
-## Message format (version 1)
+## Message format (version 2)
 
-Little-endian. Header: version (1 byte), flags (1 byte: bit 0 = group present), player count (2 bytes). Then each player:
+Little-endian. Header: version (1 byte), flags (1 byte: bit 0 = group present), player count (2 bytes), sequence number
+(2 bytes). Then each player:
 id (4 bytes) and a snapshot; then the group snapshot if flagged. A snapshot is 24 bytes: state (1), intensity, stress,
 fatigue, score, difficulty multiplier (5 floats), flags (1: bit 0 = should spawn encounter), player count (2). A message
-is rejected as a whole if its length, version, flags or state byte are wrong; non-finite numbers become 0 and values are
+is rejected as a whole if its length, version, flags or state byte are wrong, or if its sequence number is not newer than the last applied; non-finite numbers become 0 and values are
 clamped to their legitimate range.
 
 ## Verification
