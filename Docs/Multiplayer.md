@@ -109,7 +109,8 @@ Only one `OIDDANetworkSync` may be active: a second one warns and does nothing.
 ### Reconnection
 
 Because the id changes on every connection, a returning player is recognised by a **player key**: a random 128-bit secret that
-the client creates on first use and keeps in a small file (`OIDDA/player.key` in the user's local application data). It is not
+the client creates on first use and keeps in a small file (`player.key` in OIDDA's folder in the user's local application data:
+company, product and the folder name set in the OIDDA settings). It is not
 related to the user. The client sends it once per connection. If the server was keeping that player's state (they identified
 themselves before leaving and came back within `ReconnectGraceSeconds`), it is restored: values, Director state and age
 (so no new warm-up). The state is frozen while the player is away. A game with accounts can supply its own key:
@@ -126,6 +127,24 @@ oldest is dropped first).
 With 8 players the server loop allocates about 560 bytes per state tick (owner-only) or 280 bytes (replicate to all), which
 is essentially the messages themselves. A message with one player and the group is 56 bytes. The engine splits larger RPC
 messages by itself (see `NetworkSettings.MaxSyncParts`).
+
+### Client metrics and value types
+
+A client reports a metric as a single number (a float). `ORS.QuickSender` on a client converts the value with
+`OIDDAValue.TryToFloat`, the same conversion the server uses to score a metric, so a value gives the same number on both
+paths. A type without a number is not sent.
+
+| Type | Number |
+|---|---|
+| `float`, `int` | the value (a `double` is also accepted when sent from a client) |
+| `bool` | 1 or 0 |
+| `Vector2`, `Vector3`, `Vector4` | the length |
+| `Quaternion` | the length (about 1 for any unit quaternion, so it carries little information) |
+| `Color` | the sum of the channels |
+| `Transform`, `Matrix` | the length of the translation |
+
+The server clamps the number to the range given in `AllowedClientMetrics`. Send a float yourself if you need a different
+conversion.
 
 ## Troubleshooting
 

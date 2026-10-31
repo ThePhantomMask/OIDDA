@@ -48,8 +48,20 @@ public static class OIDDAPlayerKey
         return _cached ??= LoadOrCreate(directory ?? DefaultDirectory);
     }
 
-    /// <summary> Folder of the key file: the user's local application data. </summary>
-    public static string DefaultDirectory => OIDDAPlugin.Instance.FolderPath;
+    /// <summary>
+    /// Folder of the key file: OIDDA's folder (company, product and the folder name from the OIDDA settings) in the user's local
+    /// application data. If the plugin has no folder yet (no settings, not initialised) the key goes in an "OIDDA" folder there.
+    /// </summary>
+    public static string DefaultDirectory
+    {
+        get
+        {
+            var folder = OIDDAPlugin.Instance?.FolderPath;
+            return string.IsNullOrEmpty(folder)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OIDDA")
+                : folder;
+        }
+    }
 
     /// <summary>
     /// Reads the saved key, or creates and saves a new one. If the file cannot be written the key still works for this session.

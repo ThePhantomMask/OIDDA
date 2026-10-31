@@ -1,7 +1,6 @@
 ﻿using FlaxEngine;
 using OIDDA.Data;
 using System;
-using System.Net.Http.Headers;
 
 namespace OIDDA;
 
@@ -217,7 +216,7 @@ public struct GameplayValue
         ValueType.Color => Cast<T>(ColorValue),
         ValueType.Quaternion => Cast<T>(QuaternionValue),
         ValueType.Transform => Cast<T>(TransformValue),
-        ValueType.BoundingBox => Cast<T>(BoundingSphereValue),
+        ValueType.BoundingBox => Cast<T>(BoundingBoxValue),
         ValueType.BoundingSphere => Cast<T>(BoundingSphereValue),
         ValueType.Rectangle => Cast<T>(RectangleValue),
         ValueType.Matrix => Cast<T>(MatrixValue),

@@ -86,8 +86,8 @@ public class OIDDAPlugin : GamePlugin
         // Never keep state from the previous scene.
         Manager = null;
         CurrentGlobals = null;
-        CurrentStaticORSAgents.Clear();
-        
+        CurrentStaticORSAgents = null;
+        CurrentConfig = null;
 
         if (Settings == null) return;
 

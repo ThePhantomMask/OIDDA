@@ -1,4 +1,5 @@
 ﻿using FlaxEngine;
+using OIDDA.Data;
 using System;
 using System.Collections.Generic;
 
@@ -79,22 +80,15 @@ public sealed class OIDDAStateCache : IOIDDAStateProvider
         _group = null;
     }
 
+    // Same conversion as the server uses to score a metric (see OIDDAValue); a double is also accepted here.
     private static bool TryToFloat(object value, out float number)
     {
-        switch (value)
+        if (value is double d)
         {
-            case float f: number = f; return true;
-            case double d: number = (float)d; return true;
-            case int i: number = i; return true;
-            case bool b: number = b ? 1f : 0f; return true;
-            case Color c: number = c.ValuesSum; return true;
-            case Vector2 v2: number = v2.Length; return true;
-            case Vector3 v3: number = v3.Length; return true;
-            case Vector4 v4: number = v4.Length; return true;
-            case Quaternion q: number = q.Length; return true;
-            case Transform t: number = t.Translation.ValuesSum; return true;
-            case Matrix m: number = m.TranslationVector.ValuesSum; return true;
-            default: number = 0f; return false;
+            number = (float)d;
+            return true;
         }
+
+        return OIDDAValue.TryToFloat(value, out number);
     }
 }
