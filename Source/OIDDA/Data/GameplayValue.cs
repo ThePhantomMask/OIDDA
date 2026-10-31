@@ -1,6 +1,7 @@
 ﻿using FlaxEngine;
 using OIDDA.Data;
 using System;
+using System.Net.Http.Headers;
 
 namespace OIDDA;
 
@@ -202,20 +203,29 @@ public struct GameplayValue
         };
     }
 
-    public float AsFloat() => Type == ValueType.Float ? FloatValue : 0f;
-    public int AsInt() => Type == ValueType.Int ? IntValue : 0;
-    public bool AsBool() => Type == ValueType.Bool && BoolValue;
-    public Vector2 AsVector2() => Type == ValueType.Vector2 ? Vector2Value : Vector2.Zero;
-    public Vector3 AsVector3() => Type == ValueType.Vector3 ? Vector3Value : Vector3.Zero;
-    public Vector4 AsVector4() => Type == ValueType.Vector4 ? Vector4Value : Vector4.Zero;
-    public string AsString() => Type == ValueType.String ? StringValue : string.Empty;
-    public Color AsColor() => Type == ValueType.Color ? ColorValue : Color.White;
-    public Quaternion AsQuaternion() => Type == ValueType.Quaternion ? QuaternionValue : Quaternion.Identity;
-    public Transform AsTransform() => Type == ValueType.Transform ? TransformValue : Transform.Default;
-    public BoundingBox AsBoundingBox() => Type == ValueType.BoundingBox ? BoundingBoxValue : BoundingBox.Default;
-    public BoundingSphere AsBoundingSphere() => Type == ValueType.BoundingSphere ? BoundingSphereValue : BoundingSphere.Default;
-    public Texture AsTexture() => Type == ValueType.Texture ? TextureValue : new Texture();
-    public CubeTexture AsCubeTexture() => Type == ValueType.CubeTexture ? CubeTextureValue : new CubeTexture();
+    private static T Cast<T>(object value) => value is T t ? t : default;
+
+    public T As<T>() => Type switch
+    {
+        ValueType.Float => Cast<T>(FloatValue),
+        ValueType.Int => Cast<T>(IntValue),
+        ValueType.Bool => Cast<T>(BoolValue),
+        ValueType.Vector2 => Cast<T>(Vector2Value),
+        ValueType.Vector3 => Cast<T>(Vector3Value),
+        ValueType.Vector4 => Cast<T>(Vector4Value),
+        ValueType.String => Cast<T>(StringValue),
+        ValueType.Color => Cast<T>(ColorValue),
+        ValueType.Quaternion => Cast<T>(QuaternionValue),
+        ValueType.Transform => Cast<T>(TransformValue),
+        ValueType.BoundingBox => Cast<T>(BoundingSphereValue),
+        ValueType.BoundingSphere => Cast<T>(BoundingSphereValue),
+        ValueType.Rectangle => Cast<T>(RectangleValue),
+        ValueType.Matrix => Cast<T>(MatrixValue),
+        ValueType.Texture => Cast<T>(TextureValue),
+        ValueType.CubeTexture => Cast<T>(CubeTextureValue),
+        _ => default
+    };
+
 
 }
 public enum ValueType

@@ -122,7 +122,7 @@ public class OIDDAPlugin : GamePlugin
         CurrentConfig = single ? Settings.Config.Instance
             : HasIndex(Settings.Configs, currentIndex) ? Settings.Configs[currentIndex].Instance : null; 
 
-        if (CurrentConfig == null)
+        if (!CurrentConfig)
         {
            #if FLAX_EDITOR
                 Debug.LogError($"No OIDDA {(single ? "Config" : "Configs")} found.\nPlease check your OIDDA settings.");
