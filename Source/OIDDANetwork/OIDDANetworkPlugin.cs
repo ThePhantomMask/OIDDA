@@ -24,7 +24,7 @@ public class OIDDANetworkPlugin : GamePlugin
             Author = "Phantom Raptor Studio",
             RepositoryUrl = "https://github.com/ThePhantomMask/OIDDA",
             Description = "Replicates the OIDDA pacing state to clients and accepts their metrics.",
-            Version = new Version(0, 9, 2550),
+            Version = new Version(0, 1, 500),
             IsAlpha = true,
             IsBeta = false
         };
