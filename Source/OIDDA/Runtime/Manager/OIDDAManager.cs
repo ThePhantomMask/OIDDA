@@ -207,7 +207,7 @@ public class OIDDAManager : Script
         context.AttachGroup(_group);
 
         var config = DefaultContext.Director.currentConfig;
-        if (config != null) context.ApplyConfig(config);
+        if (config) context.ApplyConfig(config);
 
         // Spread the periodic analysis of the players over different frames (golden-ratio steps).
         context.StaggerTimers(((_extraContexts.Count + 1) * 0.6180339887f) % 1f);
