@@ -36,8 +36,20 @@ public class OIDDAManager : Script
     /// </summary>
     public bool DefaultPlayerIsReal { get; set; } = true;
 
-    [EditorDisplay("Multiplayer"), Range(1, 256), Tooltip("Maximum number of players OIDDA keeps a context for, including the default one. Size it to your game.")]
+    [EditorDisplay("Multiplayer"), Range(1, 256), Tooltip("Maximum number of players OIDDA keeps a context for. The default player counts only while it is a person: on a dedicated server (DefaultPlayerIsReal is false) it is left out, so 8 means 8 clients. Size it to your game.")]
     public int MaxPlayers = 8;
+
+    /// <summary>
+    /// The players that count towards <see cref="MaxPlayers"/>: every context, except the default one while it is not a person.
+    /// </summary>
+    private int CountedPlayers
+    {
+        get
+        {
+            _ = DefaultContext; // make sure the default context exists, so it is always in the count
+            return DefaultPlayerIsReal ? _players.Count : _players.Count - 1;
+        }
+    }
 
     [EditorDisplay("Multiplayer"), Tooltip("Enables the group Director: it paces the whole session from the aggregated state of every player. Leave empty for no group.")]
     public JsonAssetReference<OIDDAGroupConfig> GroupConfig;
@@ -181,7 +193,7 @@ public class OIDDAManager : Script
         var existing = GetContext(playerId);
         if (existing != null) return existing;
 
-        if (_players.Count >= MaxPlayers)
+        if (CountedPlayers >= MaxPlayers)
         {
             Debug.LogWarning($"[OIDDA] Cannot register player {playerId}: MaxPlayers ({MaxPlayers}) reached.");
             return null;
@@ -234,7 +246,7 @@ public class OIDDAManager : Script
             _players.Remove(playerId);
             _extraContexts.Remove(fresh);
         }
-        else if (_players.Count >= MaxPlayers)
+        else if (CountedPlayers >= MaxPlayers)
         {
             Debug.LogWarning($"[OIDDA] Cannot resume player {playerId}: MaxPlayers ({MaxPlayers}) reached.");
             return null;

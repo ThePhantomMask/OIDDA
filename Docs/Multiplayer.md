@@ -30,7 +30,8 @@ float intensity = ors.QuickReceiver<float>(2, "stamina");
 * Player 0 (`OIDDAManager.DefaultPlayerId`) keeps using the scene's `GameplayGlobals`, so existing code keeps working.
 * Every other player has a private dictionary of values, starting from the variables as they were when the manager initialized
   (or the values you pass to `RegisterPlayer`).
-* `OIDDAManager.MaxPlayers` (default 8, default player included) is yours to set. A player beyond it is refused with a warning.
+* `OIDDAManager.MaxPlayers` (default 8) is yours to set. It counts the players, the default one included while it is a person. On a
+  dedicated server player 0 is the server, not a person, so it is left out: 8 means 8 clients. A player beyond the limit is refused with a warning.
 * The configuration (`OIDDAConfig`) and the manager's thresholds are shared by every player.
 
 ### Networked game
