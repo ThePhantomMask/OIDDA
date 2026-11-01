@@ -120,7 +120,7 @@ public class ORS : ORSAgent
 
     public override bool TryReceiverValue<T>(string nameValue, out T result)
     {
-        if (!CanReceiveDynamic()) 
+        if (!(_oiddaManager || CanReceiveDynamic())) 
         {
             result = default; return false; 
         }
@@ -129,7 +129,7 @@ public class ORS : ORSAgent
 
     public override bool TryReceiverValue<T>(out T result)
     {
-        if (!CanReceiveStatic()) 
+        if (!(_oiddaManager || CanReceiveStatic())) 
         {
             result = default; return false; 
         }
@@ -138,32 +138,31 @@ public class ORS : ORSAgent
 
     public override T QuickReceiver<T>(string NameValue)
     {
-        if (!_oiddaManager) throw new InvalidOperationException("OIDDA Manager instance is not available.");
-        return _oiddaManager.QuickReceiver<T>(NameValue);
+        return _oiddaManager ? _oiddaManager.QuickReceiver<T>(NameValue) : default(T);
     }
 
     public override T ReceiverValue<T>()
     {
-        if (!TryReceiverValue(out T result)) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
+        TryReceiverValue(out T result);
         return result;
     }
 
     public override T ReceiverValue<T>(string nameValue)
     {
-        if (!TryReceiverValue(nameValue, out T result)) throw new InvalidOperationException("OIDDA Manager instance is not available or ORS is not connected.");
+        TryReceiverValue(nameValue, out T result);
         return result;
     }
 
     public override bool TrySenderValue(string nameValue, object senderValue)
     {
-        if (!CanSendDynamic()) return false;
+        if (!(_oiddaManager || CanSendDynamic())) return false;
         _oiddaManager.SetGlobal(nameValue, senderValue);
         return true;
     }
 
     public override bool TrySenderValue(object senderValue)
     {
-        if (!CanSendStatic()) return false;
+        if (!(_oiddaManager || CanSendStatic())) return false;
         _oiddaManager.SetStaticGlobal(ORSName, senderValue);
         return true;
     }
