@@ -1,7 +1,8 @@
 # OIDDANetwork
 
-Optional network support for OIDDA. The base `OIDDA` module does not depend on it: a single-player game can leave this
-module out (remove `Modules.Add("OIDDANetwork")` from the target and delete the folder).
+Optional network support for OIDDA. The base `OIDDA` module does not depend on it. The module is **off by default**: it does
+nothing until **Network Config > Enable Network** is turned on in the OIDDA settings (`OIDDASettings.EnableNetwork`). A game that
+will never use networking can also leave it out (remove `Modules.Add("OIDDANetwork")` from the targets and delete the folder).
 
 The full guide is in [`Docs/Multiplayer.md`](../../Docs/Multiplayer.md).
 
@@ -16,7 +17,7 @@ The full guide is in [`Docs/Multiplayer.md`](../../Docs/Multiplayer.md).
 
 ## Setup
 
-1. Add the `OIDDANetwork` module to your target (done in this repository's targets).
+1. Add the `OIDDANetwork` module to your target (done in this repository's targets) and turn on **Enable Network** in the OIDDA settings.
 2. Put one `OIDDANetworkSync` script in the scene, on every peer.
 3. Start the network (`NetworkManager.StartServer / StartHost / StartClient`), or use `Samples/OIDDANetworkDemo`.
 
@@ -25,7 +26,7 @@ The full guide is in [`Docs/Multiplayer.md`](../../Docs/Multiplayer.md).
 | File | Role |
 |---|---|
 | `OIDDANetworkSync.cs` | The scene script: server tick, RPCs, client identification, settings. |
-| `OIDDANetworkPlugin.cs` | Installs the state provider into the ORS. |
+| `OIDDANetworkPlugin.cs` | Installs the state provider into the ORS (only when `EnableNetwork` is on). |
 | `OIDDAStateCache.cs` | The provider: what a client received from the server. |
 | `OIDDAServerSession.cs` | Server logic: players per client, what to send, reports, reconnection. |
 | `OIDDANetworkCodec.cs` | The message format, strictly validated. |

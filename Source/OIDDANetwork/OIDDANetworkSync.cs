@@ -50,17 +50,39 @@ public class OIDDANetworkSync : Script
     private bool _logged;
     private bool _identified;
     private bool _duplicate;
+    private bool _off;
     private int _lastRejected;
     private OIDDASessionStats _lastStats;
 
     // Only one script may run: two would send every client the state twice and register players twice.
     private static OIDDANetworkSync _active;
 
-    internal static void ForgetActive() => _active = null;
+    // The network is off in the OIDDA settings: say it once, not for every scene.
+    private static bool _warnedOff;
+
+    internal static void ForgetActive()
+    {
+        _active = null;
+        _warnedOff = false;
+    }
 
     /// <inheritdoc />
     public override void OnEnable()
     {
+        // Off in the OIDDA settings (Network Config): do nothing, so the game behaves as in single player.
+        if (!OIDDANetworkPlugin.IsEnabled)
+        {
+            _off = true;
+            if (!_warnedOff)
+            {
+                _warnedOff = true;
+                Debug.LogWarning("[OIDDA Network] The network is off in the OIDDA settings (Network Config > Enable Network). OIDDANetworkSync does nothing.");
+            }
+            return;
+        }
+
+        _off = false;
+
         if (_active && _active != this)
         {
             _duplicate = true;
@@ -96,6 +118,12 @@ public class OIDDANetworkSync : Script
     /// <inheritdoc />
     public override void OnDisable()
     {
+        if (_off)
+        {
+            _off = false;
+            return;
+        }
+
         if (_duplicate)
         {
             _duplicate = false;
@@ -130,7 +158,7 @@ public class OIDDANetworkSync : Script
     // Once per connection, tell the server who we are so that a reconnection can be recognised.
     internal void ClientTick()
     {
-        if (_duplicate) return;
+        if (_duplicate || _off) return;
         if (_identified || !SendPlayerKey || NetworkManager.State != NetworkConnectionState.Connected) return;
 
         _identified = true;
@@ -155,7 +183,7 @@ public class OIDDANetworkSync : Script
 
     internal void ServerTick(float deltaTime)
     {
-        if (_duplicate) return;
+        if (_duplicate || _off) return;
 
         var manager = OIDDAPlugin.Instance?.Manager;
         if (!manager) return;

@@ -6,10 +6,18 @@ namespace OIDDA.Network;
 
 /// <summary>
 /// Installs the network state provider into the ORS. Without a running network (offline) it reports authority, so the ORS
-/// behaves exactly as in single player.
+/// behaves exactly as in single player. It does nothing unless <see cref="OIDDASettings.EnableNetwork"/> is on.
 /// </summary>
+// It reads the OIDDA settings, which OIDDAPlugin loads in its own Initialize.
+[PluginLoadOrder(InitializeAfter = typeof(OIDDAPlugin))]
 public class OIDDANetworkPlugin : GamePlugin
 {
+    /// <summary>
+    /// Whether the OIDDA settings turn the network support on (OIDDA settings, "Network Config"). Off by default, and off
+    /// when the settings are missing.
+    /// </summary>
+    public static bool IsEnabled => OIDDAPlugin.Instance?.Settings?.EnableNetwork == true;
+
     /// <summary> The state received from the server, for the network script to feed. Null before initialization. </summary>
     public static OIDDAStateCache Cache { get; private set; }
 
@@ -34,6 +42,9 @@ public class OIDDANetworkPlugin : GamePlugin
     public override void Initialize()
     {
         base.Initialize();
+
+        // Off: no provider, no events. The ORS keeps behaving as in single player.
+        if (!IsEnabled) return;
 
         Cache = new OIDDAStateCache(new FlaxNetworkEnvironment());
         ORS.StateProvider = Cache;

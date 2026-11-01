@@ -58,6 +58,11 @@ public class OIDDASettings : SettingsBase
     /// </summary>
     [EditorOrder(2), Range(0, 1), EditorDisplay("ORS Config")]
     public float Delay;
+    /// <summary>
+    /// Turns on OIDDA's network support (the optional OIDDANetwork module). Off: the module does nothing and the game behaves as in single player.
+    /// </summary>
+    [EditorOrder(4), EditorDisplay("Network Config"), Tooltip("Turns on the OIDDANetwork module (state replication, reconnection, client metrics). Off: the module does nothing and the game behaves as in single player. Changing it needs a restart of the game (or of play mode).")]
+    public bool EnableNetwork = false;
 }
 
 

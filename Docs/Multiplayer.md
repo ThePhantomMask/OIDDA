@@ -36,11 +36,29 @@ float intensity = ors.QuickReceiver<float>(2, "stamina");
 
 ### Networked game
 
-1. The `OIDDANetwork` module is part of this repository's targets. In your own game, add `Modules.Add("OIDDANetwork")` to the
-   target (or leave it out, with its folder, for a game without networking).
+1. The `OIDDANetwork` module is part of this repository's targets (`Modules.Add("OIDDANetwork")`; in your own game add the same
+   line to your targets). Turn it on in the OIDDA settings: **Network Config > Enable Network**. It is **off by default**.
 2. Put one `OIDDANetworkSync` script in the scene, on every peer. It must be a scene object, so that it exists with the same id
    everywhere.
 3. Start the network as usual (`NetworkManager.StartServer / StartHost / StartClient`). `Samples/OIDDANetworkDemo` does it for you.
+
+### Turning the network on or off
+
+`Enable Network` (`OIDDASettings.EnableNetwork`) is the only switch. It is read once, when the game (or play mode) starts, so
+changing it needs a restart.
+
+| | Off (default) | On |
+|---|---|---|
+| `OIDDANetworkPlugin` | Installs nothing: no state provider in the ORS, no network events. | Installs the state provider. |
+| `OIDDANetworkSync` | Does nothing: it does not register with the replicator and sends and receives nothing. It warns once that the network is off. | Works as described below. |
+| ORS and game code | As in single player. | Same API on the server, the host and the clients. |
+
+Because the module stays in the targets, you can turn networking on later (or off again) from the settings, with no code change
+and no files to restore. A game that will never use networking can still leave the module out: remove `Modules.Add("OIDDANetwork")`
+from both targets and delete the `OIDDANetwork` folder; the base `OIDDA` module does not depend on it. To bring it back, copy the folder
+and the two lines back from this repository, then turn the setting on.
+
+If the settings asset is missing the network stays off.
 
 Game code does not change: the **ORS is the only API**, on the server, the host and the clients.
 
@@ -172,8 +190,8 @@ conversion.
 
 | Symptom | Likely cause |
 |---|---|
-| A client reads `Build` / 0 for everything | No state received yet, or no `OIDDANetworkSync` on the server, or the client is not connected. |
-| Nothing happens on the server | There is no `OIDDAManager` in the scene, or `OIDDANetworkSync` is missing or is a duplicate (check the log). |
+| A client reads `Build` / 0 for everything | No state received yet, or no `OIDDANetworkSync` on the server, or the client is not connected, or **Enable Network** is off in the OIDDA settings (the log warns once). |
+| Nothing happens on the server | **Enable Network** is off in the OIDDA settings, or there is no `OIDDAManager` in the scene, or `OIDDANetworkSync` is missing or is a duplicate (check the log). |
 | "N client(s) have no player" warning | `OIDDAManager.MaxPlayers` is smaller than the number of connected clients. |
 | `QuickReceiver` throws on a client | By design: game variables live on the server. Read the replicated state instead. |
 | A returning player starts fresh | `ReconnectGraceSeconds` is 0 or expired, `SendPlayerKey` is off on the client, or the key is not valid. Turn on `DebugMode` on the manager to see "identified / resumed" lines. |
