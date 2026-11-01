@@ -372,4 +372,9 @@ public sealed class OIDDAContext
     public T QuickReceiver<T>(string name) => Store.GetValue<T>(name);
 
     #endregion
+
+    public static implicit operator bool(OIDDAContext context)
+    {
+        return context is not null;
+    }
 }

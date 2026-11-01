@@ -191,7 +191,7 @@ public class OIDDAManager : Script
     public OIDDAContext RegisterPlayer(uint playerId, IEnumerable<KeyValuePair<string, object>> initialValues = null)
     {
         var existing = GetContext(playerId);
-        if (existing != null) return existing;
+        if (existing) return existing;
 
         if (CountedPlayers >= MaxPlayers)
         {
