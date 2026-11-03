@@ -166,7 +166,7 @@ public sealed class OIDDAGroup
 
     void Collect(OIDDAContext player)
     {
-        if (player == null || !player.HasStore) return;
+        if (player == null || !player.HasStore || player.ExcludedFromGroup) return;
 
         _weights.Add(Mathf.Max(0f, player.GroupWeight));
 

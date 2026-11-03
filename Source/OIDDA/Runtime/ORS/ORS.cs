@@ -87,6 +87,8 @@ public abstract class ORSAgent
 
     public abstract void GroupQuickSender(string nameValue, object senderValue);
 
+    public abstract void SetGroupExcluded(uint playerId, bool excluded);
+
     #endregion
 
     #region  Director API methods
@@ -461,6 +463,23 @@ public class ORS : ORSAgent
             return;
         }
         Group?.AddIntensity(amount, reason);
+    }
+
+    /// <summary>
+    /// Leaves one player out of the group (or takes them back in): an excluded player does not count in the group's aggregation,
+    /// but keeps its own difficulty and still reads the Group.* variables. Typical use: exclude a player when they die, include
+    /// them again when they come back. Ignored for a player that is not registered, and on a remote client (with a warning).
+    /// </summary>
+    public override void SetGroupExcluded(uint playerId, bool excluded)
+    {
+        if (IsRemoteClient)
+        {
+            WarnRemote("SetGroupExcluded");
+            return;
+        }
+
+        var context = GetPlayerContext(playerId);
+        if (context) context.ExcludedFromGroup = excluded;
     }
 
     /// <summary> 

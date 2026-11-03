@@ -94,7 +94,15 @@ Thresholds and rates of the group Director are set on `OIDDAManager.GroupDirecto
 2 Fade, 3 Relax), `Group.Multiplier`, `Group.PlayerCount`. For example, a personal rule can fire only while `Group.Intensity`
 is above 50. They are never written into a player's own values.
 
-**Group API (ORS):** `AddGroupIntensity`, `GroupState`, `GroupIntensity`, `GroupStress`, `GroupFatigue`,
+**Leaving a player out of the group.** `ORS.SetGroupExcluded(playerId, true)` (or `OIDDAContext.ExcludedFromGroup`) takes a player
+out of every aggregation and out of `Group.PlayerCount`, for example while they are dead or spectating; `false` brings them back.
+An excluded player keeps their own difficulty and still reads the `Group.*` variables and the group's state. Nothing else changes:
+the flag is not replicated to clients (the game that set it knows it), it survives a reconnection, and a player who comes back counts
+at once with their real values (`JoinWarmupSeconds` only covers the first seconds after joining, whether or not they were excluded
+meanwhile). If every player is excluded the group uses its neutral values (score 0.5, no intensity, stress or fatigue, 0 players).
+`GroupWeight` is separate: it only matters to `Weighted`, and it does not exclude anyone from the other modes.
+
+**Group API (ORS):** `AddGroupIntensity`, `SetGroupExcluded`, `GroupState`, `GroupIntensity`, `GroupStress`, `GroupFatigue`,
 `IsShouldSpawnGroupEncounter`, `GroupQuickReceiver<T>`, `GroupQuickSender`.
 
 ## The network module

@@ -40,6 +40,13 @@ public sealed class OIDDAContext
     /// <summary> Weight of this player when the group uses <see cref="GroupAggregation.Weighted"/>. </summary>
     public float GroupWeight { get; set; } = 1f;
 
+    /// <summary>
+    /// True while this player is left out of the group: it does not count in any aggregation or in <see cref="OIDDAGroup.PlayerCount"/>.
+    /// The player keeps its own difficulty and still reads the Group.* variables (it is like a spectator). Set it at will, for example
+    /// when the player dies and when it comes back (see <c>ORS.SetGroupExcluded</c>). It is kept when a player is parked and resumed.
+    /// </summary>
+    public bool ExcludedFromGroup { get; set; }
+
     // What metrics and rules read: the player's values, plus the Group.* variables when a group is active.
     IValueStore Effective => _overlay ?? Store;
 
