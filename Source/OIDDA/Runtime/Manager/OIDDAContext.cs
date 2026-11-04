@@ -37,6 +37,8 @@ public sealed class OIDDAContext
     /// <summary> Seconds since this context started updating. </summary>
     public float Age { get; private set; }
 
+    internal void RestoreAge(float age) => Age = age;
+
     /// <summary> Weight of this player when the group uses <see cref="GroupAggregation.Weighted"/>. </summary>
     public float GroupWeight { get; set; } = 1f;
 

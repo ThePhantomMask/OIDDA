@@ -128,6 +128,8 @@ meanwhile). If every player is excluded the group uses its neutral values (score
 | `StateSendInterval` | 0.1 s | Seconds between state messages. |
 | `ReconnectGraceSeconds` | 120 | How long the server keeps a disconnected player's state. 0 turns reconnection off. |
 | `SendPlayerKey` | on | Client side: send the player key so a reconnection is recognised. |
+| `SaveProfiles` | off | Server side: keep each player's profile between sessions (see Saving profiles). |
+| `ProfileAutosaveSeconds` | 60 | Seconds between saves of the connected players' profiles. 0: only when they leave and when the server stops. |
 | `AllowClientMetrics` | off | See above. |
 | `MaxReportsPerSecond` | 10 | Reports per second accepted from each client. |
 | `AllowedClientMetrics` | empty | The only metrics a client may report, with their range. |
@@ -170,6 +172,64 @@ OIDDAPlayerKey.Provider = () => myAccountId;   // 8 to 64 letters, digits, '-' o
 A key already used by a connected player cannot be claimed again, and at most 64 disconnected players are kept at once (the
 oldest is dropped first).
 
+### Saving profiles
+
+Reconnection keeps a player's state in memory for `ReconnectGraceSeconds`. To keep it **between sessions** (a later day, or after
+the server restarts), turn on `SaveProfiles` on the `OIDDANetworkSync` of the server. Everything happens on the server: a client never
+sends state, so it cannot change its own profile. Only identified players (the ones that sent a key) have a profile; the default
+player (id 0: the host in a listen server, or single player) has none, because its values live in the game's `GameplayGlobals`.
+
+- **What is saved:** the player's values (by name and type), the pacing state of their personal Director (state, intensity, stress,
+  fatigue, engagement, time in the state) and their age. Not saved: the group weight, the exclusion flag, the group's state,
+  smoothing, ORS delays and timers. Texture and cube texture values are saved as the asset id and loaded again on restore; a texture
+  made at run time, or one that no longer exists, is left out. Numbers are stored as floats (a position keeps float precision even
+  with large worlds). At most 256 values, names up to 64 characters, strings up to 4096 characters, 64 KB in all.
+- **When it is saved:** when the player leaves, every `ProfileAutosaveSeconds` (a few players at a time, with each state update, so many players
+  never stall a frame), and when the `OIDDANetworkSync` stops (the server stops or the scene ends).
+- **When it is loaded:** when a player identifies and the server has nothing waiting for them in memory (see Reconnection). The
+  result is logged as `Restored`. A value is applied only if the player has no value of that name yet, or one of the same type, so an
+  old profile cannot break a game that changed. A profile that is not valid (another version, damaged, not a number) is ignored as a
+  whole. The time they were away does not count: the profile is restored as it was saved.
+- **When it is deleted:** never by itself. A profile stays until it is overwritten by the next save. A profile file is deleted only
+  when the provider later saves that player successfully (so an old file cannot come back), or by `OIDDAProfileStore.Delete(key)`
+  (for example when an account is deleted). There is no expiry in this version.
+
+**Where it is kept.** A game can set a provider (its own database or cloud save). It is separate from `OIDDAPlayerKey.Provider`,
+which only says *who* the player is:
+
+```csharp
+public sealed class MyProfiles : IOIDDAProfileProvider
+{
+    public bool TrySave(string key, byte[] data) { /* store it, return true on success */ }
+    public bool TryLoad(string key, out byte[] data) { /* return false if there is none */ }
+    public bool TryDelete(string key) { /* ... */ }
+}
+
+OIDDAProfileStore.Provider = new MyProfiles();
+```
+
+The calls are synchronous and run on the server's game thread, so they must answer quickly. If there is no provider, or it returns
+`false` or throws, the profile is written to an **encrypted file** instead (one warning in the log). When loading, both places are
+looked at and the more recent profile wins.
+
+**The encrypted file.** AES-256-GCM, with a fresh random nonce at every save. The key is derived with HKDF-SHA256 from a secret and a
+random salt stored in each file. The file is bound to its player: a file copied under another player's name is refused, and a changed
+byte makes the whole file unreadable. It is named after the SHA-256 of the player key (`<OIDDA folder>/profiles/<hash>.oidp`) and
+written through a temporary file, so an interruption never leaves a broken profile. Where AES-GCM is not supported no file is written
+(one warning).
+
+The secret is what makes the encryption worth anything. Set your own:
+
+```csharp
+OIDDAProfileStore.EncryptionKey = mySecret32Bytes;                       // 32 random bytes kept out of the game's files
+// or, from a passphrase (slow on purpose: call it once at start-up)
+OIDDAProfileStore.EncryptionKey = OIDDAProfileStore.KeyFromPassphrase(passphrase, salt);
+```
+
+A key that is not 32 bytes long means no file is written or read. **If you set none, a random key is made and kept in
+`profiles/profile.secret`, next to the profiles.** That only stops casual reading and editing: anyone who can read the folder can
+read the key too. A file written with one key cannot be read with another (the profile is then simply not found).
+
 ### Performance
 
 With 8 players the server loop allocates about 616 bytes per state tick (owner-only) or 280 bytes (replicate to all), which
@@ -202,6 +262,7 @@ conversion.
 | Nothing happens on the server | **Enable Network** is off in the OIDDA settings, or there is no `OIDDAManager` in the scene, or `OIDDANetworkSync` is missing or is a duplicate (check the log). |
 | "N client(s) have no player" warning | `OIDDAManager.MaxPlayers` is smaller than the number of connected clients. |
 | `QuickReceiver` throws on a client | By design: game variables live on the server. Read the replicated state instead. |
+| Profiles are not saved or restored | `SaveProfiles` is off, the player never sent a key (`SendPlayerKey` off on the client, or the key is not valid), or the file could not be written (see the warnings: no AES-GCM, an `EncryptionKey` that is not 32 bytes, a folder that cannot be written). |
 | A returning player starts fresh | `ReconnectGraceSeconds` is 0 or expired, `SendPlayerKey` is off on the client, or the key is not valid. Turn on `DebugMode` on the manager to see "identified / resumed" lines. |
 | State seems to lag or skip with `StateChannel = Unreliable` | Expected under packet loss: a lost message is not resent, the next one arrives within `StateSendInterval`. Use `Reliable` if every message matters. |
 | A client ignores every state message | Server and client run different plugin versions (the message version must match), or the client is not connected. |

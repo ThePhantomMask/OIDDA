@@ -79,6 +79,19 @@ public class DirectorManager
     }
 
     /// <summary>
+    /// Puts back the pacing state saved in a player's profile (see <see cref="OIDDAProfile"/>). The values have been checked by the caller.
+    /// </summary>
+    internal void RestoreState(DirectorState state, float intensity, float stress, float fatigue, float engagement, float stateTimer)
+    {
+        CurrentState = state;
+        CurrentIntensity = intensity;
+        StressLevel = stress;
+        FatigueLevel = fatigue;
+        EngagementLevel = engagement;
+        timeInCurrentState = stateTimer;
+    }
+
+    /// <summary>
     /// Updates the pacing director's internal state and psychological metrics based on the elapsed time and current gameplay values.
     /// </summary>
     /// <param name="deltaTime">The amount of time, in seconds, that has elapsed since the last update. Must be non-negative.</param>

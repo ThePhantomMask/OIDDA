@@ -20,6 +20,12 @@ public interface IOIDDAPlayerHost
     bool TryGetGroupState(out OIDDAStateSnapshot snapshot);
     void SetDefaultPlayerIsReal(bool value);
     bool WriteMetric(uint playerId, string name, float value);
+
+    /// <summary> The profile of a player (see <c>OIDDAProfile</c>) to keep between sessions, or null if there is none. </summary>
+    byte[] CaptureProfile(uint playerId) => null;
+
+    /// <summary> Puts a saved profile into a player. False if the profile is not valid or the player is unknown. </summary>
+    bool RestoreProfile(uint playerId, byte[] profile) => false;
 }
 
 /// <summary>
@@ -51,7 +57,10 @@ public enum IdentifyResult
     Identified,
 
     /// <summary> A returning player: their previous state was restored. </summary>
-    Resumed
+    Resumed,
+
+    /// <summary> A player seen in an earlier session: their saved profile was loaded. </summary>
+    Restored
 }
 
 /// <summary> Counters of the reconnection logic, for debugging and tests. </summary>
@@ -61,6 +70,12 @@ public struct OIDDASessionStats
     public int Resumed;
     public int Expired;
     public int Evicted;
+
+    /// <summary> Profiles saved. </summary>
+    public int Saved;
+
+    /// <summary> Profiles loaded for returning players. </summary>
+    public int Restored;
 }
 
 /// <summary>
@@ -86,6 +101,11 @@ public sealed class OIDDAServerSession
     readonly OIDDAMetricGate _gate;
     readonly float _graceSeconds;
     readonly int _maxParked;
+    readonly bool _saveProfiles;
+    readonly float _autosaveSeconds;
+    readonly List<uint> _saveQueue = new();
+    float _nextAutosave = -1f;
+    int _saveCursor;
     readonly HashSet<uint> _players = new();
     readonly HashSet<uint> _needReliable = new();
     readonly HashSet<uint> _rejected = new();
@@ -111,13 +131,20 @@ public sealed class OIDDAServerSession
     /// <param name="gate">Decides which client metrics are accepted. Null refuses all of them.</param>
     /// <param name="reconnectGraceSeconds">How long a disconnected player's state is kept for them to come back. 0 turns reconnection off.</param>
     /// <param name="maxParked">Most disconnected players kept at once; beyond it the oldest is dropped.</param>
-    public OIDDAServerSession(IOIDDAPlayerHost host, OIDDAMetricGate gate = null, float reconnectGraceSeconds = 0f, int maxParked = 64)
+    /// <param name="saveProfiles">Keep the profile of each identified player between sessions (see <see cref="OIDDAProfileStore"/>).</param>
+    /// <param name="profileAutosaveSeconds">With saveProfiles, how often the profiles of the connected players are saved. 0: only when they leave and when the server stops.</param>
+    public OIDDAServerSession(IOIDDAPlayerHost host, OIDDAMetricGate gate = null, float reconnectGraceSeconds = 0f, int maxParked = 64, bool saveProfiles = false, float profileAutosaveSeconds = 0f)
     {
         _host = host;
         _gate = gate;
         _graceSeconds = reconnectGraceSeconds;
         _maxParked = maxParked;
+        _saveProfiles = saveProfiles;
+        _autosaveSeconds = profileAutosaveSeconds;
     }
+
+    /// <summary> Most profiles written in one call of <see cref="Reconcile(List{uint}, bool, float)"/>, so saving many players never stalls a frame. </summary>
+    public const int MaxAutosavesPerTick = 4;
 
     /// <summary> 
     /// Remote clients that have a player. 
@@ -158,6 +185,7 @@ public sealed class OIDDAServerSession
     {
         _host.SetDefaultPlayerIsReal(defaultPlayerIsReal);
         PurgeExpired(now);
+        Autosave(now);
 
         _connected.Clear();
         for (int i = 0; i < connectedRemoteIds.Count; i++)
@@ -208,12 +236,56 @@ public sealed class OIDDAServerSession
     }
 
     // A player who identified themselves can come back: keep their state aside. Anyone else is simply removed.
+    void SaveProfile(uint id, string key)
+    {
+        var profile = _host.CaptureProfile(id);
+        if (profile != null && OIDDAProfileStore.Save(key, profile)) _stats.Saved++;
+    }
+
+    // Saves the connected players one after another: a few per call, then the rest in the next calls.
+    void Autosave(float now)
+    {
+        if (!_saveProfiles || _autosaveSeconds <= 0f) return;
+
+        if (_saveCursor >= _saveQueue.Count)
+        {
+            if (_nextAutosave < 0f)
+            {
+                _nextAutosave = now + _autosaveSeconds;
+                return;
+            }
+
+            if (now < _nextAutosave) return;
+
+            _nextAutosave = now + _autosaveSeconds;
+            _saveQueue.Clear();
+            foreach (var id in _keyByPlayer.Keys) _saveQueue.Add(id);
+            _saveCursor = 0;
+        }
+
+        for (int n = 0; n < MaxAutosavesPerTick && _saveCursor < _saveQueue.Count; n++, _saveCursor++)
+        {
+            var id = _saveQueue[_saveCursor];
+            if (_keyByPlayer.TryGetValue(id, out var key)) SaveProfile(id, key);
+        }
+    }
+
+    /// <summary> Saves the profile of every identified player now (when the server stops). Does nothing unless profiles are on. </summary>
+    public void FlushProfiles()
+    {
+        if (!_saveProfiles) return;
+
+        foreach (var pair in _keyByPlayer) SaveProfile(pair.Key, pair.Value);
+    }
+
     void Leave(uint id, float now)
     {
         if (_keyByPlayer.TryGetValue(id, out var key))
         {
             _keyByPlayer.Remove(id);
             _playerByKey.Remove(key);
+
+            if (_saveProfiles) SaveProfile(id, key);
 
             if (_graceSeconds > 0f && _maxParked > 0)
             {
@@ -270,7 +342,7 @@ public sealed class OIDDAServerSession
     /// </summary>
     public IdentifyResult HandleIdentify(uint senderId, string key, float now)
     {
-        if (_graceSeconds <= 0f || !OIDDAPlayerKey.IsValid(key) || !_players.Contains(senderId)) return IdentifyResult.Rejected;
+        if ((_graceSeconds <= 0f && !_saveProfiles) || !OIDDAPlayerKey.IsValid(key) || !_players.Contains(senderId)) return IdentifyResult.Rejected;
         if (_keyByPlayer.ContainsKey(senderId) || _playerByKey.ContainsKey(key)) return IdentifyResult.Rejected;
 
         var result = IdentifyResult.Identified;
@@ -285,6 +357,14 @@ public sealed class OIDDAServerSession
                 result = IdentifyResult.Resumed;
                 _needReliable.Add(senderId); // their state jumped back: make sure they get it
             }
+        }
+
+        // Nobody was waiting in memory: maybe the player was here in an earlier session.
+        if (result == IdentifyResult.Identified && _saveProfiles && OIDDAProfileStore.TryLoad(key, out var profile) && _host.RestoreProfile(senderId, profile))
+        {
+            _stats.Restored++;
+            result = IdentifyResult.Restored;
+            _needReliable.Add(senderId);
         }
 
         _keyByPlayer[senderId] = key;

@@ -24,6 +24,12 @@ public class OIDDANetworkSync : Script
     [EditorDisplay("Reconnection"), Range(0f, 3600f), Tooltip("Seconds the server keeps a disconnected player's state so they get it back when they reconnect (they are recognised by a secret key their client sends). 0 turns reconnection off.")]
     public float ReconnectGraceSeconds = 120f;
 
+    [EditorDisplay("Profiles"), Tooltip("Server side: keep each player's profile (their values, pacing state and age) between sessions, keyed by their player key. It is saved when they leave and when the server stops, through OIDDAProfileStore.Provider if the game set one, or an encrypted file. Needs players to send their key (Send Player Key). Off by default.")]
+    public bool SaveProfiles = false;
+
+    [EditorDisplay("Profiles"), Range(0f, 3600f), Tooltip("Seconds between saves of the profiles of the connected players. 0: only when they leave and when the server stops.")]
+    public float ProfileAutosaveSeconds = 60f;
+
     [EditorDisplay("Reconnection"), Tooltip("Client side: send the player key to the server so a reconnection is recognised. Turn off to never identify this client.")]
     public bool SendPlayerKey = true;
 
@@ -96,6 +102,7 @@ public class OIDDANetworkSync : Script
         // The editor limits these, but values loaded from a scene are not checked.
         if (StateSendInterval < 0.02f) StateSendInterval = 0.02f;
         if (ReconnectGraceSeconds < 0f) ReconnectGraceSeconds = 0f;
+        if (ProfileAutosaveSeconds < 0f) ProfileAutosaveSeconds = 0f;
         if (MaxReportsPerSecond < 1) MaxReportsPerSecond = 1;
 
         NetworkReplicator.AddObject(this);
@@ -142,6 +149,7 @@ public class OIDDANetworkSync : Script
 
         NetworkReplicator.RemoveObject(this);
 
+        _session?.FlushProfiles();
         _session = null;
         _host = null;
     }
@@ -192,7 +200,7 @@ public class OIDDANetworkSync : Script
         if (_host == null || _host.Manager != manager)
         {
             _host = new ManagerPlayerHost(manager);
-            _session = new OIDDAServerSession(_host, _gate, ReconnectGraceSeconds);
+            _session = new OIDDAServerSession(_host, _gate, ReconnectGraceSeconds, 64, SaveProfiles, ProfileAutosaveSeconds);
             _timer = 0f;
             _lastRejected = 0;
             _lastStats = default;
@@ -233,9 +241,9 @@ public class OIDDANetworkSync : Script
         if (!manager.DebugMode) return;
 
         var stats = _session.Stats;
-        if (stats.Parked != _lastStats.Parked || stats.Resumed != _lastStats.Resumed || stats.Expired != _lastStats.Expired || stats.Evicted != _lastStats.Evicted)
+        if (stats.Parked != _lastStats.Parked || stats.Resumed != _lastStats.Resumed || stats.Expired != _lastStats.Expired || stats.Evicted != _lastStats.Evicted || stats.Saved != _lastStats.Saved || stats.Restored != _lastStats.Restored)
         {
-            Debug.Log($"[OIDDA Network] Reconnection: kept={_session.ParkedCount}, parked={stats.Parked}, resumed={stats.Resumed}, expired={stats.Expired}, evicted={stats.Evicted}");
+            Debug.Log($"[OIDDA Network] Reconnection: kept={_session.ParkedCount}, parked={stats.Parked}, resumed={stats.Resumed}, expired={stats.Expired}, evicted={stats.Evicted}; profiles: saved={stats.Saved}, restored={stats.Restored}");
             _lastStats = stats;
         }
     }

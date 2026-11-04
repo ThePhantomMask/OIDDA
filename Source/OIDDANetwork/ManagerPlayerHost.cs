@@ -1,4 +1,6 @@
-﻿namespace OIDDA.Network;
+﻿using OIDDA.Data;
+
+namespace OIDDA.Network;
 
 /// <summary>
 /// <see cref="IOIDDAPlayerHost"/> over the real <see cref="OIDDAManager"/>.
@@ -22,6 +24,18 @@ public sealed class ManagerPlayerHost : IOIDDAPlayerHost
     public bool TryGetGroupState(out OIDDAStateSnapshot snapshot) => Manager.TryGetGroupState(out snapshot);
 
     public void SetDefaultPlayerIsReal(bool value) => Manager.DefaultPlayerIsReal = value;
+
+    public byte[] CaptureProfile(uint playerId)
+    {
+        var context = Manager.GetContext(playerId);
+        return context == null ? null : OIDDAProfile.Capture(context);
+    }
+
+    public bool RestoreProfile(uint playerId, byte[] profile)
+    {
+        var context = Manager.GetContext(playerId);
+        return context != null && OIDDAProfile.TryRestore(context, profile);
+    }
 
     public bool WriteMetric(uint playerId, string name, float value)
     {

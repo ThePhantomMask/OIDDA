@@ -32,6 +32,7 @@ The full guide is in [`Docs/Multiplayer.md`](../../Docs/Multiplayer.md).
 | `OIDDANetworkCodec.cs` | The message format, strictly validated. |
 | `OIDDAMetricGate.cs` | Allow-list, clamping and rate limit for client metrics. |
 | `OIDDAPlayerKey.cs` | The secret key a client uses to be recognised when it reconnects. |
+| `OIDDAProfileStore.cs` | Saves a player's profile between sessions: a provider set by the game, or an AES-256-GCM encrypted file (off unless `SaveProfiles` is on). The profile itself is `OIDDAProfile` in the base module. |
 | `ManagerPlayerHost.cs`, `FlaxNetworkEnvironment.cs` | The thin layer over the manager and the engine. |
 | `Samples/OIDDANetworkDemo.cs` | A script to try everything from the editor. Delete the folder if unwanted. |
 
