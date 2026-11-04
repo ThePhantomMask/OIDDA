@@ -104,21 +104,7 @@ public abstract class MetricBase
         return InverseLogic ? 1f - t : t;
     }
 
-    protected float ConvertToFloat(object value) =>
-        value switch
-        {
-            float f => f,
-            int i => (float)i,
-            bool b => b ? 1f : 0f,
-            Vector2 v2 => v2.Length,
-            Vector3 v3 => v3.Length,
-            Vector4 v4 => v4.Length,
-            Quaternion q => q.Length,
-            Color c => c.ValuesSum,
-            Transform t => t.Translation.Length,
-            Matrix m => m.TranslationVector.Length,
-            _ => 0f
-        };
+    protected float ConvertToFloat(object value) => OIDDAValue.ToFloat(value);
 
     protected static MetricState DetermineState(float score) => score switch
     {
@@ -235,14 +221,20 @@ public class RuleValue
     /// <summary>
     /// Applies the specified gameplay value operation to the global variables.
     /// </summary>
-    public void ApplyToGlobals()
+    public void ApplyToGlobals() => ApplyToGlobals(null);
+
+    /// <summary>
+    /// Applies the operation to the given store. With a null store the default ORS (single-player behaviour) is used.
+    /// </summary>
+    public void ApplyToGlobals(IValueStore store)
     {
-        var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(TargetGlobal));
-        var newValue = GameplayValueOperations.Apply(currentValue, Value, Operator);
+        var current = store != null ? store.GetValue<object>(TargetGlobal) : ORS.Instance.QuickReceiver<object>(TargetGlobal);
+        var newValue = GameplayValueOperations.Apply(GameplayValue.ConvertObject(current), Value, Operator);
         newValue = ClampResult(newValue);
 
         // Internal write: must not trigger a new analysis while rules are being applied.
-        ORS.Instance.WriteValue(TargetGlobal, newValue.Value);
+        if (store != null) store.SetValue(TargetGlobal, newValue.Value);
+        else ORS.Instance.WriteValue(TargetGlobal, newValue.Value);
     }
 }
 

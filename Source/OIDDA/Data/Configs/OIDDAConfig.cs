@@ -37,4 +37,11 @@ public class OIDDAConfig
     public bool UseDirector = true;
     [EditorOrder(2), EditorDisplay("Config")]
     public float SmoothingSpeed = 0.1f;
+
+
+    public static implicit operator bool(OIDDAConfig config)
+    {
+        return config is not null;
+    }
+
 }

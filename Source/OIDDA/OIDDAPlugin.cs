@@ -21,10 +21,11 @@ public class OIDDAPlugin : GamePlugin
 
     public OIDDASettings Settings;
     public OIDDAManager Manager;
+    public string FolderPath;
 
     public GameplayGlobals CurrentGlobals;
     public List<StaticORSAgentEntry> CurrentStaticORSAgents;
-    public JsonAssetReference<OIDDAConfig> CurrentOIDDAConfig;
+    public OIDDAConfig CurrentConfig;
 
     public OIDDAPlugin()
     {
@@ -67,8 +68,8 @@ public class OIDDAPlugin : GamePlugin
 
         Settings = settingsAsset.CreateInstance<OIDDASettings>();
         var settings = GameSettings.Load();
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), settings.CompanyName, settings.ProductName, Settings.FolderName);
-        if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+        FolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), settings.CompanyName, settings.ProductName, Settings.FolderName);
+        if (!Directory.Exists(FolderPath)) Directory.CreateDirectory(FolderPath);
         
         Level.SceneLoaded += OnSceneLoaded;
     }
@@ -86,7 +87,7 @@ public class OIDDAPlugin : GamePlugin
         Manager = null;
         CurrentGlobals = null;
         CurrentStaticORSAgents = null;
-        CurrentOIDDAConfig = default;
+        CurrentConfig = null;
 
         if (Settings == null) return;
 
@@ -118,10 +119,10 @@ public class OIDDAPlugin : GamePlugin
             return;
         }
 
-        CurrentOIDDAConfig = single ? Settings.Config
-            : HasIndex(Settings.Configs, currentIndex) ? Settings.Configs[currentIndex] : default;
+        CurrentConfig = single ? Settings.Config.Instance
+            : HasIndex(Settings.Configs, currentIndex) ? Settings.Configs[currentIndex].Instance : null; 
 
-        if (!CurrentOIDDAConfig)
+        if (!CurrentConfig)
         {
            #if FLAX_EDITOR
                 Debug.LogError($"No OIDDA {(single ? "Config" : "Configs")} found.\nPlease check your OIDDA settings.");

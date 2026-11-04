@@ -11,6 +11,15 @@ public class SmoothingManager
     readonly Dictionary<string, SmoothValue> _smoothedValues = new();
     readonly List<string> toRemove = new();
 
+    /// <summary>
+    /// Where smoothed values are read and written. When null, the default ORS (single-player behaviour) is used.
+    /// </summary>
+    public IValueStore Store { get; set; }
+
+    public SmoothingManager() { }
+
+    public SmoothingManager(IValueStore store) => Store = store;
+
     public void SetTarget(string variable, GameplayValue targetValue, float smoothingSpeed)
     {
         if (_smoothedValues.TryGetValue(variable, out var existing))
@@ -37,12 +46,15 @@ public class SmoothingManager
         {
             var smoothValue = kvp.Value;
 
-            var currentValue = GameplayValue.ConvertObject(ORS.Instance.QuickReceiver<object>(smoothValue.Variable));
+            var currentValue = GameplayValue.ConvertObject(Store != null
+                ? Store.GetValue<object>(smoothValue.Variable)
+                : ORS.Instance.QuickReceiver<object>(smoothValue.Variable));
             var t = 1f - Mathf.Pow(1f - smoothValue.SmoothSpeed, deltaTime);
             var newValue = GameplayValueOperations.Lerp(currentValue, smoothValue.TargetValue, t);
 
             // Internal write: must not trigger an analysis (it could add targets while we are enumerating).
-            ORS.Instance.WriteValue(smoothValue.Variable, newValue.Value);
+            if (Store != null) Store.SetValue(smoothValue.Variable, newValue.Value);
+            else ORS.Instance.WriteValue(smoothValue.Variable, newValue.Value);
 
             if (GameplayValueOperations.IsNearTarget(newValue, smoothValue.TargetValue))
                 toRemove.Add(kvp.Key);

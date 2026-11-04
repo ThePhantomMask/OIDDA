@@ -47,11 +47,30 @@ public class DirectorManager
     float timeSinceLastPeak = 0f, timeInCurrentState = 0f;
     float stressRate => StressLevel * 0.01f; float fatigueRate => FatigueLevel * 0.01f;
     SmoothingManager smoothingManager = new();
+    IValueStore _store;
 
     // The psychological parameters of a player
     public float StressLevel { get; private set; }
     public float FatigueLevel { get; private set; }
     public float EngagementLevel { get; private set; }
+
+    /// <summary>
+    /// Copies the tunable settings (not the runtime state) from another Director. Used to give every player's personal
+    /// Director the same settings as the one configured on the manager.
+    /// </summary>
+    public void CopySettingsFrom(DirectorManager other)
+    {
+        IntensityDecayRate = other.IntensityDecayRate;
+        PeakThreshold = other.PeakThreshold;
+        RelaxThreshold = other.RelaxThreshold;
+        MinRelaxDuration = other.MinRelaxDuration;
+        MaxPeakDuration = other.MaxPeakDuration;
+        UpdateInterval = other.UpdateInterval;
+        StressRiseRate = other.StressRiseRate;
+        StressDecayRate = other.StressDecayRate;
+        FatigueGainRate = other.FatigueGainRate;
+        FatigueRecoveryRate = other.FatigueRecoveryRate;
+    }
 
     public DirectorManager()
     {
@@ -60,15 +79,42 @@ public class DirectorManager
     }
 
     /// <summary>
+    /// Puts back the pacing state saved in a player's profile (see <see cref="OIDDAProfile"/>). The values have been checked by the caller.
+    /// </summary>
+    internal void RestoreState(DirectorState state, float intensity, float stress, float fatigue, float engagement, float stateTimer)
+    {
+        CurrentState = state;
+        CurrentIntensity = intensity;
+        StressLevel = stress;
+        FatigueLevel = fatigue;
+        EngagementLevel = engagement;
+        timeInCurrentState = stateTimer;
+    }
+
+    /// <summary>
     /// Updates the pacing director's internal state and psychological metrics based on the elapsed time and current gameplay values.
     /// </summary>
     /// <param name="deltaTime">The amount of time, in seconds, that has elapsed since the last update. Must be non-negative.</param>
     /// <param name="GameplayValues">A dictionary containing current gameplay values that influence pacing and psychological metrics. Keys represent value names;
     /// values provide the corresponding data.</param>
-    public void OnDirectorUpdate(float deltaTime , GameplayGlobals GameplayValues)
+    public void OnDirectorUpdate(float deltaTime, GameplayGlobals GameplayValues)
     {
         if (!GameplayValues)
             return;
+
+        OnDirectorUpdate(deltaTime, new GameplayGlobalsStore(GameplayValues));
+    }
+
+    /// <summary>
+    /// Same as <see cref="OnDirectorUpdate(float, GameplayGlobals)"/>, reading and writing through any <see cref="IValueStore"/>.
+    /// </summary>
+    public void OnDirectorUpdate(float deltaTime, IValueStore store)
+    {
+        if (store == null || !store.IsValid)
+            return;
+
+        _store = store;
+        smoothingManager.Store = store;
 
         timeInCurrentState += deltaTime;
         timeSinceLastPeak += deltaTime;
@@ -85,7 +131,7 @@ public class DirectorManager
             intervalAccumulator = 0f;
         }
 
-        UpdatePsychologicalMetrics(deltaTime, GameplayValues.Values);
+        UpdatePsychologicalMetrics(deltaTime, store.Values);
         UpdatePacingState();
         ApplyIntensityDecay(deltaTime);
         RecordIntensityEvent();
@@ -122,6 +168,64 @@ public class DirectorManager
         if (intensityHistory.Count > MaxHistory) intensityHistory.Dequeue();
     }
 
+    // Extra intensity that belongs to the group itself (an event that affects everyone). Decays like normal intensity.
+    float _groupBoost;
+
+    /// <summary>
+    /// Group Director only: adds intensity on top of the aggregated players' intensity.
+    /// </summary>
+    public void AddGroupBoost(float amount, string reason = "")
+    {
+        _groupBoost = Mathf.Clamp(_groupBoost + amount, 0f, 100f);
+
+        PushHistory(new IntensityEvent
+        {
+            Time = Time.GameTime,
+            Intensity = Mathf.Clamp(CurrentIntensity + amount, 0f, 100f),
+            Delta = amount,
+            Reason = reason
+        });
+    }
+
+    /// <summary>
+    /// Group Director update: instead of building up its own intensity, stress and fatigue, it takes the values aggregated
+    /// from the players. The pacing state machine, the rules and the smoothing work as for a single player.
+    /// </summary>
+    public void OnGroupUpdate(float deltaTime, IValueStore store, GroupInputs inputs)
+    {
+        if (store == null || !store.IsValid)
+            return;
+
+        smoothingManager.Store = _store = store;
+
+        timeInCurrentState += deltaTime;
+        timeSinceLastPeak += deltaTime;
+
+        smoothingManager.SmoothUpdate(deltaTime);
+
+        if (UpdateInterval > 0f)
+        {
+            intervalAccumulator += deltaTime;
+            if (intervalAccumulator < UpdateInterval) return;
+
+            deltaTime = intervalAccumulator;
+            intervalAccumulator = 0f;
+        }
+
+        _groupBoost = Mathf.Max(0f, _groupBoost - CurrentDecayRate * deltaTime);
+
+        StressLevel = Mathf.Clamp(inputs.Stress, 0f, 100f);
+        FatigueLevel = Mathf.Clamp(inputs.Fatigue, 0f, 100f);
+        CurrentIntensity = Mathf.Clamp(inputs.Intensity + _groupBoost, 0f, 100f);
+
+        if (currentConfig != null && currentConfig.DirectorRules != null && currentConfig.DirectorRules.Count > 0)
+            ApplyRules(store.Values, inputs.Score, deltaTime);
+
+        UpdateEngagement(deltaTime);
+        UpdatePacingState();
+        RecordIntensityEvent();
+    }
+
     /// <summary>
     /// Updates the psychological metrics such as stress, fatigue, and engagement levels based on the elapsed time and provided contextual values.
     /// </summary>
@@ -129,8 +233,8 @@ public class DirectorManager
     /// The specific effects on each metric depend on the current state and may be influenced by the provided values. 
     /// Call this method regularly to ensure psychological metrics remain up to date with the simulation or game loop.</remarks>
     /// <param name="deltaTime">The amount of time, in seconds, since the last update. Must be a non-negative value.</param>
-    /// <param name="values">A dictionary containing contextual values that may influence the update of psychological metrics. The expected
-    /// keys and value types depend on the implementation context.</param>
+    /// <param name="values">A dictionary containing contextual values that may influence the update of psychological metrics. 
+    /// The expected keys and value types depend on the implementation context.</param>
     internal void UpdatePsychologicalMetrics(float deltaTime, Dictionary<string, object> values)
     {
         bool canScore = values != null && values.Count > 0 &&
@@ -148,7 +252,11 @@ public class DirectorManager
         }
 
         UpdateFatigue(deltaTime);
+        UpdateEngagement(deltaTime);
+    }
 
+    void UpdateEngagement(float deltaTime)
+    {
         EngagementLevel = (CurrentIntensity, StressLevel) switch
         {
             ( > 70f, _) and (_, < 80f) => Mathf.Lerp(EngagementLevel, 100f, deltaTime * 2f),
@@ -235,18 +343,17 @@ public class DirectorManager
     /// </summary>
     /// <remarks>The rate of intensity decay varies depending on the current pacing state. 
     /// Calling this method repeatedly will gradually reduce the intensity to zero.</remarks>
-    /// <param name="deltaTime">The time, in seconds, since the last update. Must be non-negative.</param>
+    float CurrentDecayRate => CurrentState switch
+    {
+        DirectorState.Peak => IntensityDecayRate * 0.3f,
+        DirectorState.Fade => IntensityDecayRate * 2f,
+        DirectorState.Relax => IntensityDecayRate * 1.5f,
+        _ => IntensityDecayRate
+    };
+
     internal void ApplyIntensityDecay(float deltaTime)
     {
-        var decayRate = CurrentState switch
-        {
-            DirectorState.Peak => IntensityDecayRate * 0.3f,
-            DirectorState.Fade => IntensityDecayRate * 2f,
-            DirectorState.Relax => IntensityDecayRate * 1.5f,
-            _ => IntensityDecayRate
-        };
-
-        CurrentIntensity = Mathf.Max(0f, (CurrentIntensity - decayRate * deltaTime));
+        CurrentIntensity = Mathf.Max(0f, (CurrentIntensity - CurrentDecayRate * deltaTime));
     }
 
     /// <summary>
@@ -305,7 +412,7 @@ public class DirectorManager
             var score = overallScore + CalculateScoreByEmotion(rule, deltaTime);
             var ctx = new DifficultyContext(score, easy, difficult);
 
-            if (RuleApplier.ApplyRule(rule, currentValues, ctx, isDirectorSmoothing, smoothingManager, currentConfig.SmoothingSpeed, false))
+            if (RuleApplier.ApplyRule(rule, currentValues, ctx, isDirectorSmoothing, _store, smoothingManager, currentConfig.SmoothingSpeed, false))
                 rulesApplied++;
         }
         return rulesApplied;
@@ -329,8 +436,8 @@ public class DirectorManager
     /// Gets the current difficulty multiplier based on the pacing state and intensity.
     /// </summary>
     /// <remarks>The multiplier reflects the current challenge level, adjusting dynamically according to the
-    /// pacing state and relevant parameters such as intensity and elapsed time. Typical values range from 0.5 during
-    /// relaxed states up to 1.3 at peak intensity.</remarks>
+    /// pacing state and relevant parameters such as intensity and elapsed time. 
+    /// Typical values range from 0.5 during relaxed states up to 1.3 at peak intensity.</remarks>
     public float DifficultyMultiplier => CurrentState switch
     {
         DirectorState.Build => Mathf.Lerp(0.8f, 1.0f, CurrentIntensity / PeakThreshold),

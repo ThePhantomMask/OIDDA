@@ -1,8 +1,6 @@
 ﻿using FlaxEngine;
 using OIDDA.Data;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace OIDDA;
 
@@ -29,20 +27,252 @@ public class OIDDAManager : Script
 
     public DirectorManager Director = new();
 
+    /// <summary> Id of the default (local) player. Single-player always uses it. </summary>
+    public const uint DefaultPlayerId = 0;
+
+    /// <summary>
+    /// False on a dedicated server, where the default player is not a person: the group then leaves it out of its aggregation.
+    /// Set by the network layer; true everywhere else.
+    /// </summary>
+    public bool DefaultPlayerIsReal { get; set; } = true;
+
+    [EditorDisplay("Multiplayer"), Range(1, 256), Tooltip("Maximum number of players OIDDA keeps a context for. The default player counts only while it is a person: on a dedicated server (DefaultPlayerIsReal is false) it is left out, so 8 means 8 clients. Size it to your game.")]
+    public int MaxPlayers = 8;
+
+    /// <summary>
+    /// The players that count towards <see cref="MaxPlayers"/>: every context, except the default one while it is not a person.
+    /// </summary>
+    private int CountedPlayers
+    {
+        get
+        {
+            _ = DefaultContext; // make sure the default context exists, so it is always in the count
+            return DefaultPlayerIsReal ? _players.Count : _players.Count - 1;
+        }
+    }
+
+    [EditorDisplay("Multiplayer"), Tooltip("Enables the group Director: it paces the whole session from the aggregated state of every player. Leave empty for no group.")]
+    public JsonAssetReference<OIDDAGroupConfig> GroupConfig;
+
+    [EditorDisplay("Multiplayer"), Tooltip("Thresholds and rates of the group Director. Only used when a group config is assigned.")]
+    public DirectorManager GroupDirector = new();
+
     private OIDDAPlugin _pluginInstance;
 
-    private bool _isUseSmoothing, _isUseDirector;
     private Dictionary<string, IORSAgentD> _orsAgentDB = new();
     private Dictionary<string, IORSAgentS> _staticORSDB = new();
-    private float _updateInterval, _delay, _timeSinceLastUpdate = 0f, _timeSinceLastAdjustment = 0f;
 
-    // Delay (per variable): last send/receive time, the newest value waiting to be sent, and the last value read.
-    private readonly Dictionary<string, float> _lastSendTime = new(), _lastReceiveTime = new();
-    private readonly Dictionary<string, object> _pendingSends = new(), _receiveCache = new();
-    private readonly List<string> _flushKeys = new();
+    // Loaded from the plugin settings; read by the contexts.
+    internal float UpdateInterval, Delay;
 
-    private GameplayGlobals _currentGlobal;
-    private SmoothingManager _smoothingManager = new();
+    private OIDDAContext _default;
+
+    // Every player's context by id (the default one included), and the same contexts without the default one in
+    // registration order, so the update loop does not enumerate a dictionary.
+    private readonly Dictionary<uint, OIDDAContext> _players = new();
+    private readonly List<OIDDAContext> _extraContexts = new();
+
+    // Variables as they were when the manager was initialized: what a newly registered player starts from.
+    private Dictionary<string, object> _initialValues;
+
+    private OIDDAGroup _group;
+
+    /// <summary>
+    /// The group level (null unless a <see cref="GroupConfig"/> is assigned).
+    /// </summary>
+    public OIDDAGroup Group => _group;
+
+    private void ConfigureGroup()
+    {
+        var config = GroupConfig ? GroupConfig.Instance : null;
+
+        if (config == null)
+        {
+            _group = null;
+            AttachGroup(null);
+            return;
+        }
+
+        _group ??= new OIDDAGroup(this, GroupDirector);
+        _group.Configure(config, _initialValues);
+        AttachGroup(_group);
+    }
+
+    private void AttachGroup(OIDDAGroup group)
+    {
+        DefaultContext.AttachGroup(group);
+        foreach (var player in _extraContexts) player.AttachGroup(group);
+    }
+
+    /// <summary>
+    /// The context used by single-player and by the default (local) player. Its values live in the scene's GameplayGlobals.
+    /// </summary>
+    public OIDDAContext DefaultContext
+    {
+        get
+        {
+            if (_default == null)
+            {
+                _default = new OIDDAContext(this, Director) { PlayerId = DefaultPlayerId };
+                _players[DefaultPlayerId] = _default;
+            }
+            return _default;
+        }
+    }
+
+    #region State for clients
+
+    /// <summary>
+    /// The current state of a player, in the form clients receive. False if the player is not registered.
+    /// </summary>
+    public bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot)
+    {
+        var context = GetContext(playerId);
+        if (context == null)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        snapshot = OIDDAStateSnapshot.From(context);
+        return true;
+    }
+
+    /// <summary>
+    /// The current state of the group, in the form clients receive. False when no group is configured.
+    /// </summary>
+    public bool TryGetGroupState(out OIDDAStateSnapshot snapshot)
+    {
+        if (_group == null)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        snapshot = OIDDAStateSnapshot.From(_group);
+        return true;
+    }
+
+    #endregion
+
+    #region Players
+
+    /// <summary> Number of players with a context, the default one included. </summary>
+    public int PlayerCount => System.Math.Max(1, _players.Count);
+
+    /// <summary> Every player's context by id, the default one included. </summary>
+    public IReadOnlyDictionary<uint, OIDDAContext> Players
+    {
+        get
+        {
+            _ = DefaultContext;
+            return _players;
+        }
+    }
+
+    public bool HasPlayer(uint playerId) => playerId == DefaultPlayerId || _players.ContainsKey(playerId);
+
+    /// <summary>
+    /// The context of a player, or null if that player is not registered.
+    /// </summary>
+    public OIDDAContext GetContext(uint playerId)
+    {
+        if (playerId == DefaultPlayerId) return DefaultContext;
+        return _players.TryGetValue(playerId, out var context) ? context : null;
+    }
+
+    /// <summary>
+    /// Creates the context of a player. Each player has their own values, personal Director and smoothing; the configuration
+    /// and the manager settings are shared. Registering an existing player returns their context.
+    /// </summary>
+    /// <param name="playerId">Any id that is unique for the player (a local index, or a network client id).</param>
+    /// <param name="initialValues">Starting values. When null, the variables as they were when the manager was initialized.</param>
+    /// <returns>The context, or null if <see cref="MaxPlayers"/> has been reached.</returns>
+    public OIDDAContext RegisterPlayer(uint playerId, IEnumerable<KeyValuePair<string, object>> initialValues = null)
+    {
+        var existing = GetContext(playerId);
+        if (existing) return existing;
+
+        if (CountedPlayers >= MaxPlayers)
+        {
+            Debug.LogWarning($"[OIDDA] Cannot register player {playerId}: MaxPlayers ({MaxPlayers}) reached.");
+            return null;
+        }
+
+        var director = new DirectorManager();
+        director.CopySettingsFrom(Director);
+
+        var context = new OIDDAContext(this, director) { PlayerId = playerId };
+        context.SetStore(new DictionaryValueStore(initialValues ?? _initialValues));
+        context.AttachGroup(_group);
+
+        var config = DefaultContext.Director.currentConfig;
+        if (config) context.ApplyConfig(config);
+
+        // Spread the periodic analysis of the players over different frames (golden-ratio steps).
+        context.StaggerTimers(((_extraContexts.Count + 1) * 0.6180339887f) % 1f);
+
+        _players[playerId] = context;
+        _extraContexts.Add(context);
+        return context;
+    }
+
+    /// <summary>
+    /// Takes a player out of play without losing their state: the context stops updating, no longer counts towards
+    /// <see cref="MaxPlayers"/> and cannot be found by id. Hand it back with <see cref="ResumePlayer"/> (typically under a new id,
+    /// when the player reconnects). The state is frozen while parked.
+    /// </summary>
+    /// <returns>The parked context, or null if the player is unknown or is the default player.</returns>
+    public OIDDAContext ParkPlayer(uint playerId)
+    {
+        if (playerId == DefaultPlayerId || !_players.TryGetValue(playerId, out var context)) return null;
+
+        _players.Remove(playerId);
+        _extraContexts.Remove(context);
+        return context;
+    }
+
+    /// <summary>
+    /// Puts a context taken out with <see cref="ParkPlayer"/> back in play under the given id. A fresh context that was
+    /// already created under that id is replaced. The player's values, Director state and age are kept.
+    /// </summary>
+    /// <returns>The context, or null if it cannot be resumed (default player id, already in play, or <see cref="MaxPlayers"/> reached).</returns>
+    public OIDDAContext ResumePlayer(uint playerId, OIDDAContext parked)
+    {
+        if (parked == null || playerId == DefaultPlayerId || _extraContexts.Contains(parked)) return null;
+
+        if (_players.TryGetValue(playerId, out var fresh))
+        {
+            _players.Remove(playerId);
+            _extraContexts.Remove(fresh);
+        }
+        else if (CountedPlayers >= MaxPlayers)
+        {
+            Debug.LogWarning($"[OIDDA] Cannot resume player {playerId}: MaxPlayers ({MaxPlayers}) reached.");
+            return null;
+        }
+
+        parked.PlayerId = playerId;
+        parked.AttachGroup(_group);
+
+        _players[playerId] = parked;
+        _extraContexts.Add(parked);
+        return parked;
+    }
+
+    /// <summary>
+    /// Removes a player's context. The default player cannot be removed.
+    /// </summary>
+    public bool UnregisterPlayer(uint playerId)
+    {
+        if (playerId == DefaultPlayerId || !_players.TryGetValue(playerId, out var context)) return false;
+
+        _players.Remove(playerId);
+        _extraContexts.Remove(context);
+        return true;
+    }
+
+    #endregion
 
     public override void OnStart()
     {
@@ -58,8 +288,8 @@ public class OIDDAManager : Script
         var OIDDASettings = _pluginInstance.Settings;
         if (OIDDASettings == null) return;
 
-        _updateInterval = OIDDASettings.UpdateInterval;
-        _delay = OIDDASettings.Delay;
+        UpdateInterval = OIDDASettings.UpdateInterval;
+        Delay = OIDDASettings.Delay;
     }
 
     public override void OnEnable()
@@ -76,207 +306,79 @@ public class OIDDAManager : Script
     {
         LoadSettings();
 
+        var context = DefaultContext;
+        context.BindDirector(Director);
+
         if (_pluginInstance)
         {
             if (_pluginInstance.CurrentStaticORSAgents != null && _pluginInstance.CurrentStaticORSAgents.Count > 0)
                 _pluginInstance.CurrentStaticORSAgents.ForEach(kv => _staticORSDB[kv.Key] = kv.Value);
-            _currentGlobal = _pluginInstance.CurrentGlobals;
-            if (_pluginInstance.CurrentOIDDAConfig)
-            {
-                Director.currentConfig = _pluginInstance.CurrentOIDDAConfig.Instance;
-                _isUseSmoothing = Director.currentConfig.UseDDASmoothing;
-                Director.isDirectorSmoothing = Director.currentConfig.OverrideDirectorSmoothing
-                    ? Director.currentConfig.UseDirectorSmoothing
-                    : _isUseSmoothing;
-                _isUseDirector = Director.currentConfig.UseDirector;
-            }
+
+            var globals = _pluginInstance.CurrentGlobals;
+            context.SetStore(globals ? new GameplayGlobalsStore(globals) : null);
+            _initialValues = globals ? new Dictionary<string, object>(globals.Values) : null;
+
+            if (_pluginInstance.CurrentConfig != null)
+                context.ApplyConfig(_pluginInstance.CurrentConfig);
         }
-        _timeSinceLastUpdate = _timeSinceLastAdjustment = 0;
+        context.ResetTimers();
+
+        // Players registered before this point get the variables and configuration that were not available yet.
+        var sharedConfig = context.Director.currentConfig;
+        foreach (var player in _extraContexts)
+        {
+            (player.Store as DictionaryValueStore)?.SeedMissing(_initialValues);
+            if (sharedConfig != null) player.ApplyConfig(sharedConfig);
+        }
+
+        ConfigureGroup();
     }
 
     void OIDDAReset()
     {
-        if (_currentGlobal) _currentGlobal.ResetValues();  
-        if (_orsAgentDB.Count != 0) _orsAgentDB.Clear(); 
+        DefaultContext.Reset();
+        if (_orsAgentDB.Count != 0) _orsAgentDB.Clear();
         if (_staticORSDB.Count != 0) _staticORSDB.Clear();
-        _smoothingManager.Clear();
-        Director.ResetSmoothing();
-        _lastSendTime.Clear();
-        _lastReceiveTime.Clear();
-        _pendingSends.Clear();
-        _receiveCache.Clear();
-    }
-
-    bool _isAnalyzing;
-
-    void AnalyzeAndApply()
-    {
-        // Safety net against re-entrancy (e.g. user code calling QuickSender from a rule callback).
-        if (_isAnalyzing) return;
-
-        _isAnalyzing = true;
-        try { AnalyzeAndApplyInternal(); }
-        finally { _isAnalyzing = false; }
-    }
-
-    void AnalyzeAndApplyInternal()
-    {
-        var config = Director.currentConfig;
-        if (config == null || config.Rules == null || config.Metrics == null ||
-            config.Rules.Count == 0 || config.Metrics.Count == 0) return;
-
-        // Cheap early exit: nothing below can use a cooldown shorter than the smallest multiplier.
-        if (_timeSinceLastAdjustment < AdjustmentCooldown * MinCooldownFactor) return;
-
-        // GameplayGlobals.Values can be a marshalled copy: read it once per cycle.
-        var values = _pluginInstance.CurrentGlobals.Values;
-        float score;
-
-        if (DebugMode)
-        {
-            var analysis = MetricsAggregator.Analyze(config.Metrics, values, EasyThreshold, DifficultThreshold);
-            LogAnalysis(analysis);
-            score = analysis.OverallScore;
-        }
-        else
-        {
-            score = MetricsAggregator.CalculateOverallScore(config.Metrics, values);
-        }
-
-        if (_isUseDirector) score = ApplyDirectorInfluence(score);
-        if (_timeSinceLastAdjustment < dynamicCooldown(score)) return;
-
-        int rulesApplied = ApplyRules(values, score);
-
-        if (rulesApplied > 0)
-        {
-            _timeSinceLastAdjustment = 0f;
-
-            if (DebugMode && _isUseSmoothing && _smoothingManager.HasActiveSmoothings)
-                Debug.Log($"[OIDDA] Smoothing {_smoothingManager.ActiveSmoothingCount} value(s)");
-        }
-    }
-
-    /// <summary>
-    /// Calculates an adjusted score by applying the current pacing influence and difficulty multiplier to the specified base score.
-    /// </summary>
-    /// <remarks>The adjustment uses a linear interpolation between the base score and the base score
-    /// multiplied by the current difficulty multiplier, weighted by the pacing influence. The returned value reflects
-    /// dynamic game pacing and may change as pacing parameters are updated.</remarks>
-    /// <param name="baseScore">The original score to be modified based on pacing and difficulty. Must be a finite, non-negative value.</param>
-    /// <returns>A floating-point value representing the base score adjusted for pacing and difficulty. The result may be higher or lower than the input depending on the current pacing state.</returns>
-    float ApplyDirectorInfluence(float baseScore)
-    {
-        var pacingMultiplier = Director.DifficultyMultiplier;
-        var adjustedScore = Mathf.Lerp(baseScore, baseScore * pacingMultiplier, DirectorInfluence);
-
-        if (DebugMode)
-        {
-            Debug.Log($"[Director] Base Score: {baseScore:F2} -> Adjusted: {adjustedScore:F2} " +
-                     $"(Multiplier: {pacingMultiplier:F2}, State: {Director.CurrentState})");
-        }
-
-        return adjustedScore;
-    }
-
-    const float EasyCooldownFactor = 0.5f, PeakCooldownFactor = 0.7f, RelaxCooldownFactor = 2.0f;
-
-    // Smallest multiplier dynamicCooldown can return (easy score, and Peak when the Director is on).
-    float MinCooldownFactor => _isUseDirector ? EasyCooldownFactor * PeakCooldownFactor : EasyCooldownFactor;
-
-    float dynamicCooldown(float score)
-    {
-        var baseCooldown = score < EasyThreshold ? AdjustmentCooldown * EasyCooldownFactor : AdjustmentCooldown;
-
-        // Change cooldown based on director status
-        if (_isUseDirector)
-        {
-            baseCooldown *= Director.CurrentState switch
-            {
-                DirectorState.Peak => PeakCooldownFactor,    // Faster during peaks
-                DirectorState.Relax => RelaxCooldownFactor,  // Slower during rest
-                _ => 1.0f
-            };
-        }
-
-        return baseCooldown;
-    }
-
-    int ApplyRules(Dictionary<string, object> currentValues, float overallScore)
-    {
-        var config = Director.currentConfig;
-        var ctx = new DifficultyContext(overallScore, EasyThreshold, DifficultThreshold);
-        int rulesApplied = 0;
-
-        foreach (var rule in config.Rules)
-        {
-            if (rule == null) continue;
-            if (RuleApplier.ApplyRule(rule, currentValues, ctx, _isUseSmoothing, _smoothingManager, config.SmoothingSpeed, DebugMode))
-                rulesApplied++;
-        }
-        return rulesApplied;
-    }
-
-    void LogAnalysis(MetricsAnalysis analysis)
-    {
-        var analysisLog = new StringBuilder();
-        analysisLog.AppendLine("OIDDA Analysis:");
-        analysisLog.AppendLine($"Overall Score: {analysis.OverallScore:F3} ({analysis.OverallState})");
-        analysisLog.AppendLine($"Individual Metrics: {string.Join("\n", analysis.MetricInfos.Select(info => $"[{info.State}] {info.MetricName}: {info.NormalizedScore:F3}"))}");
-
-        var problematic = analysis.MetricInfos.Where(info => info.NormalizedScore > DifficultThreshold)
-                                              .OrderByDescending(info => info.NormalizedScore)
-                                              .ToList();
-        if (problematic.Count > 0)
-        {
-            analysisLog.AppendLine($"Problematic Metrics ({problematic.Count}):");
-            problematic.ForEach(metric => analysisLog.AppendLine($"{metric.MetricName}: {metric.NormalizedScore:F3}"));
-        }
-
-        if (_isUseDirector) analysisLog.AppendLine($"[Director] {Director.DebugInfo}");
-
-        Debug.Log(analysisLog.ToString());
+        foreach (var player in _extraContexts) player.Reset();
+        _group?.Reset();
     }
 
     void OIDDAUpdate()
     {
+        // A remote client does not run OIDDA: the server does, and its state reaches the ORS through the state provider.
+        if (ORS.IsRemoteClient) return;
+
+        var context = DefaultContext;
+
         // The plugin fills CurrentGlobals on scene load, possibly after this script's OnEnable: retry until available.
-        if (!_currentGlobal)
+        if (!context.HasStore)
         {
             Initialize();
-            if (!_currentGlobal) return;
+            if (!context.HasStore) return;
         }
 
-        Director.DebugMode = DebugMode;
+        var deltaTime = Time.DeltaTime;
+        context.Update(deltaTime);
 
-        if (_delay != 0f) FlushPendingSends();
-        if (_isUseSmoothing) _smoothingManager.SmoothUpdate(Time.DeltaTime);
-        if (_isUseDirector) Director.OnDirectorUpdate(Time.DeltaTime, _currentGlobal);
-        _timeSinceLastUpdate += Time.DeltaTime;
-        _timeSinceLastAdjustment += Time.DeltaTime;
-
-        if (_timeSinceLastUpdate >= _updateInterval)
+        // Index loop: a context can be registered or removed from a callback while the others update.
+        for (int i = 0; i < _extraContexts.Count; i++)
         {
-            AnalyzeAndApply();
-            _timeSinceLastUpdate -= _updateInterval;
+            var player = _extraContexts[i];
+            if (player.HasStore) player.Update(deltaTime);
         }
+
+        _group?.Update(deltaTime, context, _extraContexts);
     }
 
     #region Director Agent Management
 
-    public void AddDirectorIntensity(float amount, string reason = "")
-    {
-        if (!_isUseDirector) return;
-        Director.AddIntensity(amount, reason);
+    public void AddDirectorIntensity(float amount, string reason = "") => DefaultContext.AddDirectorIntensity(amount, reason);
 
-        if (DebugMode) Debug.Log($"[Director] Intensity added: + {amount} ({reason})");
-    }
-
-    public bool IsShouldSpawnEncounter => _isUseDirector ? Director.ShouldSpawnEncounter() : true;
-    public DirectorState DirectorState => Director.CurrentState;
-    public float Intensity => Director.CurrentIntensity;
-    public float PlayerStress => Director.StressLevel;
-    public float PlayerFatigue => Director.FatigueLevel;
+    public bool IsShouldSpawnEncounter => DefaultContext.IsShouldSpawnEncounter;
+    public DirectorState DirectorState => DefaultContext.DirectorState;
+    public float Intensity => DefaultContext.Intensity;
+    public float PlayerStress => DefaultContext.PlayerStress;
+    public float PlayerFatigue => DefaultContext.PlayerFatigue;
 
     #endregion
 
@@ -330,62 +432,6 @@ public class OIDDAManager : Script
 
     public bool StaticORSIsConnected(string name) => _staticORSDB.ContainsKey(name) && _staticORSDB[name].ORSStatus is ORSStatus.Connected;
 
-    // Each variable has its own clock (game time, so it does not depend on how many calls are made per frame).
-    // The first value goes out immediately; later ones are limited to one write per delay, keeping the newest
-    // value instead of dropping it.
-    private void DelaySender(string name, object value)
-    {
-        var now = Time.GameTime;
-
-        if (!_lastSendTime.TryGetValue(name, out var last) || now - last >= _delay)
-        {
-            _pendingSends.Remove(name);
-            SendNow(name, value, now);
-            return;
-        }
-
-        _pendingSends[name] = value;
-    }
-
-    private void SendNow(string name, object value, float now)
-    {
-        _lastSendTime[name] = now;
-        AnalyzeAndApply();
-        _currentGlobal.SetValue(name, value);
-    }
-
-    private void FlushPendingSends()
-    {
-        if (_pendingSends.Count == 0) return;
-
-        var now = Time.GameTime;
-        _flushKeys.Clear();
-        foreach (var pending in _pendingSends)
-            if (now - _lastSendTime[pending.Key] >= _delay) _flushKeys.Add(pending.Key);
-
-        foreach (var key in _flushKeys)
-        {
-            var value = _pendingSends[key];
-            _pendingSends.Remove(key);
-            SendNow(key, value, now);
-        }
-    }
-
-    // Reads the real value at most once per delay; in between, the last valid value is returned (never default).
-    private T DelayReceiver<T>(string name)
-    {
-        var now = Time.GameTime;
-
-        if (_lastReceiveTime.TryGetValue(name, out var last) && now - last < _delay &&
-            _receiveCache.TryGetValue(name, out var cached) && cached is T cachedValue)
-            return cachedValue;
-
-        var value = _currentGlobal.GetValue<T>(name);
-        _receiveCache[name] = value;
-        _lastReceiveTime[name] = now;
-        return value;
-    }
-
     public bool VerifyIsReceiver(string ID) => _orsAgentDB[ID].ORSType.CanReceive();
 
     public bool VerifyIsStaticReceiver(string Name) => _staticORSDB[Name].ORSType.CanReceive();
@@ -394,38 +440,25 @@ public class OIDDAManager : Script
 
     public bool VerifyIsStaticSender(string Name) => _staticORSDB[Name].ORSType.CanSend();
 
-    public void SetGlobal(string name, object value)
-    {
-        if (_delay != 0f) DelaySender(name, value);
-        else _currentGlobal.SetValue(name, value);
-    }
+    public void SetGlobal(string name, object value) => DefaultContext.SetGlobal(name, value);
 
-    public void SetStaticGlobal(string NameAgent, object value)
-    {
-        var variable = _staticORSDB[NameAgent].GlobalVariable;
+    public void SetStaticGlobal(string NameAgent, object value) => DefaultContext.SetStaticGlobal(_staticORSDB[NameAgent].GlobalVariable, value);
 
-        if (_delay != 0f)
-        {
-            DelaySender(variable, value);
-            return;
-        }
-
-        AnalyzeAndApply();
-        _currentGlobal.SetValue(variable, value);
-    }
-
-    public void QuickSender(string name, object value) { _currentGlobal.SetValue(name, value); AnalyzeAndApply(); }
+    public void QuickSender(string name, object value) => DefaultContext.QuickSender(name, value);
 
     /// <summary>
     /// Writes a value without triggering an analysis (internal use by rules and smoothing).
     /// </summary>
-    internal void WriteGlobal(string name, object value) => _currentGlobal.SetValue(name, value);
+    internal void WriteGlobal(string name, object value) => DefaultContext.WriteGlobal(name, value);
 
-    public T GetGlobal<T>(string name) => (_delay != 0f) ? DelayReceiver<T>(name) : _currentGlobal.GetValue<T>(name);
+    public T GetGlobal<T>(string name) => DefaultContext.GetGlobal<T>(name);
 
-    public T GetStaticGlobal<T>(string NameAgent) => GetGlobal<T>(_staticORSDB[NameAgent].GlobalVariable);
+    /// <summary> Name of the gameplay variable behind a static ORS agent. </summary>
+    internal string StaticVariable(string agentName) => _staticORSDB[agentName].GlobalVariable;
 
-    public T QuickReceiver<T>(string name) => _currentGlobal.GetValue<T>(name);
+    public T GetStaticGlobal<T>(string NameAgent) => DefaultContext.GetGlobal<T>(_staticORSDB[NameAgent].GlobalVariable);
+
+    public T QuickReceiver<T>(string name) => DefaultContext.QuickReceiver<T>(name);
     #endregion
 
     public override void OnUpdate()
