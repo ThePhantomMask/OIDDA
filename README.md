@@ -84,7 +84,7 @@ This project is dual-licensed:
 - **Flax Engine use**: [USE IT IN FLAX License](LICENSE)  
   Applies to use of the software within Flax Engine.
 
-- **Ports for other engines**: [OIDDA Porting & Attribution License](LICENSE-PORTING)  
+- **Ports for other engines**: [OIDDA Porting & Attribution License](LICENSE-SECONDARY)  
   Allows ports, adaptations, and forks for engines other than Flax Engine (e.g., Godot, Unity, Unreal Engine), provided that attribution to the original author and project is preserved.
 
 > Community ports are **not official OIDDA versions** unless explicitly stated by the original author.
