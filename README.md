@@ -83,11 +83,17 @@ See [Docs/Multiplayer.md](Docs/Multiplayer.md) for the guide.
 # Future Roadmap: 
 Current development is laying the groundwork for the 2.0 release, which will introduce neural network-based learning capabilities.
 
+# Licensing
+This project is dual-licensed:
+
+- **Flax Engine use**: [USE IT IN FLAX License](LICENSE)  
+  Applies to use of the software within Flax Engine.
+
+- **Ports for other engines**: [OIDDA Porting & Attribution License](LICENSE-PORTING)  
+  Allows ports, adaptations, and forks for engines other than Flax Engine (e.g., Godot, Unity, Unreal Engine), provided that attribution to the original author and project is preserved.
+
+> Community ports are **not official OIDDA versions** unless explicitly stated by the original author.
+
 # Support
 You are free to contribute to the plugin to improve it.
 You can also create forks with modifications dedicated exclusively to your project.
-Also creating ports for other ports such as **Unity**, **Unreal Engine**, **Godot**, etc.
-
-
-
-
