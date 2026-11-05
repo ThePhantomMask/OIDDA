@@ -1,0 +1,29 @@
+OIDDA Porting & Attribution License
+This license supplements the main “USE IT IN FLAX License” and applies solely to the creation of ports, adaptations, and forks of the OIDDA software for graphics engines other than Flax Engine (including but not limited to Godot, Unity, Unreal Engine, and S&Box).
+
+1. Grant
+A free, worldwide, non-exclusive license is granted to create, distribute, and modify ports, adaptations, and forks of the software for other graphics engines, and to fork such ports.
+
+2. Mandatory Attribution
+Every port, adaptation, or fork must clearly and visibly retain:
+
+the name of the original author, Michaele Salvini;
+
+the name of the original project, OIDDA;
+
+a reference to the original repository;
+
+a notice stating that the port is not an official version of OIDDA.
+This attribution must appear in the port’s README, in a NOTICE file (or equivalent), and, where applicable, in the final product’s credits.
+
+3. Attribution Preservation in Forks
+Ports and their forks must be distributed under a license that preserves the attribution obligation in Section 2 (e.g., MIT, BSD, Apache 2.0, or CC BY). Releasing a port or fork under a license that does not preserve attribution through the fork chain is prohibited.
+
+4. Official Ports by the Author
+The original author reserves the right to publish official ports of OIDDA for other engines. Community ports may not be presented, labelled, or promoted as “official,” nor may they use trademarks, logos, or names suggesting approval or affiliation with the original author, without written permission.
+
+5. No Warranty
+The software and any ports are provided “as is,” without warranties of any kind, express or implied.
+
+6. Relationship with the Main License
+Use of the software within Flax Engine remains governed exclusively by the “USE IT IN FLAX License.” This license does not modify or replace that license for Flax Engine use.
