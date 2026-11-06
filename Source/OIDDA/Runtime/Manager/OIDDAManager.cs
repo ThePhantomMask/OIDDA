@@ -30,6 +30,9 @@ public class OIDDAManager : Script
     /// <summary> Id of the default (local) player. Single-player always uses it. </summary>
     public const uint DefaultPlayerId = 0;
 
+    /// <summary> Id of the default group: every player starts in it, and it always exists while a group is configured. </summary>
+    public const uint DefaultGroupId = 0;
+
     /// <summary>
     /// False on a dedicated server, where the default player is not a person: the group then leaves it out of its aggregation.
     /// Set by the network layer; true everywhere else.
@@ -57,6 +60,12 @@ public class OIDDAManager : Script
     [EditorDisplay("Multiplayer"), Tooltip("Thresholds and rates of the group Director. Only used when a group config is assigned.")]
     public DirectorManager GroupDirector = new();
 
+    [EditorDisplay("Multiplayer"), Range(0, 64), Tooltip("Maximum number of groups besides the default group (group 0, which always exists and does not count). A group is created when a player is first assigned to it with SetPlayerGroup; groups that are empty and waiting to be removed do not count. 0 means only the default group.")]
+    public int MaxGroups = 8;
+
+    [EditorDisplay("Multiplayer"), Range(0, 3600), Tooltip("Seconds an empty group (not the default one) is kept before it is removed with its values and Director state, so that a player who comes back finds it as it was. 0 removes it as soon as it is empty.")]
+    public float GroupGraceSeconds = 120f;
+
     private OIDDAPlugin _pluginInstance;
 
     private Dictionary<string, IORSAgentD> _orsAgentDB = new();
@@ -75,12 +84,55 @@ public class OIDDAManager : Script
     // Variables as they were when the manager was initialized: what a newly registered player starts from.
     private Dictionary<string, object> _initialValues;
 
+    // The default group (id 0), which uses GroupDirector. The other groups are created on demand and have a Director of their own.
     private OIDDAGroup _group;
+    private readonly Dictionary<uint, OIDDAGroup> _otherGroups = new();
+    private readonly List<OIDDAGroup> _extraGroups = new();
+    private bool _warnedMaxGroups;
 
     /// <summary>
-    /// The group level (null unless a <see cref="GroupConfig"/> is assigned).
+    /// The default group, id 0 (null unless a <see cref="GroupConfig"/> is assigned). Use <see cref="GetGroup"/> for the others.
     /// </summary>
     public OIDDAGroup Group => _group;
+
+    /// <summary>
+    /// The group with the given id, or null if it does not exist (or no group is configured).
+    /// </summary>
+    public OIDDAGroup GetGroup(uint groupId)
+    {
+        if (groupId == DefaultGroupId) return _group;
+        return _otherGroups.TryGetValue(groupId, out var group) ? group : null;
+    }
+
+    /// <summary>
+    /// Moves a player to a group, creating it if needed (up to <see cref="MaxGroups"/>). The player keeps their age, so there is no new
+    /// warm-up. Without a group config only the id is stored: it takes effect when a group config is assigned.
+    /// </summary>
+    /// <returns>False if the player is not registered or the group cannot be created because <see cref="MaxGroups"/> is reached.</returns>
+    public bool SetPlayerGroup(uint playerId, uint groupId)
+    {
+        var context = GetContext(playerId);
+        if (context == null) return false;
+
+        var previous = context.GroupId;
+        if (previous == groupId) return true;
+
+        if (_group != null)
+        {
+            var target = EnsureGroup(groupId);
+            if (target == null) return false;
+
+            context.GroupId = groupId;
+            context.AttachGroup(target);
+        }
+        else
+        {
+            context.GroupId = groupId;
+        }
+
+        OnLeftGroup(previous);
+        return true;
+    }
 
     private void ConfigureGroup()
     {
@@ -89,19 +141,130 @@ public class OIDDAManager : Script
         if (config == null)
         {
             _group = null;
-            AttachGroup(null);
+            _otherGroups.Clear();
+            _extraGroups.Clear();
+            AttachGroups();
             return;
         }
 
         _group ??= new OIDDAGroup(this, GroupDirector);
         _group.Configure(config, _initialValues);
-        AttachGroup(_group);
+        foreach (var group in _extraGroups) group.Configure(config, _initialValues);
+        AttachGroups();
     }
 
-    private void AttachGroup(OIDDAGroup group)
+    private void AttachGroups()
     {
-        DefaultContext.AttachGroup(group);
-        foreach (var player in _extraContexts) player.AttachGroup(group);
+        AttachPlayerGroup(DefaultContext);
+        for (int i = 0; i < _extraContexts.Count; i++) AttachPlayerGroup(_extraContexts[i]);
+    }
+
+    // Connects a context to the group its GroupId names, creating the group if it is missing. A player whose group cannot be created
+    // (MaxGroups reached) goes to the default group.
+    private void AttachPlayerGroup(OIDDAContext player)
+    {
+        if (_group == null)
+        {
+            player.AttachGroup(null);
+            return;
+        }
+
+        var group = EnsureGroup(player.GroupId);
+        if (group == null)
+        {
+            player.GroupId = DefaultGroupId;
+            group = _group;
+        }
+        player.AttachGroup(group);
+    }
+
+    // The group with this id, created if it does not exist yet. Null when there is no group level or MaxGroups is reached.
+    private OIDDAGroup EnsureGroup(uint groupId)
+    {
+        var existing = GetGroup(groupId);
+        if (existing != null || _group == null) return existing;
+
+        if (CountActiveExtraGroups() >= MaxGroups)
+        {
+            if (!_warnedMaxGroups)
+            {
+                _warnedMaxGroups = true;
+                Debug.LogWarning($"[OIDDA] Cannot create group {groupId}: MaxGroups ({MaxGroups}) reached.");
+            }
+            return null;
+        }
+
+        var director = new DirectorManager();
+        director.CopySettingsFrom(GroupDirector);
+
+        var created = new OIDDAGroup(this, director, groupId);
+        created.Configure(_group.Config, _initialValues);
+        _otherGroups[groupId] = created;
+        _extraGroups.Add(created);
+        return created;
+    }
+
+    // Counts the players of every group besides the default one (into OIDDAGroup.Members).
+    private void RecountMembers()
+    {
+        for (int i = 0; i < _extraGroups.Count; i++) _extraGroups[i].Members = 0;
+        CountMember(DefaultContext);
+        for (int i = 0; i < _extraContexts.Count; i++) CountMember(_extraContexts[i]);
+    }
+
+    private void CountMember(OIDDAContext player)
+    {
+        if (player.GroupId != DefaultGroupId && _otherGroups.TryGetValue(player.GroupId, out var group)) group.Members++;
+    }
+
+    // Groups that have players. Empty groups waiting to be removed are not counted.
+    private int CountActiveExtraGroups()
+    {
+        if (_extraGroups.Count == 0) return 0;
+
+        RecountMembers();
+        var count = 0;
+        for (int i = 0; i < _extraGroups.Count; i++)
+            if (_extraGroups[i].Members > 0) count++;
+        return count;
+    }
+
+    // A player left a group: with no grace time, a group that is now empty goes away at once.
+    private void OnLeftGroup(uint groupId)
+    {
+        if (groupId == DefaultGroupId || GroupGraceSeconds > 0f) return;
+
+        var group = GetGroup(groupId);
+        if (group == null) return;
+
+        RecountMembers();
+        if (group.Members == 0) RemoveGroup(group);
+    }
+
+    private void RemoveGroup(OIDDAGroup group)
+    {
+        _otherGroups.Remove(group.Id);
+        _extraGroups.Remove(group);
+    }
+
+    // Removes the groups that have been empty for longer than GroupGraceSeconds.
+    private void UpdateGroupLifetimes(float deltaTime)
+    {
+        if (_extraGroups.Count == 0) return;
+
+        RecountMembers();
+        for (int i = _extraGroups.Count - 1; i >= 0; i--)
+        {
+            var group = _extraGroups[i];
+            if (group.Members > 0)
+            {
+                group.EmptyFor = 0f;
+                continue;
+            }
+
+            group.EmptyFor += deltaTime;
+            if (group.EmptyFor >= GroupGraceSeconds) RemoveGroup(group);
+        }
     }
 
     /// <summary>
@@ -139,17 +302,23 @@ public class OIDDAManager : Script
     }
 
     /// <summary>
-    /// The current state of the group, in the form clients receive. False when no group is configured.
+    /// The current state of the default group (the one that is replicated to clients), in the form clients receive. False when no group is configured.
     /// </summary>
-    public bool TryGetGroupState(out OIDDAStateSnapshot snapshot)
+    public bool TryGetGroupState(out OIDDAStateSnapshot snapshot) => TryGetGroupState(DefaultGroupId, out snapshot);
+
+    /// <summary>
+    /// The current state of a group, in the form clients receive. False if the group does not exist.
+    /// </summary>
+    public bool TryGetGroupState(uint groupId, out OIDDAStateSnapshot snapshot)
     {
-        if (_group == null)
+        var group = GetGroup(groupId);
+        if (group == null)
         {
             snapshot = default;
             return false;
         }
 
-        snapshot = OIDDAStateSnapshot.From(_group);
+        snapshot = OIDDAStateSnapshot.From(group);
         return true;
     }
 
@@ -229,6 +398,7 @@ public class OIDDAManager : Script
 
         _players.Remove(playerId);
         _extraContexts.Remove(context);
+        OnLeftGroup(context.GroupId);
         return context;
     }
 
@@ -245,6 +415,7 @@ public class OIDDAManager : Script
         {
             _players.Remove(playerId);
             _extraContexts.Remove(fresh);
+            OnLeftGroup(fresh.GroupId);
         }
         else if (CountedPlayers >= MaxPlayers)
         {
@@ -253,7 +424,7 @@ public class OIDDAManager : Script
         }
 
         parked.PlayerId = playerId;
-        parked.AttachGroup(_group);
+        AttachPlayerGroup(parked); // back in its own group, which is created again if it is gone
 
         _players[playerId] = parked;
         _extraContexts.Add(parked);
@@ -269,6 +440,7 @@ public class OIDDAManager : Script
 
         _players.Remove(playerId);
         _extraContexts.Remove(context);
+        OnLeftGroup(context.GroupId);
         return true;
     }
 
@@ -341,6 +513,7 @@ public class OIDDAManager : Script
         if (_staticORSDB.Count != 0) _staticORSDB.Clear();
         foreach (var player in _extraContexts) player.Reset();
         _group?.Reset();
+        foreach (var group in _extraGroups) group.Reset();
     }
 
     void OIDDAUpdate()
@@ -368,6 +541,8 @@ public class OIDDAManager : Script
         }
 
         _group?.Update(deltaTime, context, _extraContexts);
+        for (int i = 0; i < _extraGroups.Count; i++) _extraGroups[i].Update(deltaTime, context, _extraContexts);
+        UpdateGroupLifetimes(deltaTime);
     }
 
     #region Director Agent Management

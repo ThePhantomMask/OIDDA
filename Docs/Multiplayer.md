@@ -102,8 +102,33 @@ at once with their real values (`JoinWarmupSeconds` only covers the first second
 meanwhile). If every player is excluded the group uses its neutral values (score 0.5, no intensity, stress or fatigue, 0 players).
 `GroupWeight` is separate: it only matters to `Weighted`, and it does not exclude anyone from the other modes.
 
-**Group API (ORS):** `AddGroupIntensity`, `SetGroupExcluded`, `GroupState`, `GroupIntensity`, `GroupStress`, `GroupFatigue`,
-`IsShouldSpawnGroupEncounter`, `GroupQuickReceiver<T>`, `GroupQuickSender`.
+**Several groups.** Everyone starts in group 0. `ORS.SetPlayerGroup(playerId, groupId)` moves a player to another group (any `uint`
+chosen by the game, for example a team number), creating the group the first time someone joins it. Each group has its own Director,
+its own variables and its own `Group.*` values, and counts only its members; a player's metrics and rules read the `Group.*` values
+of the group the player is in. All groups share the same `GroupConfig` (aggregation, warm-up, rules) and the thresholds in
+`GroupDirector`. Moving a player does not start a new warm-up, and an excluded player stays excluded in the new group.
+
+| Setting (`OIDDAManager`) | Default | Meaning |
+|---|---|---|
+| `MaxGroups` | 8 | Groups besides group 0, which always exists and does not count. A group that is empty and waiting to be removed does not count either. Beyond the limit `SetPlayerGroup` returns false, the player stays where it was, and the log warns once. 0 means only group 0. |
+| `GroupGraceSeconds` | 120 | How long an empty group (never group 0) is kept, with its values and Director state, before it is removed. A player who comes back in time finds it as it was. 0 removes it as soon as it is empty. |
+
+The members of the ORS without a group id (`Group`, `GroupState`, `GroupIntensity`, `AddGroupIntensity(amount)`, `GroupQuickSender(name, value)`...)
+act on the group of the local player, that is the default player (player 0): group 0, unless you moved it. To act on another group use
+the members that take the group id first: `AddGroupIntensity(groupId, amount)`, `GroupQuickSender(groupId, name, value)`,
+`GroupQuickReceiver<T>(groupId, name)`, and `ORS.GetGroup(groupId)` for the group object (null if it does not exist). A group
+that does not exist is ignored by the senders and makes `GroupQuickReceiver<T>` throw. `OIDDAContext.GroupId` tells which group a player is in.
+
+Reconnection keeps the group: a player who comes back (see Reconnection below) returns to its group, which is created again if it has
+been removed meanwhile; if `MaxGroups` is reached by then, the player goes to group 0 and the log warns. Without a group config
+`SetPlayerGroup` only stores the id, which takes effect when a group config is assigned. The group id is not part of a saved profile:
+set it again when a player joins. On a remote client `SetPlayerGroup` does nothing and warns once.
+
+**Clients.** Replication has not changed: clients receive the state of group 0, the default group. The other groups are read on the
+server (`ORS.GetGroup`, `OIDDAManager.TryGetGroupState(groupId, out state)`).
+
+**Group API (ORS):** `AddGroupIntensity`, `SetGroupExcluded`, `SetPlayerGroup`, `GetGroup`, `GroupState`, `GroupIntensity`, `GroupStress`,
+`GroupFatigue`, `IsShouldSpawnGroupEncounter`, `GroupQuickReceiver<T>`, `GroupQuickSender`.
 
 ## The network module
 
@@ -260,6 +285,7 @@ conversion.
 |---|---|
 | A client reads `Build` / 0 for everything | No state received yet, or no `OIDDANetworkSync` on the server, or the client is not connected, or **Enable Network** is off in the OIDDA settings (the log warns once). |
 | Nothing happens on the server | **Enable Network** is off in the OIDDA settings, or there is no `OIDDAManager` in the scene, or `OIDDANetworkSync` is missing or is a duplicate (check the log). |
+| `SetPlayerGroup` returns false | The player is not registered, or `MaxGroups` is reached (the log warns once). |
 | "N client(s) have no player" warning | `OIDDAManager.MaxPlayers` is smaller than the number of connected clients. |
 | `QuickReceiver` throws on a client | By design: game variables live on the server. Read the replicated state instead. |
 | Profiles are not saved or restored | `SaveProfiles` is off, the player never sent a key (`SendPlayerKey` off on the client, or the key is not valid), or the file could not be written (see the warnings: no AES-GCM, an `EncryptionKey` that is not 32 bytes, a folder that cannot be written). |

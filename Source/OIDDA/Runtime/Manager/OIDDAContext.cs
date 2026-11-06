@@ -49,6 +49,12 @@ public sealed class OIDDAContext
     /// </summary>
     public bool ExcludedFromGroup { get; set; }
 
+    /// <summary>
+    /// Id of the group this player belongs to. Everyone starts in group 0; change it with <c>ORS.SetPlayerGroup</c>.
+    /// It is kept when a player is parked and resumed.
+    /// </summary>
+    public uint GroupId { get; internal set; }
+
     // What metrics and rules read: the player's values, plus the Group.* variables when a group is active.
     IValueStore Effective => _overlay ?? Store;
 
