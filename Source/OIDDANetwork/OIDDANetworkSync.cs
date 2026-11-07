@@ -12,8 +12,11 @@ namespace OIDDA.Network;
 /// </summary>
 public class OIDDANetworkSync : Script
 {
-    [EditorDisplay("State"), Tooltip("Off: each client only receives its own player's state (and the group's). On: every client receives every player's state, for example to show teammates in the UI.")]
+    [EditorDisplay("State"), Tooltip("Off: each client only receives its own player's state (and the group's). On: every client also receives the state of other players, for example to show teammates in the UI (see Only Own Group).")]
     public bool ReplicateStateToAll = false;
+
+    [EditorDisplay("State"), Tooltip("With Replicate State To All: each client only receives the players of its own group (the state of every group is still sent with format V3). Off: every client receives every player, whatever the group.")]
+    public bool OnlyOwnGroup = true;
 
     [EditorDisplay("State"), Tooltip("Channel of the periodic state messages. Unreliable: a lost message is replaced by the next one and a late one is dropped, so there is no waiting for resends. The first message to each client and messages too big for one packet still use the reliable channel.")]
     public OIDDAStateChannel StateChannel = OIDDAStateChannel.Reliable;
@@ -226,7 +229,7 @@ public class OIDDANetworkSync : Script
             Debug.Log($"[OIDDA Network] Mode={NetworkManager.Mode}, LocalClientId={NetworkManager.LocalClientId}, remote clients=[{string.Join(", ", _session.Players)}]");
         }
 
-        foreach (var message in _session.BuildMessages(ReplicateStateToAll, defaultPlayerIsReal, StateChannel == OIDDAStateChannel.Unreliable, StateFormat))
+        foreach (var message in _session.BuildMessages(ReplicateStateToAll, defaultPlayerIsReal, StateChannel == OIDDAStateChannel.Unreliable, StateFormat, OnlyOwnGroup))
             SendState(message.Payload, message.Targets, message.Reliable);
     }
 

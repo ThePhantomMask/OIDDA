@@ -127,6 +127,15 @@ public sealed class OIDDAServerSession
     readonly List<KeyValuePair<uint, OIDDAStateSnapshot>> _all = new();
     readonly List<(uint Id, uint GroupId, OIDDAStateSnapshot State)> _entries = new();
     readonly List<KeyValuePair<uint, OIDDAStateSnapshot>> _groupStates = new();
+
+    // Replication to everyone, one message per group (OnlyOwnGroup).
+    readonly List<(uint Id, uint GroupId)> _memberships = new();
+    readonly List<uint> _distinctGroups = new();
+    readonly List<uint> _members = new();
+    readonly List<uint> _staleGroups = new();
+    readonly List<(uint Id, uint GroupId, OIDDAStateSnapshot State)> _groupEntries = new();
+    readonly List<KeyValuePair<uint, OIDDAStateSnapshot>> _groupPlayers = new();
+    readonly Dictionary<uint, uint[]> _groupTargets = new();
     readonly Dictionary<uint, uint[]> _targetCache = new();
     readonly Dictionary<uint, string> _keyByPlayer = new();
     readonly Dictionary<string, uint> _playerByKey = new();
@@ -393,13 +402,17 @@ public sealed class OIDDAServerSession
     /// those are marked reliable.
     /// With <paramref name="format"/> <see cref="OIDDAStateFormat.V3"/> each message also tells the group of each player and carries
     /// the state of every group; the default (V2) is the format of earlier versions, which carries group 0 only.
+    /// With <paramref name="replicateToAll"/> and <paramref name="onlyOwnGroup"/> each client receives only the players of its own group:
+    /// one message per group that has clients, instead of one for everybody.
     /// </summary>
-    public List<OutgoingState> BuildMessages(bool replicateToAll, bool includeHostPlayer, bool allowUnreliable = false, OIDDAStateFormat format = OIDDAStateFormat.V2)
+    public List<OutgoingState> BuildMessages(bool replicateToAll, bool includeHostPlayer, bool allowUnreliable = false, OIDDAStateFormat format = OIDDAStateFormat.V2, bool onlyOwnGroup = false)
     {
         _messages.Clear();
         if (_players.Count == 0) return _messages;
 
         unchecked { _sequence++; }
+
+        if (replicateToAll && onlyOwnGroup) return BuildMessagesPerGroup(includeHostPlayer, allowUnreliable, format);
 
         if (format == OIDDAStateFormat.V3) return BuildMessagesV3(replicateToAll, includeHostPlayer, allowUnreliable);
 
@@ -460,6 +473,89 @@ public sealed class OIDDAServerSession
         }
         return _messages;
     }
+
+    // Everyone's state, but each client only gets the players of its own group (and, in format 3, every group's state).
+    List<OutgoingState> BuildMessagesPerGroup(bool includeHostPlayer, bool allowUnreliable, OIDDAStateFormat format)
+    {
+        bool v3 = format == OIDDAStateFormat.V3;
+        OIDDAStateSnapshot? group0 = null;
+        _groupStates.Clear();
+        if (v3) _host.GetGroupStates(_groupStates);
+        else if (_host.TryGetGroupState(out var groupState)) group0 = groupState;
+
+        _entries.Clear();
+        _memberships.Clear();
+        _distinctGroups.Clear();
+        foreach (var id in _players)
+        {
+            uint groupId = _host.GetPlayerGroup(id);
+            _memberships.Add((id, groupId));
+            if (!_distinctGroups.Contains(groupId)) _distinctGroups.Add(groupId);
+            if (_host.TryGetPlayerState(id, out var snapshot)) _entries.Add((id, groupId, snapshot));
+        }
+
+        if (includeHostPlayer && _host.TryGetPlayerState(OIDDANetworkIds.Server, out var hostState))
+            _entries.Add((OIDDANetworkIds.Server, _host.GetPlayerGroup(OIDDANetworkIds.Server), hostState));
+
+        for (int g = 0; g < _distinctGroups.Count; g++)
+        {
+            uint groupId = _distinctGroups[g];
+
+            _members.Clear();
+            for (int i = 0; i < _memberships.Count; i++)
+                if (_memberships[i].GroupId == groupId) _members.Add(_memberships[i].Id);
+
+            byte[] payload;
+            if (v3)
+            {
+                _groupEntries.Clear();
+                for (int i = 0; i < _entries.Count; i++)
+                    if (_entries[i].GroupId == groupId) _groupEntries.Add(_entries[i]);
+                payload = OIDDANetworkCodec.EncodeV3(_groupEntries, _groupStates, _sequence);
+            }
+            else
+            {
+                _groupPlayers.Clear();
+                for (int i = 0; i < _entries.Count; i++)
+                    if (_entries[i].GroupId == groupId) _groupPlayers.Add(new KeyValuePair<uint, OIDDAStateSnapshot>(_entries[i].Id, _entries[i].State));
+                payload = OIDDANetworkCodec.Encode(_groupPlayers, group0, _sequence);
+            }
+
+            AddMessage(TargetsOfGroup(groupId), payload, allowUnreliable);
+        }
+
+        ForgetEmptyGroupTargets();
+        return _messages;
+    }
+
+    // The clients of a group (in _members), as an array that is reused while the group's clients stay the same.
+    uint[] TargetsOfGroup(uint groupId)
+    {
+        if (_groupTargets.TryGetValue(groupId, out var cached) && cached.Length == _members.Count)
+        {
+            bool same = true;
+            for (int i = 0; same && i < cached.Length; i++) same = cached[i] == _members[i];
+            if (same) return cached;
+        }
+
+        var targets = _members.ToArray();
+        _groupTargets[groupId] = targets;
+        return targets;
+    }
+
+    // Groups that no longer have clients leave the cache.
+    void ForgetEmptyGroupTargets()
+    {
+        if (_groupTargets.Count <= _distinctGroups.Count) return;
+
+        _staleGroups.Clear();
+        foreach (var id in _groupTargets.Keys)
+            if (!_distinctGroups.Contains(id)) _staleGroups.Add(id);
+        for (int i = 0; i < _staleGroups.Count; i++) _groupTargets.Remove(_staleGroups[i]);
+    }
+
+    /// <summary> Groups whose client lists are kept for reuse (for tests). </summary>
+    internal int CachedGroupTargets => _groupTargets.Count;
 
     uint[] AllTargets()
     {

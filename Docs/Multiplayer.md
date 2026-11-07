@@ -136,7 +136,8 @@ reads the others. With format V2 clients only receive group 0. On the server, `O
 * **The server is the authority.** Analysis, rules and the Directors only run on the server or host. On a client the
   `OIDDAManager` stays idle.
 * **What a client receives.** By default only its own player's state and the group's. With `ReplicateStateToAll` every client
-  receives every player's state (for example to show teammates).
+  also receives the state of other players (for example to show teammates): the players of its own group, or every player
+  with `OnlyOwnGroup` off (see "State format").
 * **What a client can do.** Read state through the ORS (`CurrentState`, `CurrentIntensity`, `CurrentStress`, `CurrentFatigue`,
   `IsShouldSpawnEncounter`, `Group*`, `LocalPlayerId`, `TryGetPlayerState`, `TryGetGroupState`). Reading a game variable
   throws, and intensity or group changes are ignored with a single warning, because those live on the server.
@@ -150,6 +151,7 @@ reads the others. With format V2 clients only receive group 0. On the server, `O
 | Setting | Default | Meaning |
 |---|---|---|
 | `ReplicateStateToAll` | off | See above. |
+| `OnlyOwnGroup` | on | With `ReplicateStateToAll`: each client only receives the players of its own group. Off: every player, whatever the group. |
 | `StateChannel` | Reliable | Channel of the state messages: `Reliable` or `Unreliable` (see below). |
 | `StateSendInterval` | 0.1 s | Seconds between state messages. |
 | `ReconnectGraceSeconds` | 120 | How long the server keeps a disconnected player's state. 0 turns reconnection off. |
@@ -191,6 +193,12 @@ it is the server that decides.
   ...) follow the local player's group, and `ORS.TryGetGroupState(groupId, out state)` reads any group that was sent.
 * **V2**: the format of earlier versions of the plugin: players and group 0 only. Use it while some clients are still on an
   older version, which reject version 3. With V2 a client only knows group 0, whichever group it is in on the server.
+
+**Only the players of your group.** With `ReplicateStateToAll`, `OnlyOwnGroup` (on by default) makes the server send one message per
+group that has clients, each with that group's players and, with V3, the state of every group, instead of one message with every
+player for everybody. A game with several teams then shows each client its teammates only, and each message stays small. It works
+with both formats (with V2 the group part is still group 0 only). When everyone is in group 0, which is always the case without
+`SetPlayerGroup`, the message is the same as with the option off. Turn it off to let every client see every player.
 
 A message that carries more than 255 groups is cut at 255 (the manager allows 64 besides group 0). Messages bigger than 1000
 bytes use the reliable channel (see above): with V3 that happens beyond about 34 groups in an owner-only message.
