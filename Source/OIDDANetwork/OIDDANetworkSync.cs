@@ -45,6 +45,12 @@ public class OIDDANetworkSync : Script
     [EditorDisplay("Client metrics"), Range(1, 100), Tooltip("Reports per second accepted from each client.")]
     public int MaxReportsPerSecond = 10;
 
+    [EditorDisplay("Client metrics"), Range(0, 1000), Tooltip("A client that sends more than this many invalid reports (a name that is not allowed, or a value that is not a number) within the time window is removed from OIDDA: it stays connected to the network, but gets no state and its reports are ignored. Reports over the rate limit do not count. 0 never removes anyone.")]
+    public int MaxMetricViolations = 10;
+
+    [EditorDisplay("Client metrics"), Range(1f, 3600f), Tooltip("Seconds, counted from a client's first invalid report, in which its invalid reports add up.")]
+    public float MetricViolationWindowSeconds = 60f;
+
     [EditorDisplay("Client metrics"), Collection(Display = CollectionAttribute.DisplayType.Header), Tooltip("The only metrics clients may report. Values are clamped to the range given here.")]
     public List<AllowedClientMetric> AllowedClientMetrics = new();
 
@@ -110,6 +116,8 @@ public class OIDDANetworkSync : Script
         if (ReconnectGraceSeconds < 0f) ReconnectGraceSeconds = 0f;
         if (ProfileAutosaveSeconds < 0f) ProfileAutosaveSeconds = 0f;
         if (MaxReportsPerSecond < 1) MaxReportsPerSecond = 1;
+        if (MaxMetricViolations < 0) MaxMetricViolations = 0;
+        if (MetricViolationWindowSeconds < 1f) MetricViolationWindowSeconds = 1f;
 
         NetworkReplicator.AddObject(this);
 
@@ -206,7 +214,7 @@ public class OIDDANetworkSync : Script
         if (_host == null || _host.Manager != manager)
         {
             _host = new ManagerPlayerHost(manager);
-            _session = new OIDDAServerSession(_host, _gate, ReconnectGraceSeconds, 64, SaveProfiles, ProfileAutosaveSeconds);
+            _session = new OIDDAServerSession(_host, _gate, ReconnectGraceSeconds, 64, SaveProfiles, ProfileAutosaveSeconds, MaxMetricViolations, MetricViolationWindowSeconds);
             _timer = 0f;
             _lastRejected = 0;
             _lastStats = default;
@@ -247,9 +255,9 @@ public class OIDDANetworkSync : Script
         if (!manager.DebugMode) return;
 
         var stats = _session.Stats;
-        if (stats.Parked != _lastStats.Parked || stats.Resumed != _lastStats.Resumed || stats.Expired != _lastStats.Expired || stats.Evicted != _lastStats.Evicted || stats.Saved != _lastStats.Saved || stats.Restored != _lastStats.Restored)
+        if (stats.Parked != _lastStats.Parked || stats.Resumed != _lastStats.Resumed || stats.Expired != _lastStats.Expired || stats.Evicted != _lastStats.Evicted || stats.Saved != _lastStats.Saved || stats.Restored != _lastStats.Restored || stats.Kicked != _lastStats.Kicked)
         {
-            Debug.Log($"[OIDDA Network] Reconnection: kept={_session.ParkedCount}, parked={stats.Parked}, resumed={stats.Resumed}, expired={stats.Expired}, evicted={stats.Evicted}; profiles: saved={stats.Saved}, restored={stats.Restored}");
+            Debug.Log($"[OIDDA Network] Reconnection: kept={_session.ParkedCount}, parked={stats.Parked}, resumed={stats.Resumed}, expired={stats.Expired}, evicted={stats.Evicted}; profiles: saved={stats.Saved}, restored={stats.Restored}; kicked={stats.Kicked}");
             _lastStats = stats;
         }
     }

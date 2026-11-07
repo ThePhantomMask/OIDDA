@@ -4,6 +4,21 @@ using System;
 namespace OIDDA.Network;
 
 /// <summary>
+/// The outcome of checking a metric report.
+/// </summary>
+public enum OIDDAMetricVerdict
+{
+    /// <summary> The report is taken (with its value clamped to the metric's range). </summary>
+    Accepted,
+
+    /// <summary> The client sent more reports than it may per second: this one is dropped. Nothing is wrong with the report itself. </summary>
+    RateLimited,
+
+    /// <summary> The name is empty, too long or not on the allow-list, or the value is not a finite number. </summary>
+    Invalid
+}
+
+/// <summary>
 /// Decides which metric reports from clients the server accepts. A client is not trusted: only metrics on the allow-list are
 /// taken, values are clamped to their range, and each client has a limited number of reports per second.
 /// </summary>
@@ -48,19 +63,26 @@ public sealed class OIDDAMetricGate
     /// <param name="now">Current time in seconds, from a clock that always moves forward.</param>
     /// <param name="clamped">The value to use, inside the metric's range.</param>
     public bool TryAccept(uint senderId, string name, float value, float now, out float clamped)
+        => Check(senderId, name, value, now, out clamped) == OIDDAMetricVerdict.Accepted;
+
+    /// <summary>
+    /// Same decision as <see cref="TryAccept"/>, but tells why a report was refused: because the client sent too many, or because the
+    /// report itself is not valid.
+    /// </summary>
+    public OIDDAMetricVerdict Check(uint senderId, string name, float value, float now, out float clamped)
     {
         clamped = 0f;
 
         // Every report costs a token, valid or not, so a flood of garbage cannot get through either.
-        if (!TakeToken(senderId, now)) return Reject();
+        if (!TakeToken(senderId, now)) return Reject(OIDDAMetricVerdict.RateLimited);
 
-        if (string.IsNullOrEmpty(name) || name.Length > MaxNameLength) return Reject();
-        if (!_allowed.TryGetValue(name, out var range)) return Reject();
-        if (!float.IsFinite(value)) return Reject();
+        if (string.IsNullOrEmpty(name) || name.Length > MaxNameLength) return Reject(OIDDAMetricVerdict.Invalid);
+        if (!_allowed.TryGetValue(name, out var range)) return Reject(OIDDAMetricVerdict.Invalid);
+        if (!float.IsFinite(value)) return Reject(OIDDAMetricVerdict.Invalid);
 
         clamped = Math.Clamp(value, range.Min, range.Max);
         Accepted++;
-        return true;
+        return OIDDAMetricVerdict.Accepted;
     }
 
     /// <summary> 
@@ -68,10 +90,10 @@ public sealed class OIDDAMetricGate
     /// </summary>
     public void Forget(uint senderId) => _buckets.Remove(senderId);
 
-    bool Reject()
+    OIDDAMetricVerdict Reject(OIDDAMetricVerdict verdict)
     {
         Rejected++;
-        return false;
+        return verdict;
     }
 
     private bool TakeToken(uint senderId, float now)

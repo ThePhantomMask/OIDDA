@@ -1,5 +1,4 @@
 ﻿using FlaxEngine;
-using FlaxEngine.Networking;
 using System.Collections.Generic;
 
 namespace OIDDA.Network;
@@ -88,6 +87,9 @@ public struct OIDDASessionStats
 
     /// <summary> Profiles loaded for returning players. </summary>
     public int Restored;
+
+    /// <summary> Clients removed for repeated invalid metric reports. </summary>
+    public int Kicked;
 }
 
 /// <summary>
@@ -142,11 +144,19 @@ public sealed class OIDDAServerSession
     readonly Dictionary<uint, string> _keyByPlayer = new();
     readonly Dictionary<string, uint> _playerByKey = new();
     readonly Dictionary<string, Parked> _parked = new();
-    readonly Dictionary<uint, int> _metricViolations = new();
-    readonly Dictionary<uint, float> _lastMetricTime = new();
 
-    const int MaxViolations = 10;
-    const float ViolationWindowSeconds = 60f;
+    // Invalid metric reports: how many a client sent in the current window, and when the window began.
+    struct Violations
+    {
+        public int Count;
+        public float WindowStart;
+    }
+
+    readonly Dictionary<uint, Violations> _violations = new();
+    readonly HashSet<uint> _warnedInvalid = new();
+    readonly HashSet<uint> _kicked = new();
+    readonly int _maxViolations;
+    readonly float _violationWindow;
     uint[] _allTargets = System.Array.Empty<uint>();
     bool _allTargetsDirty = true;
     OIDDASessionStats _stats;
@@ -161,8 +171,12 @@ public sealed class OIDDAServerSession
     /// <param name="maxParked">Most disconnected players kept at once; beyond it the oldest is dropped.</param>
     /// <param name="saveProfiles">Keep the profile of each identified player between sessions (see <see cref="OIDDAProfileStore"/>).</param>
     /// <param name="profileAutosaveSeconds">With saveProfiles, how often the profiles of the connected players are saved. 0: only when they leave and when the server stops.</param>
-    public OIDDAServerSession(IOIDDAPlayerHost host, OIDDAMetricGate gate = null, float reconnectGraceSeconds = 0f, int maxParked = 64, bool saveProfiles = false, float profileAutosaveSeconds = 0f)
+    /// <param name="maxMetricViolations">A client that sends more than this many invalid metric reports within the window is removed (see <see cref="Kicked"/>). 0 never removes anyone.</param>
+    /// <param name="metricViolationWindowSeconds">Seconds, from a client's first invalid report, in which its invalid reports add up.</param>
+    public OIDDAServerSession(IOIDDAPlayerHost host, OIDDAMetricGate gate = null, float reconnectGraceSeconds = 0f, int maxParked = 64, bool saveProfiles = false, float profileAutosaveSeconds = 0f, int maxMetricViolations = 10, float metricViolationWindowSeconds = 60f)
     {
+        _maxViolations = System.Math.Max(0, maxMetricViolations);
+        _violationWindow = System.Math.Max(0f, metricViolationWindowSeconds);
         _host = host;
         _gate = gate;
         _graceSeconds = reconnectGraceSeconds;
@@ -183,6 +197,12 @@ public sealed class OIDDAServerSession
     /// Clients that were refused because the manager's MaxPlayers was reached. 
     /// </summary>
     public IReadOnlyCollection<uint> Rejected => _rejected;
+
+    /// <summary>
+    /// Clients that were removed from OIDDA for repeated invalid metric reports and are still connected to the network. They get
+    /// no state, their reports are ignored and they are not registered again until they disconnect.
+    /// </summary>
+    public IReadOnlyCollection<uint> Kicked => _kicked;
 
     /// <summary> 
     /// Disconnected players whose state is being kept. 
@@ -222,7 +242,7 @@ public sealed class OIDDAServerSession
             if (id == OIDDANetworkIds.Server) continue;
 
             _connected.Add(id);
-            if (_players.Contains(id) || _rejected.Contains(id)) continue;
+            if (_players.Contains(id) || _rejected.Contains(id) || _kicked.Contains(id)) continue;
 
             // A refused client is not retried every tick (the manager warns each time): only after someone leaves.
             if (!_host.RegisterPlayer(id))
@@ -249,9 +269,17 @@ public sealed class OIDDAServerSession
             _needReliable.Remove(id);
             _targetCache.Remove(id);
             _gate?.Forget(id);
-            _metricViolations.Remove(id);
-            _lastMetricTime.Remove(id);
+            _violations.Remove(id);
+            _warnedInvalid.Remove(id);
             _allTargetsDirty = true;
+        }
+
+        if (_kicked.Count > 0)
+        {
+            _scratch.Clear();
+            foreach (var id in _kicked)
+                if (!_connected.Contains(id)) _scratch.Add(id);
+            for (int i = 0; i < _scratch.Count; i++) _kicked.Remove(_scratch[i]);
         }
 
         if (_rejected.Count > 0)
@@ -605,46 +633,92 @@ public sealed class OIDDAServerSession
         return false;
     }
 
-    bool RegisterMetricViolation(uint senderID, float now)
-    {
-        _metricViolations.TryGetValue(senderID, out var count);
-        _lastMetricTime.TryGetValue(senderID, out var lastTime);
-
-        if (count > 0 && now - lastTime > ViolationWindowSeconds)
-            count = 0; // reset count if outside the violation window
-
-        count++;
-        _metricViolations[senderID] = count;
-        _lastMetricTime[senderID] = now;
-
-        if (count > MaxViolations)
-        {
-            // Exceeded the maximum allowed violations, remove the client aka Kick the session.
-            _metricViolations.Remove(senderID);
-            _lastMetricTime.Remove(senderID);
-            return true; // The client has exceeded the maximum allowed violations
-        }
-
-        return false;
-    }
-
     /// <summary>
     /// Handles a metric a client reported. The sender id comes from the network layer, never from the message, so a client
-    /// can only report for itself.
+    /// can only report for itself. Invalid reports (not a metric the client may report, or not a finite number) are counted and
+    /// past the limit the client is removed (see <see cref="Kicked"/>); reports over the rate limit are only dropped.
     /// </summary>
     public bool HandleReport(uint senderId, string name, float value, float now)
     {
+        // A client that was removed is not in _players, so its reports end here.
         if (_gate == null || !_players.Contains(senderId)) return false;
-        if (!_gate.TryAccept(senderId, name, value, now, out var clamped))
+
+        switch (_gate.Check(senderId, name, value, now, out var clamped))
         {
-            if (RegisterMetricViolation(senderId, now))
-            {
-                Debug.LogWarning($"OIDDA: Client {senderId} disconnect for repeated violations of metrics.");
-                _host.UnregisterPlayer(senderId);
-            }
-            return false;
+            case OIDDAMetricVerdict.Accepted:
+                return _host.WriteMetric(senderId, name, clamped);
+            case OIDDAMetricVerdict.Invalid:
+                NoteInvalidReport(senderId, name, now);
+                return false;
+            default:
+                // Too many reports: the gate already dropped it, and a client that is merely too fast is not punished.
+                return false;
+        }
+    }
+
+    // An invalid report: warn once per client, and count it. Past the limit within the window the client is removed.
+    void NoteInvalidReport(uint senderId, string name, float now)
+    {
+        if (_warnedInvalid.Add(senderId))
+        {
+            Debug.LogWarning($"OIDDA: client {senderId} sent a metric report that was rejected ('{ShortName(name)}'): the name must be on the allowed list and the value a finite number." +
+                             (_maxViolations > 0 ? " Repeated invalid reports remove the client from OIDDA." : ""));
         }
 
-        return _host.WriteMetric(senderId, name, clamped);
+        if (_maxViolations <= 0) return;
+
+        _violations.TryGetValue(senderId, out var violations);
+        if (violations.Count > 0 && now - violations.WindowStart > _violationWindow) violations.Count = 0;
+        if (violations.Count == 0) violations.WindowStart = now;
+        violations.Count++;
+
+        if (violations.Count > _maxViolations)
+        {
+            Kick(senderId);
+            return;
+        }
+
+        _violations[senderId] = violations;
+    }
+
+    // Takes a client out of OIDDA. The engine has no way to disconnect a single client, so it stays connected to the network: it gets
+    // no state, its reports are ignored, and it is not registered again. Its state is not kept for a return and its profile is not saved.
+    void Kick(uint id)
+    {
+        _host.UnregisterPlayer(id);
+
+        _players.Remove(id);
+        _needReliable.Remove(id);
+        _targetCache.Remove(id);
+        _gate?.Forget(id);
+        _violations.Remove(id);
+        _warnedInvalid.Remove(id);
+
+        if (_keyByPlayer.TryGetValue(id, out var key))
+        {
+            _keyByPlayer.Remove(id);
+            _playerByKey.Remove(key);
+        }
+
+        _kicked.Add(id);
+        _allTargetsDirty = true;
+        _stats.Kicked++;
+
+        // A place was freed: clients that were refused for lack of room may try again.
+        _rejected.Clear();
+
+        Debug.LogWarning($"OIDDA: client {id} was removed for repeated invalid metric reports. It stays connected to the network, but OIDDA ignores it from now on.");
+    }
+
+    // A metric name as it may be shown in the log: cut to the longest allowed name, without control characters.
+    static string ShortName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return "";
+
+        var cut = name.Length > OIDDAMetricGate.MaxNameLength ? name.Substring(0, OIDDAMetricGate.MaxNameLength) + "..." : name;
+        var chars = cut.ToCharArray();
+        for (int n = 0; n < chars.Length; n++)
+            if (chars[n] < ' ') chars[n] = '?';
+        return new string(chars);
     }
 }

@@ -32,7 +32,7 @@ The full guide is in [`Docs/Multiplayer.md`](../../Docs/Multiplayer.md).
 | `OIDDAServerSession.cs` | Server logic: players per client, what to send, reports, reconnection. |
 | `OIDDANetworkCodec.cs` | The message formats (versions 2 and 3), strictly validated. |
 | `OIDDAStateFrame.cs` | A decoded message, whatever its version. |
-| `OIDDAMetricGate.cs` | Allow-list, clamping and rate limit for client metrics. |
+| `OIDDAMetricGate.cs` | Allow-list, clamping and rate limit for client metrics; tells an invalid report from one that is only too many. |
 | `OIDDAPlayerKey.cs` | The secret key a client uses to be recognised when it reconnects. |
 | `OIDDAProfileStore.cs` | Saves a player's profile between sessions: a provider set by the game, or an AES-256-GCM encrypted file (off unless `SaveProfiles` is on). The profile itself is `OIDDAProfile` in the base module. |
 | `ManagerPlayerHost.cs`, `FlaxNetworkEnvironment.cs` | The thin layer over the manager and the engine. |

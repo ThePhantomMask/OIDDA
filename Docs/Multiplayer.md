@@ -145,6 +145,13 @@ reads the others. With format V2 clients only receive group 0. On the server, `O
   client (a reaction time, say) with `ORS.QuickSender` (or `SenderValue` of a connected agent). The server accepts only the metrics listed in
   `AllowedClientMetrics`, clamps each value to the range given there, and limits each client to `MaxReportsPerSecond`. The
   sender is taken from the network layer, never from the message, so a client can only report for itself.
+  **Invalid reports** (a name that is not allowed or is too long, or a value that is not a finite number) are logged once per
+  client and counted: more than `MaxMetricViolations` of them within `MetricViolationWindowSeconds` of the first removes the client
+  from OIDDA. The engine has no way to disconnect a single client, so it stays connected to the network, but it gets no state, its
+  reports are ignored, it is not registered again, its state is not kept for a return and its profile is not saved; the place it
+  held goes to a client that was refused for lack of room. Reports that only exceed `MaxReportsPerSecond` are dropped and do not
+  count, so a client that reports too often is slowed down, not removed. A client that disconnects and connects again is a new
+  client and starts clean.
 
 ### `OIDDANetworkSync` settings
 
@@ -160,6 +167,8 @@ reads the others. With format V2 clients only receive group 0. On the server, `O
 | `ProfileAutosaveSeconds` | 60 | Seconds between saves of the connected players' profiles. 0: only when they leave and when the server stops. |
 | `AllowClientMetrics` | off | See above. |
 | `MaxReportsPerSecond` | 10 | Reports per second accepted from each client. |
+| `MaxMetricViolations` | 10 | A client that sends more invalid reports than this within the window is removed from OIDDA. 0 never removes anyone. |
+| `MetricViolationWindowSeconds` | 60 | Seconds, from a client's first invalid report, in which its invalid reports add up. |
 | `AllowedClientMetrics` | empty | The only metrics a client may report, with their range. |
 
 Only one `OIDDANetworkSync` may be active: a second one warns and does nothing.
@@ -315,8 +324,9 @@ conversion.
 | Profiles are not saved or restored | `SaveProfiles` is off, the player never sent a key (`SendPlayerKey` off on the client, or the key is not valid), or the file could not be written (see the warnings: no AES-GCM, an `EncryptionKey` that is not 32 bytes, a folder that cannot be written). |
 | A returning player starts fresh | `ReconnectGraceSeconds` is 0 or expired, `SendPlayerKey` is off on the client, or the key is not valid. Turn on `DebugMode` on the manager to see "identified / resumed" lines. |
 | State seems to lag or skip with `StateChannel = Unreliable` | Expected under packet loss: a lost message is not resent, the next one arrives within `StateSendInterval`. Use `Reliable` if every message matters. |
-| A client ignores every state message | Server and client run different plugin versions (the message version must match), or the client is not connected. |
-| Client metrics are ignored | `AllowClientMetrics` is off, the metric is not in `AllowedClientMetrics`, or the client is over `MaxReportsPerSecond`. |
+| A client ignores every state message | Server and client run builds with a different message layout (versions 2 and 3 are both read, but a version 3 message of a build from before the compact format is rejected: use the same build, or `StateFormat` V2), or the client is not connected. |
+| Client metrics are ignored | `AllowClientMetrics` is off, the metric is not in `AllowedClientMetrics`, the client is over `MaxReportsPerSecond`, or it was removed for invalid reports (the log says so). |
+| A client gets no state and its reports are ignored | It was removed from OIDDA for more than `MaxMetricViolations` invalid reports (see the warning in the log). It stays connected to the network; it is registered again after it reconnects. |
 
 With `DebugMode` on in the `OIDDAManager`, the network module logs the mode, `LocalClientId`, the ids of connecting
 clients and the reconnection counters.
