@@ -190,7 +190,8 @@ it is the server that decides.
 
 * **V3** (default): each player's message part tells which group the player is in, and the message carries the state of **every**
   group, so a client can show the state of all teams. On a client the group members of the ORS (`GroupState`, `GroupIntensity`,
-  ...) follow the local player's group, and `ORS.TryGetGroupState(groupId, out state)` reads any group that was sent.
+  ...) follow the local player's group, and `ORS.TryGetGroupState(groupId, out state)` reads any group that was sent. Its
+  numbers are sent as 16-bit values (see "Message format"), which makes the messages about half the size.
 * **V2**: the format of earlier versions of the plugin: players and group 0 only. Use it while some clients are still on an
   older version, which reject version 3. With V2 a client only knows group 0, whichever group it is in on the server.
 
@@ -201,7 +202,7 @@ with both formats (with V2 the group part is still group 0 only). When everyone 
 `SetPlayerGroup`, the message is the same as with the option off. Turn it off to let every client see every player.
 
 A message that carries more than 255 groups is cut at 255 (the manager allows 64 besides group 0). Messages bigger than 1000
-bytes use the reliable channel (see above): with V3 that happens beyond about 34 groups in an owner-only message.
+bytes use the reliable channel (see above): with V3 that happens from 54 groups in an owner-only message.
 
 ### Reconnection
 
@@ -280,9 +281,9 @@ read the key too. A file written with one key cannot be read with another (the p
 ### Performance
 
 With 8 players the server loop allocates about 616 bytes per state tick (owner-only) or 280 bytes (replicate to all), which
-is essentially the messages themselves (with the default format V3 it is about 672 and 320 bytes, because each message also
-carries the group ids and every group). A message with one player and the group is 58 bytes in V2 and 67 bytes in V3; each
-further group adds 28 bytes to every message. The engine splits larger RPC messages by itself (see `NetworkSettings.MaxSyncParts`).
+is essentially the messages themselves (with the default format V3 it is about 504 and 232 bytes). A message with one player and
+the group is 58 bytes in V2 and 47 bytes in V3; each further group adds 18 bytes to every V3 message, so every client also gets
+the state of all the groups. The engine splits larger RPC messages by itself (see `NetworkSettings.MaxSyncParts`).
 
 ### Client metrics and value types
 
@@ -322,8 +323,11 @@ clients and the reconnection counters.
 
 ## Message format
 
-Little-endian. A snapshot is 24 bytes: state (1), intensity, stress, fatigue, score, difficulty multiplier (5 floats), flags
-(1: bit 0 = should spawn encounter), player count (2). A message is rejected as a whole if its length, version, flags or state
+Little-endian. A snapshot is state (1), intensity, stress, fatigue, score, difficulty multiplier (5 numbers), flags
+(1: bit 0 = should spawn encounter), player count (2). In version 2 the five numbers are 32-bit floats (24 bytes in all); in
+version 3 they are 16-bit values scaled to the range each one can have (0-100 for intensity, stress and fatigue, 0-1 for the
+score, 0-10 for the multiplier), 14 bytes in all. The step is 0.0015 for a percentage, so a value comes back within 0.001 of
+what the server had; the ends of each range, the state, the spawn flag and the player count are exact. A message is rejected as a whole if its length, version, flags or state
 byte are wrong, or if its sequence number is not newer than the last applied; non-finite numbers become 0 and values are
 clamped to their legitimate range.
 
@@ -332,7 +336,8 @@ clamped to their legitimate range.
 
 **Version 3.** Header: version (1 byte), flags (1 byte, must be 0), player count (2 bytes), sequence number (2 bytes), group
 count (1 byte). Then each player: id (4 bytes), group id (4 bytes) and a snapshot; then each group: id (4 bytes) and a snapshot.
-At most 256 players and 255 groups. A message with one player and one group is 67 bytes.
+At most 256 players and 255 groups. A player is 22 bytes and a group 18, so a message with one player and one group is 47 bytes.
+A version 3 message of an earlier build of this branch (32 and 28 bytes) is rejected, not misread: use the same build on both sides, or version 2.
 
 ## Verification
 

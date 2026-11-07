@@ -7,7 +7,8 @@ namespace OIDDA.Network;
 
 /// <summary>
 /// Compact binary format of the state a server sends to a client: some players' snapshots and the state of the group (version 2:
-/// group 0 only) or of every group (version 3, which also tells which group each player is in).
+/// group 0 only, with full 32-bit numbers) or of every group (version 3, which also tells which group each player is in and
+/// stores the snapshot numbers as 16-bit values, about half the size).
 /// A client decodes both versions (<see cref="TryDecode(byte[], OIDDAStateFrame)"/>); the server chooses which one to send.
 /// Decoding checks everything, so a malformed message is rejected instead of corrupting the client's state.
 /// Every message is written straight into one array of exactly the right size.
@@ -30,9 +31,16 @@ public static class OIDDANetworkCodec
     const int PlayerBytes = 4 + SnapshotBytes;
 
     // Version 3: the header has one more byte (the number of groups), a player has its group id (4) and a group has its own id (4).
+    // Its snapshot is compact: the five numbers are 16-bit values scaled to the range each one can have.
     const int HeaderBytes3 = HeaderBytes + 1;
-    const int PlayerBytes3 = 4 + 4 + SnapshotBytes;
-    const int GroupBytes3 = 4 + SnapshotBytes;
+    const int SnapshotBytes3 = 1 + 5 * 2 + 1 + 2;
+    const int PlayerBytes3 = 4 + 4 + SnapshotBytes3;
+    const int GroupBytes3 = 4 + SnapshotBytes3;
+
+    // Ranges of the snapshot numbers (the same ones decoding clamps to).
+    const float MaxPercent = 100f;
+    const float MaxScore = 1f;
+    const float MaxMultiplier = 10f;
 
     /// <summary>
     /// True if <paramref name="sequence"/> comes after <paramref name="last"/>. The numbers wrap around: anything up to half the range
@@ -164,13 +172,13 @@ public static class OIDDANetworkCodec
         {
             BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(offset), players[i].Id);
             BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(offset + 4), players[i].GroupId);
-            offset = WriteSnapshot(data, offset + 8, players[i].State);
+            offset = WriteSnapshot3(data, offset + 8, players[i].State);
         }
 
         for (int i = 0; i < groupCount; i++)
         {
             BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(offset), groups[i].Key);
-            offset = WriteSnapshot(data, offset + 4, groups[i].Value);
+            offset = WriteSnapshot3(data, offset + 4, groups[i].Value);
         }
         return data;
     }
@@ -230,7 +238,7 @@ public static class OIDDANetworkCodec
             uint groupId = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(offset + 4));
             offset += 8;
 
-            if (!TryReadSnapshot(data, ref offset, out var snapshot)) return false;
+            if (!TryReadSnapshot3(data, ref offset, out var snapshot)) return false;
             frame.Players[id] = snapshot;
             frame.PlayerGroups[id] = groupId;
         }
@@ -240,7 +248,7 @@ public static class OIDDANetworkCodec
             uint id = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(offset));
             offset += 4;
 
-            if (!TryReadSnapshot(data, ref offset, out var snapshot)) return false;
+            if (!TryReadSnapshot3(data, ref offset, out var snapshot)) return false;
             frame.Groups[id] = snapshot;
         }
 
@@ -256,6 +264,52 @@ public static class OIDDANetworkCodec
         BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(4), sequence);
         return HeaderBytes;
     }
+
+    // Compact snapshot (version 3): state (1), intensity, stress, fatigue, score, difficulty multiplier (5 x 16 bits), flags (1), player count (2).
+    static int WriteSnapshot3(byte[] data, int offset, in OIDDAStateSnapshot s)
+    {
+        data[offset] = (byte)s.State;
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 1), Quantize(s.Intensity, MaxPercent));
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 3), Quantize(s.Stress, MaxPercent));
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 5), Quantize(s.Fatigue, MaxPercent));
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 7), Quantize(s.Score, MaxScore));
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 9), Quantize(s.DifficultyMultiplier, MaxMultiplier));
+        data[offset + 11] = s.ShouldSpawnEncounter ? (byte)1 : (byte)0;
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 12), (ushort)Math.Clamp(s.PlayerCount, 0, ushort.MaxValue));
+        return offset + SnapshotBytes3;
+    }
+
+    static bool TryReadSnapshot3(byte[] data, ref int offset, out OIDDAStateSnapshot snapshot)
+    {
+        snapshot = default;
+
+        byte state = data[offset];
+        if (!Enum.IsDefined(typeof(DirectorState), (int)state)) return false;
+
+        byte flags = data[offset + 11];
+        if ((flags & ~1) != 0) return false;
+
+        snapshot = new OIDDAStateSnapshot
+        {
+            State = (DirectorState)state,
+            Intensity = Dequantize(BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 1)), MaxPercent),
+            Stress = Dequantize(BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 3)), MaxPercent),
+            Fatigue = Dequantize(BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 5)), MaxPercent),
+            Score = Dequantize(BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 7)), MaxScore),
+            DifficultyMultiplier = Dequantize(BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 9)), MaxMultiplier),
+            ShouldSpawnEncounter = (flags & 1) != 0,
+            PlayerCount = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 12))
+        };
+
+        offset += SnapshotBytes3;
+        return true;
+    }
+
+    // A number in 0..max as a 16-bit value: the step is max / 65535 (0.0015 for a percentage), so the error is at most half of it.
+    // NaN and infinity become 0, like in version 2; anything outside the range is clamped to it.
+    static ushort Quantize(float value, float max) => float.IsFinite(value) ? (ushort)MathF.Round(Math.Clamp(value, 0f, max) / max * ushort.MaxValue) : (ushort)0;
+
+    static float Dequantize(ushort quantized, float max) => quantized * max / ushort.MaxValue;
 
     static int WriteSnapshot(byte[] data, int offset, in OIDDAStateSnapshot s)
     {
