@@ -19,6 +19,8 @@ public abstract class ORSAgent
 
     public abstract bool TryGetGroupState(out OIDDAStateSnapshot snapshot);
 
+    public abstract bool TryGetGroupState(uint groupId, out OIDDAStateSnapshot snapshot);
+
     #endregion
 
     #region DDA API methods
@@ -162,6 +164,23 @@ public class ORS : ORSAgent
             return false;
         }
         return manager.TryGetGroupState(manager.DefaultContext.GroupId, out snapshot);
+    }
+
+    /// <summary>
+    /// The state of a given group: from the manager where OIDDA runs, from the state provider on a remote client (which knows the
+    /// groups the server sent). False if the group does not exist or is not available here.
+    /// </summary>
+    public override bool TryGetGroupState(uint groupId, out OIDDAStateSnapshot snapshot)
+    {
+        if (IsRemoteClient) return StateProvider.TryGetGroupState(groupId, out snapshot);
+
+        var manager = _oiddaManager;
+        if (!manager)
+        {
+            snapshot = default;
+            return false;
+        }
+        return manager.TryGetGroupState(groupId, out snapshot);
     }
 
     // The local player's state as seen from a remote client.

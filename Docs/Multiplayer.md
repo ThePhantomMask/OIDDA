@@ -124,10 +124,11 @@ been removed meanwhile; if `MaxGroups` is reached by then, the player goes to gr
 `SetPlayerGroup` only stores the id, which takes effect when a group config is assigned. The group id is not part of a saved profile:
 set it again when a player joins. On a remote client `SetPlayerGroup` does nothing and warns once.
 
-**Clients.** Replication has not changed: clients receive the state of group 0, the default group. The other groups are read on the
-server (`ORS.GetGroup`, `OIDDAManager.TryGetGroupState(groupId, out state)`).
+**Clients.** With the default state format (V3, see "State format") a client receives the state of every group and knows which
+group each player it receives is in; the group members of its ORS follow its own group, and `ORS.TryGetGroupState(groupId, out state)`
+reads the others. With format V2 clients only receive group 0. On the server, `ORS.GetGroup` gives the group object itself.
 
-**Group API (ORS):** `AddGroupIntensity`, `SetGroupExcluded`, `SetPlayerGroup`, `GetGroup`, `GroupState`, `GroupIntensity`, `GroupStress`,
+**Group API (ORS):** `AddGroupIntensity`, `SetGroupExcluded`, `SetPlayerGroup`, `GetGroup`, `TryGetGroupState`, `GroupState`, `GroupIntensity`, `GroupStress`,
 `GroupFatigue`, `IsShouldSpawnGroupEncounter`, `GroupQuickReceiver<T>`, `GroupQuickSender`.
 
 ## The network module
@@ -178,8 +179,21 @@ Some messages stay on the reliable channel even when `Unreliable` is set:
 * any message **bigger than 1000 bytes** (about 35 players with `ReplicateStateToAll`). The engine splits a message bigger than a packet into parts, and losing
   one part loses the whole message, so the reliable channel is the better choice there.
 
-`Identify` and the client metric reports always use the reliable channel. The server and the clients must run the same
-version of the plugin: the message format changed with the sequence number (version 2), and a client rejects any other version.
+`Identify` and the client metric reports always use the reliable channel.
+
+### State format
+
+`StateFormat` on `OIDDANetworkSync` is the format of the state messages the server sends. **A client reads both formats**, so
+it is the server that decides.
+
+* **V3** (default): each player's message part tells which group the player is in, and the message carries the state of **every**
+  group, so a client can show the state of all teams. On a client the group members of the ORS (`GroupState`, `GroupIntensity`,
+  ...) follow the local player's group, and `ORS.TryGetGroupState(groupId, out state)` reads any group that was sent.
+* **V2**: the format of earlier versions of the plugin: players and group 0 only. Use it while some clients are still on an
+  older version, which reject version 3. With V2 a client only knows group 0, whichever group it is in on the server.
+
+A message that carries more than 255 groups is cut at 255 (the manager allows 64 besides group 0). Messages bigger than 1000
+bytes use the reliable channel (see above): with V3 that happens beyond about 34 groups in an owner-only message.
 
 ### Reconnection
 
@@ -258,8 +272,9 @@ read the key too. A file written with one key cannot be read with another (the p
 ### Performance
 
 With 8 players the server loop allocates about 616 bytes per state tick (owner-only) or 280 bytes (replicate to all), which
-is essentially the messages themselves. A message with one player and the group is 58 bytes. The engine splits larger RPC
-messages by itself (see `NetworkSettings.MaxSyncParts`).
+is essentially the messages themselves (with the default format V3 it is about 672 and 320 bytes, because each message also
+carries the group ids and every group). A message with one player and the group is 58 bytes in V2 and 67 bytes in V3; each
+further group adds 28 bytes to every message. The engine splits larger RPC messages by itself (see `NetworkSettings.MaxSyncParts`).
 
 ### Client metrics and value types
 
@@ -297,14 +312,19 @@ conversion.
 With `DebugMode` on in the `OIDDAManager`, the network module logs the mode, `LocalClientId`, the ids of connecting
 clients and the reconnection counters.
 
-## Message format (version 2)
+## Message format
 
-Little-endian. Header: version (1 byte), flags (1 byte: bit 0 = group present), player count (2 bytes), sequence number
-(2 bytes). Then each player:
-id (4 bytes) and a snapshot; then the group snapshot if flagged. A snapshot is 24 bytes: state (1), intensity, stress,
-fatigue, score, difficulty multiplier (5 floats), flags (1: bit 0 = should spawn encounter), player count (2). A message
-is rejected as a whole if its length, version, flags or state byte are wrong, or if its sequence number is not newer than the last applied; non-finite numbers become 0 and values are
+Little-endian. A snapshot is 24 bytes: state (1), intensity, stress, fatigue, score, difficulty multiplier (5 floats), flags
+(1: bit 0 = should spawn encounter), player count (2). A message is rejected as a whole if its length, version, flags or state
+byte are wrong, or if its sequence number is not newer than the last applied; non-finite numbers become 0 and values are
 clamped to their legitimate range.
+
+**Version 2.** Header: version (1 byte), flags (1 byte: bit 0 = group present), player count (2 bytes), sequence number
+(2 bytes). Then each player: id (4 bytes) and a snapshot; then the group 0 snapshot if flagged.
+
+**Version 3.** Header: version (1 byte), flags (1 byte, must be 0), player count (2 bytes), sequence number (2 bytes), group
+count (1 byte). Then each player: id (4 bytes), group id (4 bytes) and a snapshot; then each group: id (4 bytes) and a snapshot.
+At most 256 players and 255 groups. A message with one player and one group is 67 bytes.
 
 ## Verification
 

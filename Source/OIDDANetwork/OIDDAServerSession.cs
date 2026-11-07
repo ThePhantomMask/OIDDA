@@ -19,6 +19,16 @@ public interface IOIDDAPlayerHost
     bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot);
     bool TryGetGroupState(out OIDDAStateSnapshot snapshot);
     void SetDefaultPlayerIsReal(bool value);
+
+    /// <summary> The group a player is in. By default 0: a host without groups puts everyone in group 0. </summary>
+    uint GetPlayerGroup(uint playerId) => 0;
+
+    /// <summary> Adds the state of every group, with its id, to the list. By default only group 0, if there is one. </summary>
+    void GetGroupStates(List<KeyValuePair<uint, OIDDAStateSnapshot>> into)
+    {
+        if (TryGetGroupState(out var snapshot)) into.Add(new KeyValuePair<uint, OIDDAStateSnapshot>(0, snapshot));
+    }
+
     bool WriteMetric(uint playerId, string name, float value);
 
     /// <summary> The profile of a player (see <c>OIDDAProfile</c>) to keep between sessions, or null if there is none. </summary>
@@ -115,6 +125,8 @@ public sealed class OIDDAServerSession
     readonly List<string> _keyScratch = new();
     readonly List<OutgoingState> _messages = new();
     readonly List<KeyValuePair<uint, OIDDAStateSnapshot>> _all = new();
+    readonly List<(uint Id, uint GroupId, OIDDAStateSnapshot State)> _entries = new();
+    readonly List<KeyValuePair<uint, OIDDAStateSnapshot>> _groupStates = new();
     readonly Dictionary<uint, uint[]> _targetCache = new();
     readonly Dictionary<uint, string> _keyByPlayer = new();
     readonly Dictionary<string, uint> _playerByKey = new();
@@ -379,13 +391,17 @@ public sealed class OIDDAServerSession
     /// Every call numbers its messages with the next sequence number. With <paramref name="allowUnreliable"/> a message may go on
     /// an unreliable channel, except the first one to a client (new or resumed) and any bigger than <see cref="MaxUnreliableBytes"/>:
     /// those are marked reliable.
+    /// With <paramref name="format"/> <see cref="OIDDAStateFormat.V3"/> each message also tells the group of each player and carries
+    /// the state of every group; the default (V2) is the format of earlier versions, which carries group 0 only.
     /// </summary>
-    public List<OutgoingState> BuildMessages(bool replicateToAll, bool includeHostPlayer, bool allowUnreliable = false)
+    public List<OutgoingState> BuildMessages(bool replicateToAll, bool includeHostPlayer, bool allowUnreliable = false, OIDDAStateFormat format = OIDDAStateFormat.V2)
     {
         _messages.Clear();
         if (_players.Count == 0) return _messages;
 
         unchecked { _sequence++; }
+
+        if (format == OIDDAStateFormat.V3) return BuildMessagesV3(replicateToAll, includeHostPlayer, allowUnreliable);
 
         bool hasGroup = _host.TryGetGroupState(out var groupState);
         OIDDAStateSnapshot? group = hasGroup ? groupState : null;
@@ -399,14 +415,7 @@ public sealed class OIDDAServerSession
             if (includeHostPlayer && _host.TryGetPlayerState(OIDDANetworkIds.Server, out var hostState))
                 _all.Add(new KeyValuePair<uint, OIDDAStateSnapshot>(OIDDANetworkIds.Server, hostState));
 
-            if (_allTargetsDirty)
-            {
-                _allTargets = new uint[_players.Count];
-                _players.CopyTo(_allTargets);
-                _allTargetsDirty = false;
-            }
-
-            AddMessage(_allTargets, OIDDANetworkCodec.Encode(_all, group, _sequence), allowUnreliable);
+            AddMessage(AllTargets(), OIDDANetworkCodec.Encode(_all, group, _sequence), allowUnreliable);
             return _messages;
         }
 
@@ -417,15 +426,60 @@ public sealed class OIDDAServerSession
             else if (hasGroup) payload = OIDDANetworkCodec.EncodeGroupOnly(groupState, _sequence);
             else continue;
 
-            if (!_targetCache.TryGetValue(id, out var target))
-            {
-                target = new[] { id };
-                _targetCache[id] = target;
-            }
-
-            AddMessage(target, payload, allowUnreliable);
+            AddMessage(TargetOf(id), payload, allowUnreliable);
         }
         return _messages;
+    }
+
+    // Format 3: each player carries its group id, and every group's state is sent (to everyone, whichever players they get).
+    List<OutgoingState> BuildMessagesV3(bool replicateToAll, bool includeHostPlayer, bool allowUnreliable)
+    {
+        _groupStates.Clear();
+        _host.GetGroupStates(_groupStates);
+
+        if (replicateToAll)
+        {
+            _entries.Clear();
+            foreach (var id in _players)
+                if (_host.TryGetPlayerState(id, out var snapshot)) _entries.Add((id, _host.GetPlayerGroup(id), snapshot));
+
+            if (includeHostPlayer && _host.TryGetPlayerState(OIDDANetworkIds.Server, out var hostState))
+                _entries.Add((OIDDANetworkIds.Server, _host.GetPlayerGroup(OIDDANetworkIds.Server), hostState));
+
+            AddMessage(AllTargets(), OIDDANetworkCodec.EncodeV3(_entries, _groupStates, _sequence), allowUnreliable);
+            return _messages;
+        }
+
+        foreach (var id in _players)
+        {
+            _entries.Clear();
+            if (_host.TryGetPlayerState(id, out var own)) _entries.Add((id, _host.GetPlayerGroup(id), own));
+            else if (_groupStates.Count == 0) continue;
+
+            AddMessage(TargetOf(id), OIDDANetworkCodec.EncodeV3(_entries, _groupStates, _sequence), allowUnreliable);
+        }
+        return _messages;
+    }
+
+    uint[] AllTargets()
+    {
+        if (_allTargetsDirty)
+        {
+            _allTargets = new uint[_players.Count];
+            _players.CopyTo(_allTargets);
+            _allTargetsDirty = false;
+        }
+        return _allTargets;
+    }
+
+    uint[] TargetOf(uint id)
+    {
+        if (!_targetCache.TryGetValue(id, out var target))
+        {
+            target = new[] { id };
+            _targetCache[id] = target;
+        }
+        return target;
     }
 
     void AddMessage(uint[] targets, byte[] payload, bool allowUnreliable)

@@ -18,6 +18,9 @@ public class OIDDANetworkSync : Script
     [EditorDisplay("State"), Tooltip("Channel of the periodic state messages. Unreliable: a lost message is replaced by the next one and a late one is dropped, so there is no waiting for resends. The first message to each client and messages too big for one packet still use the reliable channel.")]
     public OIDDAStateChannel StateChannel = OIDDAStateChannel.Reliable;
 
+    [EditorDisplay("State"), Tooltip("Format of the state messages. V3: each player's group and the state of every group. V2: the format of earlier versions, for clients that have not been updated yet; it carries only group 0. Clients understand both.")]
+    public OIDDAStateFormat StateFormat = OIDDAStateFormat.V3;
+
     [EditorDisplay("State"), Range(0.02f, 2f), Tooltip("Seconds between state messages to the clients.")]
     public float StateSendInterval = 0.1f;
 
@@ -223,7 +226,7 @@ public class OIDDANetworkSync : Script
             Debug.Log($"[OIDDA Network] Mode={NetworkManager.Mode}, LocalClientId={NetworkManager.LocalClientId}, remote clients=[{string.Join(", ", _session.Players)}]");
         }
 
-        foreach (var message in _session.BuildMessages(ReplicateStateToAll, defaultPlayerIsReal, StateChannel == OIDDAStateChannel.Unreliable))
+        foreach (var message in _session.BuildMessages(ReplicateStateToAll, defaultPlayerIsReal, StateChannel == OIDDAStateChannel.Unreliable, StateFormat))
             SendState(message.Payload, message.Targets, message.Reliable);
     }
 

@@ -105,6 +105,19 @@ public class OIDDAManager : Script
     }
 
     /// <summary>
+    /// Fills the list with the groups that exist: the default group first, then the others in the order they were created.
+    /// The list is cleared first; it stays empty when no group is configured.
+    /// </summary>
+    public void GetGroups(List<OIDDAGroup> into)
+    {
+        into.Clear();
+        if (_group == null) return;
+
+        into.Add(_group);
+        into.AddRange(_extraGroups);
+    }
+
+    /// <summary>
     /// Moves a player to a group, creating it if needed (up to <see cref="MaxGroups"/>). The player keeps their age, so there is no new
     /// warm-up. Without a group config only the id is stored: it takes effect when a group config is assigned.
     /// </summary>
