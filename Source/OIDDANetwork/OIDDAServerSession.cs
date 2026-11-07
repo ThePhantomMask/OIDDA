@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using FlaxEngine;
+using FlaxEngine.Networking;
+using System.Collections.Generic;
 
 namespace OIDDA.Network;
 
@@ -140,6 +142,11 @@ public sealed class OIDDAServerSession
     readonly Dictionary<uint, string> _keyByPlayer = new();
     readonly Dictionary<string, uint> _playerByKey = new();
     readonly Dictionary<string, Parked> _parked = new();
+    readonly Dictionary<uint, int> _metricViolations = new();
+    readonly Dictionary<uint, float> _lastMetricTime = new();
+
+    const int MaxViolations = 10;
+    const float ViolationWindowSeconds = 60f;
     uint[] _allTargets = System.Array.Empty<uint>();
     bool _allTargetsDirty = true;
     OIDDASessionStats _stats;
@@ -242,6 +249,8 @@ public sealed class OIDDAServerSession
             _needReliable.Remove(id);
             _targetCache.Remove(id);
             _gate?.Forget(id);
+            _metricViolations.Remove(id);
+            _lastMetricTime.Remove(id);
             _allTargetsDirty = true;
         }
 
@@ -596,6 +605,29 @@ public sealed class OIDDAServerSession
         return false;
     }
 
+    bool RegisterMetricViolation(uint senderID, float now)
+    {
+        _metricViolations.TryGetValue(senderID, out var count);
+        _lastMetricTime.TryGetValue(senderID, out var lastTime);
+
+        if (count > 0 && now - lastTime > ViolationWindowSeconds)
+            count = 0; // reset count if outside the violation window
+
+        count++;
+        _metricViolations[senderID] = count;
+        _lastMetricTime[senderID] = now;
+
+        if (count > MaxViolations)
+        {
+            // Exceeded the maximum allowed violations, remove the client aka Kick the session.
+            _metricViolations.Remove(senderID);
+            _lastMetricTime.Remove(senderID);
+            return true; // The client has exceeded the maximum allowed violations
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Handles a metric a client reported. The sender id comes from the network layer, never from the message, so a client
     /// can only report for itself.
@@ -603,7 +635,15 @@ public sealed class OIDDAServerSession
     public bool HandleReport(uint senderId, string name, float value, float now)
     {
         if (_gate == null || !_players.Contains(senderId)) return false;
-        if (!_gate.TryAccept(senderId, name, value, now, out var clamped)) return false;
+        if (!_gate.TryAccept(senderId, name, value, now, out var clamped))
+        {
+            if (RegisterMetricViolation(senderId, now))
+            {
+                Debug.LogWarning($"OIDDA: Client {senderId} disconnect for repeated violations of metrics.");
+                _host.UnregisterPlayer(senderId);
+            }
+            return false;
+        }
 
         return _host.WriteMetric(senderId, name, clamped);
     }
