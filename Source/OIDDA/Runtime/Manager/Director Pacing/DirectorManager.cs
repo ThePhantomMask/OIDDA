@@ -194,17 +194,15 @@ public class DirectorManager
     /// </summary>
     void UpdateFatigue(float deltaTime)
     {
-        if (CurrentIntensity > 0)
-        {
-            var rate = CurrentState switch
+        var fatigueRate = CurrentIntensity <= 0 ? -FatigueRecoveryRate
+            : CurrentState switch
             {
                 DirectorState.Build or DirectorState.Peak => FatigueGainRate,
                 DirectorState.Relax => -FatigueRecoveryRate,
-                _ => 0f
+                DirectorState.Fade or _ => 0f
             };
-
-            FatigueLevel = Mathf.Clamp(FatigueLevel + rate * deltaTime, 0f, 100f);
-        }
+        var fatigueChange = fatigueRate * deltaTime;
+        FatigueLevel = Mathf.Clamp(FatigueLevel + fatigueChange, 0f, 100f);
     }
 
     /// <summary>
