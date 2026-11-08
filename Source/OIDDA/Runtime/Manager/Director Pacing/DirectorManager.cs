@@ -28,6 +28,10 @@ public class DirectorManager
     public float FatigueGainRate = 0.5f;
     [Tooltip("Fatigue lost per second while in Relax.")]
     public float FatigueRecoveryRate = 2f;
+    [Tooltip("When on, the overall score also raises the intensity while in Build or Peak, so the pacing cycle runs without calling AddIntensity. Off by default.")]
+    public bool IntensityFromMetrics = false;
+    [Tooltip("Intensity gained per second when the overall score is at its maximum. A neutral or easy score adds nothing: the intensity then only decays.")]
+    public float IntensityRiseRate = 10f;
     [HideInEditor] public bool isDirectorSmoothing;
     [HideInEditor] public bool DebugMode;
     [HideInEditor] public OIDDAConfig currentConfig;
@@ -245,6 +249,7 @@ public class DirectorManager
             // Overall score: 0 = very easy, 1 = very difficult. Also drives the Director rules.
             var score = CalculateScoreByData(values, deltaTime);
             UpdateStress(score, deltaTime);
+            UpdateIntensityFromScore(score, deltaTime);
         }
         else
         {
@@ -277,18 +282,37 @@ public class DirectorManager
     }
 
     /// <summary>
+    /// Raises the intensity while the overall score indicates difficulty (same load as <see cref="UpdateStress"/>).
+    /// Only in Build and Peak, so Fade and Relax can bring the tension down; never lowers the intensity (the decay does that).
+    /// Does nothing unless <see cref="IntensityFromMetrics"/> is on.
+    /// </summary>
+    void UpdateIntensityFromScore(float overallScore, float deltaTime)
+    {
+        if (!IntensityFromMetrics || IntensityRiseRate <= 0f) return;
+        if (CurrentState != DirectorState.Build && CurrentState != DirectorState.Peak) return;
+
+        var load = (overallScore - 0.5f) * 2f; // -1 (very easy) .. +1 (very difficult)
+        if (load <= 0f) return;
+
+        CurrentIntensity = Mathf.Clamp(CurrentIntensity + load * IntensityRiseRate * deltaTime, 0f, 100f);
+    }
+
+    /// <summary>
     /// Fatigue builds up slowly in Build/Peak, recovers in Relax and holds during Fade.
     /// </summary>
     void UpdateFatigue(float deltaTime)
     {
-        var rate = CurrentState switch
+        if (CurrentIntensity > 0)
         {
-            DirectorState.Build or DirectorState.Peak => FatigueGainRate,
-            DirectorState.Relax => -FatigueRecoveryRate,
-            _ => 0f
-        };
+            var rate = CurrentState switch
+            {
+                DirectorState.Build or DirectorState.Peak => FatigueGainRate,
+                DirectorState.Relax => -FatigueRecoveryRate,
+                _ => 0f
+            };
 
-        FatigueLevel = Mathf.Clamp(FatigueLevel + rate * deltaTime, 0f, 100f);
+            FatigueLevel = Mathf.Clamp(FatigueLevel + rate * deltaTime, 0f, 100f);
+        }
     }
 
     /// <summary>
