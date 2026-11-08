@@ -1,4 +1,5 @@
-﻿using FlaxEngine;
+﻿using FlaxEditor.CustomEditors.Editors;
+using FlaxEngine;
 using FlaxEngine.Utilities;
 using OIDDA.Data;
 using System.Collections.Generic;
@@ -302,15 +303,30 @@ public class DirectorManager
     /// </summary>
     void UpdateFatigue(float deltaTime)
     {
-        var fatigueRate = CurrentIntensity <= 0 ? -FatigueRecoveryRate
-            : CurrentState switch
+        float rate = CalculateFatigueScore(deltaTime);
+        FatigueLevel = Mathf.Clamp(FatigueLevel + rate, 0f, 100f);
+    }
+
+    float CalculateFatigueScore(float time)
+    {
+        float fatigueScore = 0f;
+        if (CurrentIntensity > 0)
+        {
+            switch (CurrentState)
             {
-                DirectorState.Build or DirectorState.Peak => FatigueGainRate,
-                DirectorState.Relax => -FatigueRecoveryRate,
-                DirectorState.Fade or _ => 0f
-            };
-        var fatigueChange = fatigueRate * deltaTime;
-        FatigueLevel = Mathf.Clamp(FatigueLevel + fatigueChange, 0f, 100f);
+                case DirectorState.Build or DirectorState.Peak:
+                    fatigueScore = FatigueGainRate;
+                    break;
+                case DirectorState.Relax:
+                    fatigueScore = -FatigueRecoveryRate;
+                    break;
+                case DirectorState.Fade:
+                    fatigueScore = 0f;
+                    break;
+            }
+            return fatigueScore * time;
+        }
+        return fatigueScore = -FatigueRecoveryRate;
     }
 
     /// <summary>
