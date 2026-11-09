@@ -1,5 +1,4 @@
-﻿using FlaxEditor.CustomEditors.Editors;
-using FlaxEngine;
+﻿using FlaxEngine;
 using FlaxEngine.Utilities;
 using OIDDA.Data;
 using System.Collections.Generic;
@@ -328,7 +327,7 @@ public class DirectorManager
             }
             return fatigueScore * time;
         }
-        return fatigueScore = -FatigueRecoveryRate;
+        return -FatigueRecoveryRate * time;
     }
 
     /// <summary>
