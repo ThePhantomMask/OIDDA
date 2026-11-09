@@ -75,6 +75,8 @@ public class DirectorManager
         StressDecayRate = other.StressDecayRate;
         FatigueGainRate = other.FatigueGainRate;
         FatigueRecoveryRate = other.FatigueRecoveryRate;
+        IntensityFromMetrics = other.IntensityFromMetrics;
+        IntensityRiseRate = other.IntensityRiseRate;
     }
 
     public DirectorManager()
