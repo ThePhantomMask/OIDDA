@@ -202,20 +202,69 @@ public struct GameplayValue
         };
     }
 
-    public float AsFloat() => Type == ValueType.Float ? FloatValue : 0f;
-    public int AsInt() => Type == ValueType.Int ? IntValue : 0;
-    public bool AsBool() => Type == ValueType.Bool && BoolValue;
-    public Vector2 AsVector2() => Type == ValueType.Vector2 ? Vector2Value : Vector2.Zero;
-    public Vector3 AsVector3() => Type == ValueType.Vector3 ? Vector3Value : Vector3.Zero;
-    public Vector4 AsVector4() => Type == ValueType.Vector4 ? Vector4Value : Vector4.Zero;
-    public string AsString() => Type == ValueType.String ? StringValue : string.Empty;
-    public Color AsColor() => Type == ValueType.Color ? ColorValue : Color.White;
-    public Quaternion AsQuaternion() => Type == ValueType.Quaternion ? QuaternionValue : Quaternion.Identity;
-    public Transform AsTransform() => Type == ValueType.Transform ? TransformValue : Transform.Default;
-    public BoundingBox AsBoundingBox() => Type == ValueType.BoundingBox ? BoundingBoxValue : BoundingBox.Default;
-    public BoundingSphere AsBoundingSphere() => Type == ValueType.BoundingSphere ? BoundingSphereValue : BoundingSphere.Default;
-    public Texture AsTexture() => Type == ValueType.Texture ? TextureValue : new Texture();
-    public CubeTexture AsCubeTexture() => Type == ValueType.CubeTexture ? CubeTextureValue : new CubeTexture();
+    public bool TryGetGameplayValueAs<T>(out T value)
+    {
+        object raw = null;
+
+        switch (Type)
+        {
+            case ValueType.Float when typeof(T) == typeof(float): raw = FloatValue; break;
+            case ValueType.Int when typeof(T) == typeof(int): raw = IntValue; break;
+            case ValueType.Bool when typeof(T) == typeof(bool): raw = BoolValue; break;
+            case ValueType.Vector2 when typeof(T) == typeof(Vector2): raw = Vector2Value; break;
+            case ValueType.Vector3 when typeof(T) == typeof(Vector3): raw = Vector3Value; break;
+            case ValueType.Vector4 when typeof(T) == typeof(Vector4): raw = Vector4Value; break;
+            case ValueType.String when typeof(T) == typeof(string): raw = StringValue; break;
+            case ValueType.Color when typeof(T) == typeof(Color): raw = ColorValue; break;
+            case ValueType.Quaternion when typeof(T) == typeof(Quaternion): raw = QuaternionValue; break;
+            case ValueType.Transform when typeof(T) == typeof(Transform): raw = TransformValue; break;
+            case ValueType.BoundingBox when typeof(T) == typeof(BoundingBox): raw = BoundingBoxValue; break;
+            case ValueType.BoundingSphere when typeof(T) == typeof(BoundingSphere): raw = BoundingSphereValue; break;
+            case ValueType.Texture when typeof(T) == typeof(Texture): raw = TextureValue; break;
+            case ValueType.CubeTexture when typeof(T) == typeof(CubeTexture): raw = CubeTextureValue; break;
+        }
+
+        value = raw is T t ? t : GetDefaultForType<T>();
+        return true;
+    }
+
+    private static T GetDefaultForType<T>()
+    {
+        var type = typeof(T);
+
+        object boxed = type == typeof(float) ? (object)0f
+                     : type == typeof(int) ? 0
+                     : type == typeof(bool) ? false
+                     : type == typeof(Vector2) ? Vector2.Zero
+                     : type == typeof(Vector3) ? Vector3.Zero
+                     : type == typeof(Vector4) ? Vector4.Zero
+                     : type == typeof(string) ? string.Empty
+                     : type == typeof(Color) ? Color.White
+                     : type == typeof(Quaternion) ? Quaternion.Identity
+                     : type == typeof(Transform) ? Transform.Default
+                     : type == typeof(BoundingBox) ? BoundingBox.Default
+                     : type == typeof(BoundingSphere) ? BoundingSphere.Default
+                     : type == typeof(Texture) ? new Texture()
+                     : type == typeof(CubeTexture) ? new CubeTexture()
+                     : null;
+
+        return boxed is T t ? t : default;
+    }
+
+    public float AsFloat() => TryGetGameplayValueAs<float>(out var value) ? value : value;
+    public int AsInt() => TryGetGameplayValueAs<int>(out var value) ? value : value;
+    public bool AsBool() => TryGetGameplayValueAs<bool>(out var value) ? value : value;
+    public Vector2 AsVector2() => TryGetGameplayValueAs<Vector2>(out var value) ? value : value;
+    public Vector3 AsVector3() => TryGetGameplayValueAs<Vector3>(out var value) ? value : value;
+    public Vector4 AsVector4() => TryGetGameplayValueAs<Vector4>(out var value) ? value : value;
+    public string AsString() => TryGetGameplayValueAs<string>(out var value) ? value : value;
+    public Color AsColor() => TryGetGameplayValueAs<Color>(out var value) ? value : value;
+    public Quaternion AsQuaternion() => TryGetGameplayValueAs<Quaternion>(out var value) ? value : value;
+    public Transform AsTransform() => TryGetGameplayValueAs<Transform>(out var value) ? value : value;
+    public BoundingBox AsBoundingBox() => TryGetGameplayValueAs<BoundingBox>(out var value) ? value : value;
+    public BoundingSphere AsBoundingSphere() => TryGetGameplayValueAs<BoundingSphere>(out var value) ? value : value;
+    public Texture AsTexture() => TryGetGameplayValueAs<Texture>(out var value) ? value : value;
+    public CubeTexture AsCubeTexture() => TryGetGameplayValueAs<CubeTexture>(out var value) ? value : value;
 
 }
 public enum ValueType
