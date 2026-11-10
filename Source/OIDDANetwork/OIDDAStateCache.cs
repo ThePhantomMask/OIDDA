@@ -12,9 +12,9 @@ namespace OIDDA.Network;
 public sealed class OIDDAStateCache : IOIDDAStateProvider
 {
     readonly INetworkEnvironment _env;
-    readonly Dictionary<uint, OIDDAStateSnapshot> _players = new();
-    readonly Dictionary<uint, OIDDAStateSnapshot> _incoming = new();
-    OIDDAStateSnapshot? _group;
+    // The last message applied, and the one being decoded: they trade places when a message is accepted.
+    OIDDAStateFrame _current = new();
+    OIDDAStateFrame _incoming = new();
     ushort _lastSequence;
     bool _hasSequence;
 
@@ -37,19 +37,36 @@ public sealed class OIDDAStateCache : IOIDDAStateProvider
             snapshot = default;
             return false;
         }
-        return _players.TryGetValue(playerId, out snapshot);
+        return _current.Players.TryGetValue(playerId, out snapshot);
     }
 
+    /// <summary>
+    /// The state of the local player's group. If the message did not say which group the local player is in, group 0.
+    /// </summary>
     public bool TryGetGroupState(out OIDDAStateSnapshot snapshot)
     {
-        if (IsAuthority || !_env.IsConnected || !_group.HasValue)
+        if (IsAuthority || !_env.IsConnected)
         {
             snapshot = default;
             return false;
         }
 
-        snapshot = _group.Value;
-        return true;
+        uint groupId = _current.PlayerGroups.TryGetValue(LocalPlayerId, out var own) ? own : OIDDAManager.DefaultGroupId;
+        return _current.Groups.TryGetValue(groupId, out snapshot);
+    }
+
+    /// <summary>
+    /// The last state received for a group. False if it was not in the last message.
+    /// </summary>
+    public bool TryGetGroupState(uint groupId, out OIDDAStateSnapshot snapshot)
+    {
+        if (IsAuthority || !_env.IsConnected)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        return _current.Groups.TryGetValue(groupId, out snapshot);
     }
 
     public bool TryReportMetric(string name, object value)
@@ -67,14 +84,12 @@ public sealed class OIDDAStateCache : IOIDDAStateProvider
     public bool Apply(byte[] payload, uint senderId)
     {
         if (IsAuthority || senderId != OIDDANetworkIds.Server) return false;
-        if (!OIDDANetworkCodec.TryDecode(payload, _incoming, out var group, out var sequence)) return false;
-        if (_hasSequence && !OIDDANetworkCodec.IsNewer(sequence, _lastSequence)) return false;
+        if (!OIDDANetworkCodec.TryDecode(payload, _incoming)) return false;
+        if (_hasSequence && !OIDDANetworkCodec.IsNewer(_incoming.Sequence, _lastSequence)) return false;
 
         // Every message is the complete picture of what this client may see, so it replaces the previous one.
-        _players.Clear();
-        foreach (var kv in _incoming) _players[kv.Key] = kv.Value;
-        _group = group;
-        _lastSequence = sequence;
+        (_current, _incoming) = (_incoming, _current);
+        _lastSequence = _current.Sequence;
         _hasSequence = true;
         return true;
     }
@@ -82,8 +97,7 @@ public sealed class OIDDAStateCache : IOIDDAStateProvider
     /// <summary> Forgets everything received (on disconnection or when the mode changes). </summary>
     public void Clear()
     {
-        _players.Clear();
-        _group = null;
+        _current.Clear();
         _hasSequence = false;
     }
 

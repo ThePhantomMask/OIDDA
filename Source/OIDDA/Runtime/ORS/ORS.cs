@@ -19,6 +19,8 @@ public abstract class ORSAgent
 
     public abstract bool TryGetGroupState(out OIDDAStateSnapshot snapshot);
 
+    public abstract bool TryGetGroupState(uint groupId, out OIDDAStateSnapshot snapshot);
+
     #endregion
 
     #region DDA API methods
@@ -89,6 +91,14 @@ public abstract class ORSAgent
 
     public abstract void SetGroupExcluded(uint playerId, bool excluded);
 
+    public abstract bool SetPlayerGroup(uint playerId, uint groupId);
+
+    public abstract void AddGroupIntensity(uint groupId, float amount, string reason = "");
+
+    public abstract T GroupQuickReceiver<T>(uint groupId, string nameValue);
+
+    public abstract void GroupQuickSender(uint groupId, string nameValue, object senderValue);
+
     #endregion
 
     #region  Director API methods
@@ -140,8 +150,8 @@ public class ORS : ORSAgent
     }
 
     /// <summary>
-    /// The state of the group: from the manager where OIDDA runs, from the state provider on a remote client.
-    /// False if there is no group or nothing was received yet.
+    /// The state of the local player's group: from the manager where OIDDA runs, from the state provider on a remote client
+    /// (which replicates the default group). False if there is no group or nothing was received yet.
     /// </summary>
     public override bool TryGetGroupState(out OIDDAStateSnapshot snapshot)
     {
@@ -153,7 +163,24 @@ public class ORS : ORSAgent
             snapshot = default;
             return false;
         }
-        return manager.TryGetGroupState(out snapshot);
+        return manager.TryGetGroupState(manager.DefaultContext.GroupId, out snapshot);
+    }
+
+    /// <summary>
+    /// The state of a given group: from the manager where OIDDA runs, from the state provider on a remote client (which knows the
+    /// groups the server sent). False if the group does not exist or is not available here.
+    /// </summary>
+    public override bool TryGetGroupState(uint groupId, out OIDDAStateSnapshot snapshot)
+    {
+        if (IsRemoteClient) return StateProvider.TryGetGroupState(groupId, out snapshot);
+
+        var manager = _oiddaManager;
+        if (!manager)
+        {
+            snapshot = default;
+            return false;
+        }
+        return manager.TryGetGroupState(groupId, out snapshot);
     }
 
     // The local player's state as seen from a remote client.
@@ -447,10 +474,40 @@ public class ORS : ORSAgent
     #region Group API methods (multiplayer)
 
     // The group is enabled by assigning an OIDDAGroupConfig to the manager. Without it these members do nothing
-    // and report neutral values.
+    // and report neutral values. Everyone starts in group 0; SetPlayerGroup moves a player to another group. The members without a
+    // group id (Group, GroupState, GroupIntensity, GroupQuickSender...) act on the group of the local player (the default player,
+    // which is group 0 unless it was moved); the ones with a group id act on that group.
 
-    /// <summary> The group level, or null when no group is configured. </summary>
-    public OIDDAGroup Group => !IsRemoteClient && _oiddaManager ? _oiddaManager.Group : null;
+    /// <summary> The group of the local player (group 0 by default), or null when no group is configured. </summary>
+    public OIDDAGroup Group
+    {
+        get
+        {
+            if (IsRemoteClient) return null;
+
+            var manager = _oiddaManager;
+            return manager ? manager.GetGroup(manager.DefaultContext.GroupId) : null;
+        }
+    }
+
+    /// <summary> The group with the given id, or null if it does not exist, no group is configured, or on a remote client. </summary>
+    public OIDDAGroup GetGroup(uint groupId) => !IsRemoteClient && _oiddaManager ? _oiddaManager.GetGroup(groupId) : null;
+
+    /// <summary>
+    /// Moves a player to a group, creating the group if needed. Everyone starts in group 0. See <see cref="OIDDAManager.SetPlayerGroup"/>.
+    /// </summary>
+    /// <returns>False if the player is not registered, MaxGroups is reached, or on a remote client (with a warning).</returns>
+    public override bool SetPlayerGroup(uint playerId, uint groupId)
+    {
+        if (IsRemoteClient)
+        {
+            WarnRemote("SetPlayerGroup");
+            return false;
+        }
+
+        var manager = _oiddaManager;
+        return manager && manager.SetPlayerGroup(playerId, groupId);
+    }
 
     /// <summary>
     /// Adds intensity that belongs to the whole group (for example a boss that threatens everyone).
@@ -463,6 +520,19 @@ public class ORS : ORSAgent
             return;
         }
         Group?.AddIntensity(amount, reason);
+    }
+
+    /// <summary>
+    /// Adds intensity that belongs to one group. Ignored if the group does not exist.
+    /// </summary>
+    public override void AddGroupIntensity(uint groupId, float amount, string reason = "")
+    {
+        if (IsRemoteClient)
+        {
+            WarnRemote("AddGroupIntensity");
+            return;
+        }
+        GetGroup(groupId)?.AddIntensity(amount, reason);
     }
 
     /// <summary>
@@ -494,6 +564,15 @@ public class ORS : ORSAgent
         }
     }
 
+    public bool IsInGroupFlowState
+    {
+        get
+        {
+            if (IsRemoteClient) return StateProvider.TryGetGroupState(out var remote) && remote.IsInFlow;
+            return Group?.IsInFlow ?? false;
+        }
+    }
+
     public DirectorState GroupState
     {
         get
@@ -521,6 +600,17 @@ public class ORS : ORSAgent
     }
 
     /// <summary>
+    /// Reads a variable of one group (including the read-only Group.* ones).
+    /// </summary>
+    public override T GroupQuickReceiver<T>(uint groupId, string nameValue)
+    {
+        if (IsRemoteClient) throw RemoteVariableError(nameValue);
+
+        var group = GetGroup(groupId) ?? throw new InvalidOperationException($"Group {groupId} does not exist (or no group is configured).");
+        return group.GetValue<T>(nameValue);
+    }
+
+    /// <summary>
     /// Writes a group-level variable. Ignored when no group is configured.
     /// </summary>
     public override void GroupQuickSender(string nameValue, object senderValue)
@@ -531,6 +621,19 @@ public class ORS : ORSAgent
             return;
         }
         Group?.SetValue(nameValue, senderValue);
+    }
+
+    /// <summary>
+    /// Writes a variable of one group. Ignored if the group does not exist.
+    /// </summary>
+    public override void GroupQuickSender(uint groupId, string nameValue, object senderValue)
+    {
+        if (IsRemoteClient)
+        {
+            WarnRemote("GroupQuickSender");
+            return;
+        }
+        GetGroup(groupId)?.SetValue(nameValue, senderValue);
     }
 
     #endregion
@@ -558,6 +661,11 @@ public class ORS : ORSAgent
     /// </summary>
     /// <remarks>If pacing is enabled, this property reflects the recommendation of the pacing director. If pacing is disabled, it always returns <see langword="true"/>.</remarks>
     public bool IsShouldSpawnEncounter => IsRemoteClient ? TryLocalRemoteState(out var remote) && remote.ShouldSpawnEncounter : (_oiddaManager) ? _oiddaManager.IsShouldSpawnEncounter : false;
+    /// <summary>
+    /// Gets a value indicating if the player is in a flow state: engaged, without too much stress or fatigue.
+    /// </summary>
+    /// <remarks>False if pacing is disabled. For another player, use <c>TryGetPlayerState</c> (the snapshot carries the same flag).</remarks>
+    public bool IsInFlowState => IsRemoteClient ? TryLocalRemoteState(out var remote) && remote.IsInFlowState : (_oiddaManager) ? _oiddaManager.IsInFlowState : false;
     /// <summary>
     /// Gets the current pacing state of the director.
     /// </summary>

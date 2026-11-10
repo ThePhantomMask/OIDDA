@@ -22,8 +22,20 @@ public interface IOIDDAStateProvider
     /// </summary>
     bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot);
 
-    /// <summary> The last state received for the group. False if there is no group or nothing received yet. </summary>
+    /// <summary>
+    /// The last state received for the local player's group. False if there is no group or nothing received yet.
+    /// </summary>
     bool TryGetGroupState(out OIDDAStateSnapshot snapshot);
+
+    /// <summary>
+    /// The last state received for a given group. False if it is not available here. A provider that only knows one group can
+    /// leave the default (always false).
+    /// </summary>
+    bool TryGetGroupState(uint groupId, out OIDDAStateSnapshot snapshot)
+    {
+        snapshot = default;
+        return false;
+    }
 
     /// <summary>
     /// Sends a metric measured on the client to the server, if that is enabled. Returns false when it is not, and the

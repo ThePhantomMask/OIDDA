@@ -102,28 +102,63 @@ at once with their real values (`JoinWarmupSeconds` only covers the first second
 meanwhile). If every player is excluded the group uses its neutral values (score 0.5, no intensity, stress or fatigue, 0 players).
 `GroupWeight` is separate: it only matters to `Weighted`, and it does not exclude anyone from the other modes.
 
-**Group API (ORS):** `AddGroupIntensity`, `SetGroupExcluded`, `GroupState`, `GroupIntensity`, `GroupStress`, `GroupFatigue`,
-`IsShouldSpawnGroupEncounter`, `GroupQuickReceiver<T>`, `GroupQuickSender`.
+**Several groups.** Everyone starts in group 0. `ORS.SetPlayerGroup(playerId, groupId)` moves a player to another group (any `uint`
+chosen by the game, for example a team number), creating the group the first time someone joins it. Each group has its own Director,
+its own variables and its own `Group.*` values, and counts only its members; a player's metrics and rules read the `Group.*` values
+of the group the player is in. All groups share the same `GroupConfig` (aggregation, warm-up, rules) and the thresholds in
+`GroupDirector`. Moving a player does not start a new warm-up, and an excluded player stays excluded in the new group.
+
+| Setting (`OIDDAManager`) | Default | Meaning |
+|---|---|---|
+| `MaxGroups` | 8 | Groups besides group 0, which always exists and does not count. A group that is empty and waiting to be removed does not count either. Beyond the limit `SetPlayerGroup` returns false, the player stays where it was, and the log warns once. 0 means only group 0. |
+| `GroupGraceSeconds` | 120 | How long an empty group (never group 0) is kept, with its values and Director state, before it is removed. A player who comes back in time finds it as it was. 0 removes it as soon as it is empty. |
+
+The members of the ORS without a group id (`Group`, `GroupState`, `GroupIntensity`, `AddGroupIntensity(amount)`, `GroupQuickSender(name, value)`...)
+act on the group of the local player, that is the default player (player 0): group 0, unless you moved it. To act on another group use
+the members that take the group id first: `AddGroupIntensity(groupId, amount)`, `GroupQuickSender(groupId, name, value)`,
+`GroupQuickReceiver<T>(groupId, name)`, and `ORS.GetGroup(groupId)` for the group object (null if it does not exist). A group
+that does not exist is ignored by the senders and makes `GroupQuickReceiver<T>` throw. `OIDDAContext.GroupId` tells which group a player is in.
+
+Reconnection keeps the group: a player who comes back (see Reconnection below) returns to its group, which is created again if it has
+been removed meanwhile; if `MaxGroups` is reached by then, the player goes to group 0 and the log warns. Without a group config
+`SetPlayerGroup` only stores the id, which takes effect when a group config is assigned. The group id is not part of a saved profile:
+set it again when a player joins. On a remote client `SetPlayerGroup` does nothing and warns once.
+
+**Clients.** With the default state format (V3, see "State format") a client receives the state of every group and knows which
+group each player it receives is in; the group members of its ORS follow its own group, and `ORS.TryGetGroupState(groupId, out state)`
+reads the others. With format V2 clients only receive group 0. On the server, `ORS.GetGroup` gives the group object itself.
+
+**Group API (ORS):** `AddGroupIntensity`, `SetGroupExcluded`, `SetPlayerGroup`, `GetGroup`, `TryGetGroupState`, `GroupState`, `GroupIntensity`, `GroupStress`,
+`GroupFatigue`, `IsShouldSpawnGroupEncounter`, `GroupQuickReceiver<T>`, `GroupQuickSender`.
 
 ## The network module
 
 * **The server is the authority.** Analysis, rules and the Directors only run on the server or host. On a client the
   `OIDDAManager` stays idle.
 * **What a client receives.** By default only its own player's state and the group's. With `ReplicateStateToAll` every client
-  receives every player's state (for example to show teammates).
+  also receives the state of other players (for example to show teammates): the players of its own group, or every player
+  with `OnlyOwnGroup` off (see "State format").
 * **What a client can do.** Read state through the ORS (`CurrentState`, `CurrentIntensity`, `CurrentStress`, `CurrentFatigue`,
-  `IsShouldSpawnEncounter`, `Group*`, `LocalPlayerId`, `TryGetPlayerState`, `TryGetGroupState`). Reading a game variable
+  `IsShouldSpawnEncounter`, `IsInFlowState` (format V3 only: with V2 it is always false on a client), `Group*`, `LocalPlayerId`, `TryGetPlayerState`, `TryGetGroupState`). Reading a game variable
   throws, and intensity or group changes are ignored with a single warning, because those live on the server.
 * **Client metrics.** Off by default. If you turn on `AllowClientMetrics`, a client can report metrics that only exist on the
   client (a reaction time, say) with `ORS.QuickSender` (or `SenderValue` of a connected agent). The server accepts only the metrics listed in
   `AllowedClientMetrics`, clamps each value to the range given there, and limits each client to `MaxReportsPerSecond`. The
   sender is taken from the network layer, never from the message, so a client can only report for itself.
+  **Invalid reports** (a name that is not allowed or is too long, or a value that is not a finite number) are logged once per
+  client and counted: more than `MaxMetricViolations` of them within `MetricViolationWindowSeconds` of the first removes the client
+  from OIDDA. The engine has no way to disconnect a single client, so it stays connected to the network, but it gets no state, its
+  reports are ignored, it is not registered again, its state is not kept for a return and its profile is not saved; the place it
+  held goes to a client that was refused for lack of room. Reports that only exceed `MaxReportsPerSecond` are dropped and do not
+  count, so a client that reports too often is slowed down, not removed. A client that disconnects and connects again is a new
+  client and starts clean.
 
 ### `OIDDANetworkSync` settings
 
 | Setting | Default | Meaning |
 |---|---|---|
 | `ReplicateStateToAll` | off | See above. |
+| `OnlyOwnGroup` | on | With `ReplicateStateToAll`: each client only receives the players of its own group. Off: every player, whatever the group. |
 | `StateChannel` | Reliable | Channel of the state messages: `Reliable` or `Unreliable` (see below). |
 | `StateSendInterval` | 0.1 s | Seconds between state messages. |
 | `ReconnectGraceSeconds` | 120 | How long the server keeps a disconnected player's state. 0 turns reconnection off. |
@@ -132,6 +167,8 @@ meanwhile). If every player is excluded the group uses its neutral values (score
 | `ProfileAutosaveSeconds` | 60 | Seconds between saves of the connected players' profiles. 0: only when they leave and when the server stops. |
 | `AllowClientMetrics` | off | See above. |
 | `MaxReportsPerSecond` | 10 | Reports per second accepted from each client. |
+| `MaxMetricViolations` | 10 | A client that sends more invalid reports than this within the window is removed from OIDDA. 0 never removes anyone. |
+| `MetricViolationWindowSeconds` | 60 | Seconds, from a client's first invalid report, in which its invalid reports add up. |
 | `AllowedClientMetrics` | empty | The only metrics a client may report, with their range. |
 
 Only one `OIDDANetworkSync` may be active: a second one warns and does nothing.
@@ -153,8 +190,28 @@ Some messages stay on the reliable channel even when `Unreliable` is set:
 * any message **bigger than 1000 bytes** (about 35 players with `ReplicateStateToAll`). The engine splits a message bigger than a packet into parts, and losing
   one part loses the whole message, so the reliable channel is the better choice there.
 
-`Identify` and the client metric reports always use the reliable channel. The server and the clients must run the same
-version of the plugin: the message format changed with the sequence number (version 2), and a client rejects any other version.
+`Identify` and the client metric reports always use the reliable channel.
+
+### State format
+
+`StateFormat` on `OIDDANetworkSync` is the format of the state messages the server sends. **A client reads both formats**, so
+it is the server that decides.
+
+* **V3** (default): each player's message part tells which group the player is in, and the message carries the state of **every**
+  group, so a client can show the state of all teams. On a client the group members of the ORS (`GroupState`, `GroupIntensity`,
+  ...) follow the local player's group, and `ORS.TryGetGroupState(groupId, out state)` reads any group that was sent. Its
+  numbers are sent as 16-bit values (see "Message format"), which makes the messages about half the size.
+* **V2**: the format of earlier versions of the plugin: players and group 0 only. Use it while some clients are still on an
+  older version, which reject version 3. With V2 a client only knows group 0, whichever group it is in on the server.
+
+**Only the players of your group.** With `ReplicateStateToAll`, `OnlyOwnGroup` (on by default) makes the server send one message per
+group that has clients, each with that group's players and, with V3, the state of every group, instead of one message with every
+player for everybody. A game with several teams then shows each client its teammates only, and each message stays small. It works
+with both formats (with V2 the group part is still group 0 only). When everyone is in group 0, which is always the case without
+`SetPlayerGroup`, the message is the same as with the option off. Turn it off to let every client see every player.
+
+A message that carries more than 255 groups is cut at 255 (the manager allows 64 besides group 0). Messages bigger than 1000
+bytes use the reliable channel (see above): with V3 that happens from 54 groups in an owner-only message.
 
 ### Reconnection
 
@@ -233,8 +290,9 @@ read the key too. A file written with one key cannot be read with another (the p
 ### Performance
 
 With 8 players the server loop allocates about 616 bytes per state tick (owner-only) or 280 bytes (replicate to all), which
-is essentially the messages themselves. A message with one player and the group is 58 bytes. The engine splits larger RPC
-messages by itself (see `NetworkSettings.MaxSyncParts`).
+is essentially the messages themselves (with the default format V3 it is about 504 and 232 bytes). A message with one player and
+the group is 58 bytes in V2 and 47 bytes in V3; each further group adds 18 bytes to every V3 message, so every client also gets
+the state of all the groups. The engine splits larger RPC messages by itself (see `NetworkSettings.MaxSyncParts`).
 
 ### Client metrics and value types
 
@@ -260,25 +318,36 @@ conversion.
 |---|---|
 | A client reads `Build` / 0 for everything | No state received yet, or no `OIDDANetworkSync` on the server, or the client is not connected, or **Enable Network** is off in the OIDDA settings (the log warns once). |
 | Nothing happens on the server | **Enable Network** is off in the OIDDA settings, or there is no `OIDDAManager` in the scene, or `OIDDANetworkSync` is missing or is a duplicate (check the log). |
+| `SetPlayerGroup` returns false | The player is not registered, or `MaxGroups` is reached (the log warns once). |
 | "N client(s) have no player" warning | `OIDDAManager.MaxPlayers` is smaller than the number of connected clients. |
 | `QuickReceiver` throws on a client | By design: game variables live on the server. Read the replicated state instead. |
 | Profiles are not saved or restored | `SaveProfiles` is off, the player never sent a key (`SendPlayerKey` off on the client, or the key is not valid), or the file could not be written (see the warnings: no AES-GCM, an `EncryptionKey` that is not 32 bytes, a folder that cannot be written). |
 | A returning player starts fresh | `ReconnectGraceSeconds` is 0 or expired, `SendPlayerKey` is off on the client, or the key is not valid. Turn on `DebugMode` on the manager to see "identified / resumed" lines. |
 | State seems to lag or skip with `StateChannel = Unreliable` | Expected under packet loss: a lost message is not resent, the next one arrives within `StateSendInterval`. Use `Reliable` if every message matters. |
-| A client ignores every state message | Server and client run different plugin versions (the message version must match), or the client is not connected. |
-| Client metrics are ignored | `AllowClientMetrics` is off, the metric is not in `AllowedClientMetrics`, or the client is over `MaxReportsPerSecond`. |
+| A client ignores every state message | Server and client run builds with a different message layout (versions 2 and 3 are both read, but a version 3 message of a build from before the compact format is rejected: use the same build, or `StateFormat` V2), or the client is not connected. |
+| Client metrics are ignored | `AllowClientMetrics` is off, the metric is not in `AllowedClientMetrics`, the client is over `MaxReportsPerSecond`, or it was removed for invalid reports (the log says so). |
+| A client gets no state and its reports are ignored | It was removed from OIDDA for more than `MaxMetricViolations` invalid reports (see the warning in the log). It stays connected to the network; it is registered again after it reconnects. |
 
 With `DebugMode` on in the `OIDDAManager`, the network module logs the mode, `LocalClientId`, the ids of connecting
 clients and the reconnection counters.
 
-## Message format (version 2)
+## Message format
 
-Little-endian. Header: version (1 byte), flags (1 byte: bit 0 = group present), player count (2 bytes), sequence number
-(2 bytes). Then each player:
-id (4 bytes) and a snapshot; then the group snapshot if flagged. A snapshot is 24 bytes: state (1), intensity, stress,
-fatigue, score, difficulty multiplier (5 floats), flags (1: bit 0 = should spawn encounter), player count (2). A message
-is rejected as a whole if its length, version, flags or state byte are wrong, or if its sequence number is not newer than the last applied; non-finite numbers become 0 and values are
+Little-endian. A snapshot is state (1), intensity, stress, fatigue, score, difficulty multiplier (5 numbers), flags
+(1: bit 0 = should spawn encounter, bit 1 = flow state, version 3 only), player count (2). In version 2 the five numbers are 32-bit floats (24 bytes in all); in
+version 3 they are 16-bit values scaled to the range each one can have (0-100 for intensity, stress and fatigue, 0-1 for the
+score, 0-10 for the multiplier), 14 bytes in all. The step is 0.0015 for a percentage, so a value comes back within 0.001 of
+what the server had; the ends of each range, the state, the spawn and flow flags and the player count are exact. A message is rejected as a whole if its length, version, flags or state
+byte are wrong, or if its sequence number is not newer than the last applied; non-finite numbers become 0 and values are
 clamped to their legitimate range.
+
+**Version 2.** Header: version (1 byte), flags (1 byte: bit 0 = group present), player count (2 bytes), sequence number
+(2 bytes). Then each player: id (4 bytes) and a snapshot; then the group 0 snapshot if flagged.
+
+**Version 3.** Header: version (1 byte), flags (1 byte, must be 0), player count (2 bytes), sequence number (2 bytes), group
+count (1 byte). Then each player: id (4 bytes), group id (4 bytes) and a snapshot; then each group: id (4 bytes) and a snapshot.
+At most 256 players and 255 groups. A player is 22 bytes and a group 18, so a message with one player and one group is 47 bytes.
+A version 3 message of an earlier build of this branch (32 and 28 bytes) is rejected, not misread: use the same build on both sides, or version 2.
 
 ## Verification
 

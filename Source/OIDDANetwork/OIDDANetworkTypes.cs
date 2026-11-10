@@ -50,6 +50,18 @@ public enum OIDDAStateChannel
 }
 
 /// <summary>
+/// Format of the state messages the server sends. Clients understand both, so it is the server that decides.
+/// </summary>
+public enum OIDDAStateFormat
+{
+    /// <summary> The format of earlier versions of the plugin, which older clients read. It carries only group 0. </summary>
+    V2 = 2,
+
+    /// <summary> Each player's group and the state of every group. </summary>
+    V3 = 3
+}
+
+/// <summary>
 /// A metric a client is allowed to report, with the range its values are clamped to.
 /// </summary>
 public class AllowedClientMetric

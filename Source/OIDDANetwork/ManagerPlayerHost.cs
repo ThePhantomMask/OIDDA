@@ -1,4 +1,5 @@
 ﻿using OIDDA.Data;
+using System.Collections.Generic;
 
 namespace OIDDA.Network;
 
@@ -8,6 +9,8 @@ namespace OIDDA.Network;
 public sealed class ManagerPlayerHost : IOIDDAPlayerHost
 {
     public OIDDAManager Manager { get; }
+
+    readonly List<OIDDAGroup> _groups = new();
 
     public ManagerPlayerHost(OIDDAManager manager) => Manager = manager;
 
@@ -22,6 +25,15 @@ public sealed class ManagerPlayerHost : IOIDDAPlayerHost
     public bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot) => Manager.TryGetPlayerState(playerId, out snapshot);
 
     public bool TryGetGroupState(out OIDDAStateSnapshot snapshot) => Manager.TryGetGroupState(out snapshot);
+
+    public uint GetPlayerGroup(uint playerId) => Manager.GetContext(playerId)?.GroupId ?? OIDDAManager.DefaultGroupId;
+
+    public void GetGroupStates(List<KeyValuePair<uint, OIDDAStateSnapshot>> into)
+    {
+        Manager.GetGroups(_groups);
+        for (int i = 0; i < _groups.Count; i++)
+            into.Add(new KeyValuePair<uint, OIDDAStateSnapshot>(_groups[i].Id, OIDDAStateSnapshot.From(_groups[i])));
+    }
 
     public void SetDefaultPlayerIsReal(bool value) => Manager.DefaultPlayerIsReal = value;
 

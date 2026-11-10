@@ -55,11 +55,19 @@ public sealed class OIDDAGroup
     OIDDAGroupConfig _config;
     float _accumulator;
 
-    internal OIDDAGroup(OIDDAManager owner, DirectorManager director)
+    internal OIDDAGroup(OIDDAManager owner, DirectorManager director, uint id = OIDDAManager.DefaultGroupId)
     {
         _owner = owner;
         _director = director;
+        Id = id;
     }
+
+    /// <summary> Id of this group. 0 is the default group, where every player starts. </summary>
+    public uint Id { get; }
+
+    // Players that belong to the group (set by the manager each time it counts them) and seconds the group has been empty.
+    internal int Members;
+    internal float EmptyFor;
 
     public OIDDAGroupConfig Config => _config;
 
@@ -83,13 +91,14 @@ public sealed class OIDDAGroup
     public float Fatigue => _director.FatigueLevel;
     public float DifficultyMultiplier => _director.DifficultyMultiplier;
     public bool ShouldSpawnEncounter => _director.ShouldSpawnEncounter();
+    public bool IsInFlow => _director.IsInFlowState;
 
     /// <summary> Adds intensity that belongs to the group itself. </summary>
     public void AddIntensity(float amount, string reason = "")
     {
         _director.AddGroupBoost(amount, reason);
 
-        if (_owner.DebugMode) Debug.Log($"[Group] Intensity added: + {amount} ({reason})");
+        if (_owner.DebugMode) Debug.Log($"[{(Id == OIDDAManager.DefaultGroupId ? "Group" : $"Group {Id}")}] Intensity added: + {amount} ({reason})");
     }
 
     public T GetValue<T>(string name) => _store.GetValue<T>(name);
@@ -166,7 +175,7 @@ public sealed class OIDDAGroup
 
     void Collect(OIDDAContext player)
     {
-        if (player == null || !player.HasStore || player.ExcludedFromGroup) return;
+        if (player == null || !player.HasStore || player.GroupId != Id || player.ExcludedFromGroup) return;
 
         _weights.Add(Mathf.Max(0f, player.GroupWeight));
 

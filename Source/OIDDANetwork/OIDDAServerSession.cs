@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using FlaxEngine;
+using System.Collections.Generic;
 
 namespace OIDDA.Network;
 
@@ -19,6 +20,16 @@ public interface IOIDDAPlayerHost
     bool TryGetPlayerState(uint playerId, out OIDDAStateSnapshot snapshot);
     bool TryGetGroupState(out OIDDAStateSnapshot snapshot);
     void SetDefaultPlayerIsReal(bool value);
+
+    /// <summary> The group a player is in. By default 0: a host without groups puts everyone in group 0. </summary>
+    uint GetPlayerGroup(uint playerId) => 0;
+
+    /// <summary> Adds the state of every group, with its id, to the list. By default only group 0, if there is one. </summary>
+    void GetGroupStates(List<KeyValuePair<uint, OIDDAStateSnapshot>> into)
+    {
+        if (TryGetGroupState(out var snapshot)) into.Add(new KeyValuePair<uint, OIDDAStateSnapshot>(0, snapshot));
+    }
+
     bool WriteMetric(uint playerId, string name, float value);
 
     /// <summary> The profile of a player (see <c>OIDDAProfile</c>) to keep between sessions, or null if there is none. </summary>
@@ -76,6 +87,9 @@ public struct OIDDASessionStats
 
     /// <summary> Profiles loaded for returning players. </summary>
     public int Restored;
+
+    /// <summary> Clients removed for repeated invalid metric reports. </summary>
+    public int Kicked;
 }
 
 /// <summary>
@@ -115,10 +129,34 @@ public sealed class OIDDAServerSession
     readonly List<string> _keyScratch = new();
     readonly List<OutgoingState> _messages = new();
     readonly List<KeyValuePair<uint, OIDDAStateSnapshot>> _all = new();
+    readonly List<(uint Id, uint GroupId, OIDDAStateSnapshot State)> _entries = new();
+    readonly List<KeyValuePair<uint, OIDDAStateSnapshot>> _groupStates = new();
+
+    // Replication to everyone, one message per group (OnlyOwnGroup).
+    readonly List<(uint Id, uint GroupId)> _memberships = new();
+    readonly List<uint> _distinctGroups = new();
+    readonly List<uint> _members = new();
+    readonly List<uint> _staleGroups = new();
+    readonly List<(uint Id, uint GroupId, OIDDAStateSnapshot State)> _groupEntries = new();
+    readonly List<KeyValuePair<uint, OIDDAStateSnapshot>> _groupPlayers = new();
+    readonly Dictionary<uint, uint[]> _groupTargets = new();
     readonly Dictionary<uint, uint[]> _targetCache = new();
     readonly Dictionary<uint, string> _keyByPlayer = new();
     readonly Dictionary<string, uint> _playerByKey = new();
     readonly Dictionary<string, Parked> _parked = new();
+
+    // Invalid metric reports: how many a client sent in the current window, and when the window began.
+    struct Violations
+    {
+        public int Count;
+        public float WindowStart;
+    }
+
+    readonly Dictionary<uint, Violations> _violations = new();
+    readonly HashSet<uint> _warnedInvalid = new();
+    readonly HashSet<uint> _kicked = new();
+    readonly int _maxViolations;
+    readonly float _violationWindow;
     uint[] _allTargets = System.Array.Empty<uint>();
     bool _allTargetsDirty = true;
     OIDDASessionStats _stats;
@@ -133,8 +171,12 @@ public sealed class OIDDAServerSession
     /// <param name="maxParked">Most disconnected players kept at once; beyond it the oldest is dropped.</param>
     /// <param name="saveProfiles">Keep the profile of each identified player between sessions (see <see cref="OIDDAProfileStore"/>).</param>
     /// <param name="profileAutosaveSeconds">With saveProfiles, how often the profiles of the connected players are saved. 0: only when they leave and when the server stops.</param>
-    public OIDDAServerSession(IOIDDAPlayerHost host, OIDDAMetricGate gate = null, float reconnectGraceSeconds = 0f, int maxParked = 64, bool saveProfiles = false, float profileAutosaveSeconds = 0f)
+    /// <param name="maxMetricViolations">A client that sends more than this many invalid metric reports within the window is removed (see <see cref="Kicked"/>). 0 never removes anyone.</param>
+    /// <param name="metricViolationWindowSeconds">Seconds, from a client's first invalid report, in which its invalid reports add up.</param>
+    public OIDDAServerSession(IOIDDAPlayerHost host, OIDDAMetricGate gate = null, float reconnectGraceSeconds = 0f, int maxParked = 64, bool saveProfiles = false, float profileAutosaveSeconds = 0f, int maxMetricViolations = 10, float metricViolationWindowSeconds = 60f)
     {
+        _maxViolations = System.Math.Max(0, maxMetricViolations);
+        _violationWindow = System.Math.Max(0f, metricViolationWindowSeconds);
         _host = host;
         _gate = gate;
         _graceSeconds = reconnectGraceSeconds;
@@ -155,6 +197,12 @@ public sealed class OIDDAServerSession
     /// Clients that were refused because the manager's MaxPlayers was reached. 
     /// </summary>
     public IReadOnlyCollection<uint> Rejected => _rejected;
+
+    /// <summary>
+    /// Clients that were removed from OIDDA for repeated invalid metric reports and are still connected to the network. They get
+    /// no state, their reports are ignored and they are not registered again until they disconnect.
+    /// </summary>
+    public IReadOnlyCollection<uint> Kicked => _kicked;
 
     /// <summary> 
     /// Disconnected players whose state is being kept. 
@@ -194,7 +242,7 @@ public sealed class OIDDAServerSession
             if (id == OIDDANetworkIds.Server) continue;
 
             _connected.Add(id);
-            if (_players.Contains(id) || _rejected.Contains(id)) continue;
+            if (_players.Contains(id) || _rejected.Contains(id) || _kicked.Contains(id)) continue;
 
             // A refused client is not retried every tick (the manager warns each time): only after someone leaves.
             if (!_host.RegisterPlayer(id))
@@ -221,7 +269,17 @@ public sealed class OIDDAServerSession
             _needReliable.Remove(id);
             _targetCache.Remove(id);
             _gate?.Forget(id);
+            _violations.Remove(id);
+            _warnedInvalid.Remove(id);
             _allTargetsDirty = true;
+        }
+
+        if (_kicked.Count > 0)
+        {
+            _scratch.Clear();
+            foreach (var id in _kicked)
+                if (!_connected.Contains(id)) _scratch.Add(id);
+            for (int i = 0; i < _scratch.Count; i++) _kicked.Remove(_scratch[i]);
         }
 
         if (_rejected.Count > 0)
@@ -379,13 +437,21 @@ public sealed class OIDDAServerSession
     /// Every call numbers its messages with the next sequence number. With <paramref name="allowUnreliable"/> a message may go on
     /// an unreliable channel, except the first one to a client (new or resumed) and any bigger than <see cref="MaxUnreliableBytes"/>:
     /// those are marked reliable.
+    /// With <paramref name="format"/> <see cref="OIDDAStateFormat.V3"/> each message also tells the group of each player and carries
+    /// the state of every group; the default (V2) is the format of earlier versions, which carries group 0 only.
+    /// With <paramref name="replicateToAll"/> and <paramref name="onlyOwnGroup"/> each client receives only the players of its own group:
+    /// one message per group that has clients, instead of one for everybody.
     /// </summary>
-    public List<OutgoingState> BuildMessages(bool replicateToAll, bool includeHostPlayer, bool allowUnreliable = false)
+    public List<OutgoingState> BuildMessages(bool replicateToAll, bool includeHostPlayer, bool allowUnreliable = false, OIDDAStateFormat format = OIDDAStateFormat.V2, bool onlyOwnGroup = false)
     {
         _messages.Clear();
         if (_players.Count == 0) return _messages;
 
         unchecked { _sequence++; }
+
+        if (replicateToAll && onlyOwnGroup) return BuildMessagesPerGroup(includeHostPlayer, allowUnreliable, format);
+
+        if (format == OIDDAStateFormat.V3) return BuildMessagesV3(replicateToAll, includeHostPlayer, allowUnreliable);
 
         bool hasGroup = _host.TryGetGroupState(out var groupState);
         OIDDAStateSnapshot? group = hasGroup ? groupState : null;
@@ -399,14 +465,7 @@ public sealed class OIDDAServerSession
             if (includeHostPlayer && _host.TryGetPlayerState(OIDDANetworkIds.Server, out var hostState))
                 _all.Add(new KeyValuePair<uint, OIDDAStateSnapshot>(OIDDANetworkIds.Server, hostState));
 
-            if (_allTargetsDirty)
-            {
-                _allTargets = new uint[_players.Count];
-                _players.CopyTo(_allTargets);
-                _allTargetsDirty = false;
-            }
-
-            AddMessage(_allTargets, OIDDANetworkCodec.Encode(_all, group, _sequence), allowUnreliable);
+            AddMessage(AllTargets(), OIDDANetworkCodec.Encode(_all, group, _sequence), allowUnreliable);
             return _messages;
         }
 
@@ -417,15 +476,143 @@ public sealed class OIDDAServerSession
             else if (hasGroup) payload = OIDDANetworkCodec.EncodeGroupOnly(groupState, _sequence);
             else continue;
 
-            if (!_targetCache.TryGetValue(id, out var target))
-            {
-                target = new[] { id };
-                _targetCache[id] = target;
-            }
-
-            AddMessage(target, payload, allowUnreliable);
+            AddMessage(TargetOf(id), payload, allowUnreliable);
         }
         return _messages;
+    }
+
+    // Format 3: each player carries its group id, and every group's state is sent (to everyone, whichever players they get).
+    List<OutgoingState> BuildMessagesV3(bool replicateToAll, bool includeHostPlayer, bool allowUnreliable)
+    {
+        _groupStates.Clear();
+        _host.GetGroupStates(_groupStates);
+
+        if (replicateToAll)
+        {
+            _entries.Clear();
+            foreach (var id in _players)
+                if (_host.TryGetPlayerState(id, out var snapshot)) _entries.Add((id, _host.GetPlayerGroup(id), snapshot));
+
+            if (includeHostPlayer && _host.TryGetPlayerState(OIDDANetworkIds.Server, out var hostState))
+                _entries.Add((OIDDANetworkIds.Server, _host.GetPlayerGroup(OIDDANetworkIds.Server), hostState));
+
+            AddMessage(AllTargets(), OIDDANetworkCodec.EncodeV3(_entries, _groupStates, _sequence), allowUnreliable);
+            return _messages;
+        }
+
+        foreach (var id in _players)
+        {
+            _entries.Clear();
+            if (_host.TryGetPlayerState(id, out var own)) _entries.Add((id, _host.GetPlayerGroup(id), own));
+            else if (_groupStates.Count == 0) continue;
+
+            AddMessage(TargetOf(id), OIDDANetworkCodec.EncodeV3(_entries, _groupStates, _sequence), allowUnreliable);
+        }
+        return _messages;
+    }
+
+    // Everyone's state, but each client only gets the players of its own group (and, in format 3, every group's state).
+    List<OutgoingState> BuildMessagesPerGroup(bool includeHostPlayer, bool allowUnreliable, OIDDAStateFormat format)
+    {
+        bool v3 = format == OIDDAStateFormat.V3;
+        OIDDAStateSnapshot? group0 = null;
+        _groupStates.Clear();
+        if (v3) _host.GetGroupStates(_groupStates);
+        else if (_host.TryGetGroupState(out var groupState)) group0 = groupState;
+
+        _entries.Clear();
+        _memberships.Clear();
+        _distinctGroups.Clear();
+        foreach (var id in _players)
+        {
+            uint groupId = _host.GetPlayerGroup(id);
+            _memberships.Add((id, groupId));
+            if (!_distinctGroups.Contains(groupId)) _distinctGroups.Add(groupId);
+            if (_host.TryGetPlayerState(id, out var snapshot)) _entries.Add((id, groupId, snapshot));
+        }
+
+        if (includeHostPlayer && _host.TryGetPlayerState(OIDDANetworkIds.Server, out var hostState))
+            _entries.Add((OIDDANetworkIds.Server, _host.GetPlayerGroup(OIDDANetworkIds.Server), hostState));
+
+        for (int g = 0; g < _distinctGroups.Count; g++)
+        {
+            uint groupId = _distinctGroups[g];
+
+            _members.Clear();
+            for (int i = 0; i < _memberships.Count; i++)
+                if (_memberships[i].GroupId == groupId) _members.Add(_memberships[i].Id);
+
+            byte[] payload;
+            if (v3)
+            {
+                _groupEntries.Clear();
+                for (int i = 0; i < _entries.Count; i++)
+                    if (_entries[i].GroupId == groupId) _groupEntries.Add(_entries[i]);
+                payload = OIDDANetworkCodec.EncodeV3(_groupEntries, _groupStates, _sequence);
+            }
+            else
+            {
+                _groupPlayers.Clear();
+                for (int i = 0; i < _entries.Count; i++)
+                    if (_entries[i].GroupId == groupId) _groupPlayers.Add(new KeyValuePair<uint, OIDDAStateSnapshot>(_entries[i].Id, _entries[i].State));
+                payload = OIDDANetworkCodec.Encode(_groupPlayers, group0, _sequence);
+            }
+
+            AddMessage(TargetsOfGroup(groupId), payload, allowUnreliable);
+        }
+
+        ForgetEmptyGroupTargets();
+        return _messages;
+    }
+
+    // The clients of a group (in _members), as an array that is reused while the group's clients stay the same.
+    uint[] TargetsOfGroup(uint groupId)
+    {
+        if (_groupTargets.TryGetValue(groupId, out var cached) && cached.Length == _members.Count)
+        {
+            bool same = true;
+            for (int i = 0; same && i < cached.Length; i++) same = cached[i] == _members[i];
+            if (same) return cached;
+        }
+
+        var targets = _members.ToArray();
+        _groupTargets[groupId] = targets;
+        return targets;
+    }
+
+    // Groups that no longer have clients leave the cache.
+    void ForgetEmptyGroupTargets()
+    {
+        if (_groupTargets.Count <= _distinctGroups.Count) return;
+
+        _staleGroups.Clear();
+        foreach (var id in _groupTargets.Keys)
+            if (!_distinctGroups.Contains(id)) _staleGroups.Add(id);
+        for (int i = 0; i < _staleGroups.Count; i++) _groupTargets.Remove(_staleGroups[i]);
+    }
+
+    /// <summary> Groups whose client lists are kept for reuse (for tests). </summary>
+    internal int CachedGroupTargets => _groupTargets.Count;
+
+    uint[] AllTargets()
+    {
+        if (_allTargetsDirty)
+        {
+            _allTargets = new uint[_players.Count];
+            _players.CopyTo(_allTargets);
+            _allTargetsDirty = false;
+        }
+        return _allTargets;
+    }
+
+    uint[] TargetOf(uint id)
+    {
+        if (!_targetCache.TryGetValue(id, out var target))
+        {
+            target = new[] { id };
+            _targetCache[id] = target;
+        }
+        return target;
     }
 
     void AddMessage(uint[] targets, byte[] payload, bool allowUnreliable)
@@ -448,13 +635,90 @@ public sealed class OIDDAServerSession
 
     /// <summary>
     /// Handles a metric a client reported. The sender id comes from the network layer, never from the message, so a client
-    /// can only report for itself.
+    /// can only report for itself. Invalid reports (not a metric the client may report, or not a finite number) are counted and
+    /// past the limit the client is removed (see <see cref="Kicked"/>); reports over the rate limit are only dropped.
     /// </summary>
     public bool HandleReport(uint senderId, string name, float value, float now)
     {
+        // A client that was removed is not in _players, so its reports end here.
         if (_gate == null || !_players.Contains(senderId)) return false;
-        if (!_gate.TryAccept(senderId, name, value, now, out var clamped)) return false;
 
-        return _host.WriteMetric(senderId, name, clamped);
+        switch (_gate.Check(senderId, name, value, now, out var clamped))
+        {
+            case OIDDAMetricVerdict.Accepted:
+                return _host.WriteMetric(senderId, name, clamped);
+            case OIDDAMetricVerdict.Invalid:
+                NoteInvalidReport(senderId, name, now);
+                return false;
+            default:
+                // Too many reports: the gate already dropped it, and a client that is merely too fast is not punished.
+                return false;
+        }
+    }
+
+    // An invalid report: warn once per client, and count it. Past the limit within the window the client is removed.
+    void NoteInvalidReport(uint senderId, string name, float now)
+    {
+        if (_warnedInvalid.Add(senderId))
+        {
+            Debug.LogWarning($"OIDDA: client {senderId} sent a metric report that was rejected ('{ShortName(name)}'): the name must be on the allowed list and the value a finite number." +
+                             (_maxViolations > 0 ? " Repeated invalid reports remove the client from OIDDA." : ""));
+        }
+
+        if (_maxViolations <= 0) return;
+
+        _violations.TryGetValue(senderId, out var violations);
+        if (violations.Count > 0 && now - violations.WindowStart > _violationWindow) violations.Count = 0;
+        if (violations.Count == 0) violations.WindowStart = now;
+        violations.Count++;
+
+        if (violations.Count > _maxViolations)
+        {
+            Kick(senderId);
+            return;
+        }
+
+        _violations[senderId] = violations;
+    }
+
+    // Takes a client out of OIDDA. The engine has no way to disconnect a single client, so it stays connected to the network: it gets
+    // no state, its reports are ignored, and it is not registered again. Its state is not kept for a return and its profile is not saved.
+    void Kick(uint id)
+    {
+        _host.UnregisterPlayer(id);
+
+        _players.Remove(id);
+        _needReliable.Remove(id);
+        _targetCache.Remove(id);
+        _gate?.Forget(id);
+        _violations.Remove(id);
+        _warnedInvalid.Remove(id);
+
+        if (_keyByPlayer.TryGetValue(id, out var key))
+        {
+            _keyByPlayer.Remove(id);
+            _playerByKey.Remove(key);
+        }
+
+        _kicked.Add(id);
+        _allTargetsDirty = true;
+        _stats.Kicked++;
+
+        // A place was freed: clients that were refused for lack of room may try again.
+        _rejected.Clear();
+
+        Debug.LogWarning($"OIDDA: client {id} was removed for repeated invalid metric reports. It stays connected to the network, but OIDDA ignores it from now on.");
+    }
+
+    // A metric name as it may be shown in the log: cut to the longest allowed name, without control characters.
+    static string ShortName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return "";
+
+        var cut = name.Length > OIDDAMetricGate.MaxNameLength ? name.Substring(0, OIDDAMetricGate.MaxNameLength) + "..." : name;
+        var chars = cut.ToCharArray();
+        for (int n = 0; n < chars.Length; n++)
+            if (chars[n] < ' ') chars[n] = '?';
+        return new string(chars);
     }
 }
