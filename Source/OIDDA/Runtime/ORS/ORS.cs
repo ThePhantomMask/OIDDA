@@ -662,9 +662,10 @@ public class ORS : ORSAgent
     /// <remarks>If pacing is enabled, this property reflects the recommendation of the pacing director. If pacing is disabled, it always returns <see langword="true"/>.</remarks>
     public bool IsShouldSpawnEncounter => IsRemoteClient ? TryLocalRemoteState(out var remote) && remote.ShouldSpawnEncounter : (_oiddaManager) ? _oiddaManager.IsShouldSpawnEncounter : false;
     /// <summary>
-    /// Gets a value indicating if the game is in a flow state.
+    /// Gets a value indicating if the player is in a flow state: engaged, without too much stress or fatigue.
     /// </summary>
-    public bool IsInFlowState => (_oiddaManager) ? _oiddaManager.IsInFlowState : false;
+    /// <remarks>False if pacing is disabled. For another player, use <c>TryGetPlayerState</c> (the snapshot carries the same flag).</remarks>
+    public bool IsInFlowState => IsRemoteClient ? TryLocalRemoteState(out var remote) && remote.IsInFlowState : (_oiddaManager) ? _oiddaManager.IsInFlowState : false;
     /// <summary>
     /// Gets the current pacing state of the director.
     /// </summary>

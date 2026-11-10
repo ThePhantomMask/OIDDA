@@ -139,7 +139,7 @@ reads the others. With format V2 clients only receive group 0. On the server, `O
   also receives the state of other players (for example to show teammates): the players of its own group, or every player
   with `OnlyOwnGroup` off (see "State format").
 * **What a client can do.** Read state through the ORS (`CurrentState`, `CurrentIntensity`, `CurrentStress`, `CurrentFatigue`,
-  `IsShouldSpawnEncounter`, `Group*`, `LocalPlayerId`, `TryGetPlayerState`, `TryGetGroupState`). Reading a game variable
+  `IsShouldSpawnEncounter`, `IsInFlowState` (format V3 only: with V2 it is always false on a client), `Group*`, `LocalPlayerId`, `TryGetPlayerState`, `TryGetGroupState`). Reading a game variable
   throws, and intensity or group changes are ignored with a single warning, because those live on the server.
 * **Client metrics.** Off by default. If you turn on `AllowClientMetrics`, a client can report metrics that only exist on the
   client (a reaction time, say) with `ORS.QuickSender` (or `SenderValue` of a connected agent). The server accepts only the metrics listed in
@@ -334,10 +334,10 @@ clients and the reconnection counters.
 ## Message format
 
 Little-endian. A snapshot is state (1), intensity, stress, fatigue, score, difficulty multiplier (5 numbers), flags
-(1: bit 0 = should spawn encounter), player count (2). In version 2 the five numbers are 32-bit floats (24 bytes in all); in
+(1: bit 0 = should spawn encounter, bit 1 = flow state, version 3 only), player count (2). In version 2 the five numbers are 32-bit floats (24 bytes in all); in
 version 3 they are 16-bit values scaled to the range each one can have (0-100 for intensity, stress and fatigue, 0-1 for the
 score, 0-10 for the multiplier), 14 bytes in all. The step is 0.0015 for a percentage, so a value comes back within 0.001 of
-what the server had; the ends of each range, the state, the spawn flag and the player count are exact. A message is rejected as a whole if its length, version, flags or state
+what the server had; the ends of each range, the state, the spawn and flow flags and the player count are exact. A message is rejected as a whole if its length, version, flags or state
 byte are wrong, or if its sequence number is not newer than the last applied; non-finite numbers become 0 and values are
 clamped to their legitimate range.
 

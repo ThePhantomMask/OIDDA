@@ -22,7 +22,8 @@ public struct OIDDAStateSnapshot
 
     public bool ShouldSpawnEncounter;
 
-    public bool IsInFlow;
+    /// <summary> The player is in a flow state (see <see cref="DirectorManager.IsInFlowState"/>). Only set for a player, never for a group. </summary>
+    public bool IsInFlowState;
 
     /// <summary> Players taken into account: 1 for a player, the group size for the group. </summary>
     public int PlayerCount;
@@ -36,7 +37,7 @@ public struct OIDDAStateSnapshot
         Score = player.EvaluateScore(),
         DifficultyMultiplier = player.Director.DifficultyMultiplier,
         ShouldSpawnEncounter = player.IsShouldSpawnEncounter,
-        IsInFlow = player.IsInFlow,
+        IsInFlowState = player.IsInFlowState,
         PlayerCount = 1
     };
 

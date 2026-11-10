@@ -563,7 +563,7 @@ public class OIDDAManager : Script
     public void AddDirectorIntensity(float amount, string reason = "") => DefaultContext.AddDirectorIntensity(amount, reason);
 
     public bool IsShouldSpawnEncounter => DefaultContext.IsShouldSpawnEncounter;
-    public bool IsInFlowState => DefaultContext.IsInFlow;
+    public bool IsInFlowState => DefaultContext.IsInFlowState;
     public DirectorState DirectorState => DefaultContext.DirectorState;
     public float Intensity => DefaultContext.Intensity;
     public float PlayerStress => DefaultContext.PlayerStress;

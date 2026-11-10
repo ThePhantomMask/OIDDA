@@ -265,7 +265,8 @@ public static class OIDDANetworkCodec
         return HeaderBytes;
     }
 
-    // Compact snapshot (version 3): state (1), intensity, stress, fatigue, score, difficulty multiplier (5 x 16 bits), flags (1), player count (2).
+    // Compact snapshot (version 3): state (1), intensity, stress, fatigue, score, difficulty multiplier (5 x 16 bits), flags (1: bit 0 = should spawn
+    // encounter, bit 1 = flow state), player count (2). Version 2 has no flow state: it stays as it was.
     static int WriteSnapshot3(byte[] data, int offset, in OIDDAStateSnapshot s)
     {
         data[offset] = (byte)s.State;
@@ -274,9 +275,8 @@ public static class OIDDANetworkCodec
         BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 5), Quantize(s.Fatigue, MaxPercent));
         BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 7), Quantize(s.Score, MaxScore));
         BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 9), Quantize(s.DifficultyMultiplier, MaxMultiplier));
-        data[offset + 11] = s.ShouldSpawnEncounter ? (byte)1 : (byte)0;
-        data[offset + 12] = s.IsInFlow ? (byte)1 : (byte)0;
-        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 13), (ushort)Math.Clamp(s.PlayerCount, 0, ushort.MaxValue));
+        data[offset + 11] = (byte)((s.ShouldSpawnEncounter ? 1 : 0) | (s.IsInFlowState ? 2 : 0));
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 12), (ushort)Math.Clamp(s.PlayerCount, 0, ushort.MaxValue));
         return offset + SnapshotBytes3;
     }
 
@@ -288,8 +288,7 @@ public static class OIDDANetworkCodec
         if (!Enum.IsDefined(typeof(DirectorState), (int)state)) return false;
 
         byte flags = data[offset + 11];
-        byte flowFlag = data[offset + 12];
-        if ((flags & ~1) != 0 || (flowFlag & ~1) != 0) return false;
+        if ((flags & ~3) != 0) return false;
 
         snapshot = new OIDDAStateSnapshot
         {
@@ -300,8 +299,8 @@ public static class OIDDANetworkCodec
             Score = Dequantize(BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 7)), MaxScore),
             DifficultyMultiplier = Dequantize(BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 9)), MaxMultiplier),
             ShouldSpawnEncounter = (flags & 1) != 0,
-            IsInFlow = (flags & 2) != 0,
-            PlayerCount = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 13))
+            IsInFlowState = (flags & 2) != 0,
+            PlayerCount = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 12))
         };
 
         offset += SnapshotBytes3;
