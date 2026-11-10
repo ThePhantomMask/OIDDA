@@ -273,6 +273,7 @@ public class OIDDAManager : Script
     }
 
     public bool IsShouldSpawnEncounter => _isUseDirector ? Director.ShouldSpawnEncounter() : true;
+    public bool IsInFlowState => _isUseDirector ? Director.IsInFlowState : false;
     public DirectorState DirectorState => Director.CurrentState;
     public float Intensity => Director.CurrentIntensity;
     public float PlayerStress => Director.StressLevel;

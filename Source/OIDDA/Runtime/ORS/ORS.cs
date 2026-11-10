@@ -209,6 +209,10 @@ public class ORS : ORSAgent
     /// <remarks>If pacing is enabled, this property reflects the recommendation of the pacing director. If pacing is disabled, it always returns <see langword="true"/>.</remarks>
     public bool IsShouldSpawnEncounter => (_oiddaManager) ? _oiddaManager.IsShouldSpawnEncounter : false;
     /// <summary>
+    ///  Gets a value indicating if the game is in a flow state.
+    /// </summary>
+    public bool IsInFlowState => (_oiddaManager) ? _oiddaManager.IsInFlowState : false;
+    /// <summary>
     /// Gets the current pacing state of the director.
     /// </summary>
     public DirectorState CurrentState => (_oiddaManager) ? _oiddaManager.DirectorState : DirectorState.Build;
