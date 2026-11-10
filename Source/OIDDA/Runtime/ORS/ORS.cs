@@ -564,6 +564,15 @@ public class ORS : ORSAgent
         }
     }
 
+    public bool IsInGroupFlowState
+    {
+        get
+        {
+            if (IsRemoteClient) return StateProvider.TryGetGroupState(out var remote) && remote.IsInFlow;
+            return Group?.IsInFlow ?? false;
+        }
+    }
+
     public DirectorState GroupState
     {
         get
@@ -652,6 +661,10 @@ public class ORS : ORSAgent
     /// </summary>
     /// <remarks>If pacing is enabled, this property reflects the recommendation of the pacing director. If pacing is disabled, it always returns <see langword="true"/>.</remarks>
     public bool IsShouldSpawnEncounter => IsRemoteClient ? TryLocalRemoteState(out var remote) && remote.ShouldSpawnEncounter : (_oiddaManager) ? _oiddaManager.IsShouldSpawnEncounter : false;
+    /// <summary>
+    /// Gets a value indicating if the game is in a flow state.
+    /// </summary>
+    public bool IsInFlowState => (_oiddaManager) ? _oiddaManager.IsInFlowState : false;
     /// <summary>
     /// Gets the current pacing state of the director.
     /// </summary>

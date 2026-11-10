@@ -22,6 +22,8 @@ public struct OIDDAStateSnapshot
 
     public bool ShouldSpawnEncounter;
 
+    public bool IsInFlow;
+
     /// <summary> Players taken into account: 1 for a player, the group size for the group. </summary>
     public int PlayerCount;
 
@@ -34,6 +36,7 @@ public struct OIDDAStateSnapshot
         Score = player.EvaluateScore(),
         DifficultyMultiplier = player.Director.DifficultyMultiplier,
         ShouldSpawnEncounter = player.IsShouldSpawnEncounter,
+        IsInFlow = player.IsInFlow,
         PlayerCount = 1
     };
 
@@ -46,6 +49,7 @@ public struct OIDDAStateSnapshot
         Score = group.Score,
         DifficultyMultiplier = group.DifficultyMultiplier,
         ShouldSpawnEncounter = group.ShouldSpawnEncounter,
+        IsInFlow = group.IsInFlow,
         PlayerCount = group.PlayerCount
     };
 }

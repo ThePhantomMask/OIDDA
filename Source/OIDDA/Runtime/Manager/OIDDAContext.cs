@@ -289,6 +289,7 @@ public sealed class OIDDAContext
     }
 
     public bool IsShouldSpawnEncounter => _isUseDirector ? _director.ShouldSpawnEncounter() : true;
+    public bool IsInFlow => _isUseDirector ? _director.IsInFlowState : false;
     public DirectorState DirectorState => _director.CurrentState;
     public float Intensity => _director.CurrentIntensity;
     public float PlayerStress => _director.StressLevel;
