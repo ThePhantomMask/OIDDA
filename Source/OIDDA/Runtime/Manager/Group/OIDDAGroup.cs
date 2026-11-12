@@ -91,7 +91,7 @@ public sealed class OIDDAGroup
     public float Fatigue => _director.FatigueLevel;
     public float DifficultyMultiplier => _director.DifficultyMultiplier;
     public bool ShouldSpawnEncounter => _director.ShouldSpawnEncounter();
-    public bool IsInFlow => _director.IsInFlowState;
+    public bool IsInFlowState => _director.IsInFlowState;
 
     /// <summary> Adds intensity that belongs to the group itself. </summary>
     public void AddIntensity(float amount, string reason = "")

@@ -322,8 +322,7 @@ public static class OIDDANetworkCodec
         BinaryPrimitives.WriteSingleLittleEndian(data.AsSpan(offset + 13), s.Score);
         BinaryPrimitives.WriteSingleLittleEndian(data.AsSpan(offset + 17), s.DifficultyMultiplier);
         data[offset + 21] = s.ShouldSpawnEncounter ? (byte)1 : (byte)0;
-        data[offset + 22] = s.IsInFlow ? (byte)1 : (byte)0;
-        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 23), (ushort)Math.Clamp(s.PlayerCount, 0, ushort.MaxValue));
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 22), (ushort)Math.Clamp(s.PlayerCount, 0, ushort.MaxValue));
         return offset + SnapshotBytes;
     }
 
