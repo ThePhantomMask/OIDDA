@@ -209,32 +209,11 @@ public struct GameplayValue
     /// </summary>
     public bool TryGetGameplayValueAs<T>(out T value)
     {
-        object raw = null;
         bool matched = true;
 
-        switch (Type)
-        {
-            case ValueType.Float when typeof(T) == typeof(float): raw = FloatValue; break;
-            case ValueType.Int when typeof(T) == typeof(int): raw = IntValue; break;
-            case ValueType.Bool when typeof(T) == typeof(bool): raw = BoolValue; break;
-            case ValueType.Vector2 when typeof(T) == typeof(Vector2): raw = Vector2Value; break;
-            case ValueType.Vector3 when typeof(T) == typeof(Vector3): raw = Vector3Value; break;
-            case ValueType.Vector4 when typeof(T) == typeof(Vector4): raw = Vector4Value; break;
-            case ValueType.String when typeof(T) == typeof(string): raw = StringValue; break;
-            case ValueType.Color when typeof(T) == typeof(Color): raw = ColorValue; break;
-            case ValueType.Quaternion when typeof(T) == typeof(Quaternion): raw = QuaternionValue; break;
-            case ValueType.Transform when typeof(T) == typeof(Transform): raw = TransformValue; break;
-            case ValueType.BoundingBox when typeof(T) == typeof(BoundingBox): raw = BoundingBoxValue; break;
-            case ValueType.BoundingSphere when typeof(T) == typeof(BoundingSphere): raw = BoundingSphereValue; break;
-            case ValueType.Rectangle when typeof(T) == typeof(Rectangle): raw = RectangleValue; break;
-            case ValueType.Matrix when typeof(T) == typeof(Matrix): raw = MatrixValue; break;
-            case ValueType.Texture when typeof(T) == typeof(Texture): raw = TextureValue; break;
-            case ValueType.CubeTexture when typeof(T) == typeof(CubeTexture): raw = CubeTextureValue; break;
-            default: matched = false; break;
-        }
-
         // A value that holds the right type but no object (a null string or texture) still counts as a match, and reads as the default.
-        value = raw is T t ? t : GetDefaultForType<T>();
+        value = Value is T t ? t : GetDefaultForType<T>();
+        matched = value is not null;
         return matched;
     }
 

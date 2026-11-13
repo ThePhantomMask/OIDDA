@@ -139,7 +139,7 @@ reads the others. With format V2 clients only receive group 0. On the server, `O
   also receives the state of other players (for example to show teammates): the players of its own group, or every player
   with `OnlyOwnGroup` off (see "State format").
 * **What a client can do.** Read state through the ORS (`CurrentState`, `CurrentIntensity`, `CurrentStress`, `CurrentFatigue`,
-  `IsShouldSpawnEncounter`, `IsInFlowState` (format V3 only: with V2 it is always false on a client), `Group*`, `LocalPlayerId`, `TryGetPlayerState`, `TryGetGroupState`). Reading a game variable
+  `IsShouldSpawnEncounter`, `IsInFlowState` and `IsInGroupFlowState` (format V3 only: with V2 they are always false on a client), `Group*`, `LocalPlayerId`, `TryGetPlayerState`, `TryGetGroupState`). Reading a game variable
   throws, and intensity or group changes are ignored with a single warning, because those live on the server.
 * **Client metrics.** Off by default. If you turn on `AllowClientMetrics`, a client can report metrics that only exist on the
   client (a reaction time, say) with `ORS.QuickSender` (or `SenderValue` of a connected agent). The server accepts only the metrics listed in

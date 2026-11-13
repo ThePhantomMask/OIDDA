@@ -564,12 +564,16 @@ public class ORS : ORSAgent
         }
     }
 
+    /// <summary>
+    /// Gets a value indicating if the group of the local player is in a flow state. False when no group is configured.
+    /// On a remote client it needs state format V3 (with V2 it is always false).
+    /// </summary>
     public bool IsInGroupFlowState
     {
         get
         {
-            if (IsRemoteClient) return StateProvider.TryGetGroupState(out var remote) && remote.IsInFlow;
-            return Group?.IsInFlow ?? false;
+            if (IsRemoteClient) return StateProvider.TryGetGroupState(out var remote) && remote.IsInFlowState;
+            return Group?.IsInFlowState ?? false;
         }
     }
 
