@@ -202,9 +202,15 @@ public struct GameplayValue
         };
     }
 
+    /// <summary>
+    /// Reads the value as <typeparamref name="T"/>. Returns true only if the value holds exactly that type (no conversion: an Int is not a
+    /// Float). Otherwise it returns false and <paramref name="value"/> is the default for <typeparamref name="T"/> (0, false, a zero
+    /// vector, <see cref="Color.White"/>, <see cref="Quaternion.Identity"/>, an empty string...).
+    /// </summary>
     public bool TryGetGameplayValueAs<T>(out T value)
     {
         object raw = null;
+        bool matched = true;
 
         switch (Type)
         {
@@ -220,12 +226,23 @@ public struct GameplayValue
             case ValueType.Transform when typeof(T) == typeof(Transform): raw = TransformValue; break;
             case ValueType.BoundingBox when typeof(T) == typeof(BoundingBox): raw = BoundingBoxValue; break;
             case ValueType.BoundingSphere when typeof(T) == typeof(BoundingSphere): raw = BoundingSphereValue; break;
+            case ValueType.Rectangle when typeof(T) == typeof(Rectangle): raw = RectangleValue; break;
+            case ValueType.Matrix when typeof(T) == typeof(Matrix): raw = MatrixValue; break;
             case ValueType.Texture when typeof(T) == typeof(Texture): raw = TextureValue; break;
             case ValueType.CubeTexture when typeof(T) == typeof(CubeTexture): raw = CubeTextureValue; break;
+            default: matched = false; break;
         }
 
+        // A value that holds the right type but no object (a null string or texture) still counts as a match, and reads as the default.
         value = raw is T t ? t : GetDefaultForType<T>();
-        return true;
+        return matched;
+    }
+
+    // The value as T, or the default for T when it holds another type.
+    private T GetOrDefault<T>()
+    {
+        TryGetGameplayValueAs<T>(out var value);
+        return value;
     }
 
     private static T GetDefaultForType<T>()
@@ -251,20 +268,20 @@ public struct GameplayValue
         return boxed is T t ? t : default;
     }
 
-    public float AsFloat() => TryGetGameplayValueAs<float>(out var value) ? value : value;
-    public int AsInt() => TryGetGameplayValueAs<int>(out var value) ? value : value;
-    public bool AsBool() => TryGetGameplayValueAs<bool>(out var value) ? value : value;
-    public Vector2 AsVector2() => TryGetGameplayValueAs<Vector2>(out var value) ? value : value;
-    public Vector3 AsVector3() => TryGetGameplayValueAs<Vector3>(out var value) ? value : value;
-    public Vector4 AsVector4() => TryGetGameplayValueAs<Vector4>(out var value) ? value : value;
-    public string AsString() => TryGetGameplayValueAs<string>(out var value) ? value : value;
-    public Color AsColor() => TryGetGameplayValueAs<Color>(out var value) ? value : value;
-    public Quaternion AsQuaternion() => TryGetGameplayValueAs<Quaternion>(out var value) ? value : value;
-    public Transform AsTransform() => TryGetGameplayValueAs<Transform>(out var value) ? value : value;
-    public BoundingBox AsBoundingBox() => TryGetGameplayValueAs<BoundingBox>(out var value) ? value : value;
-    public BoundingSphere AsBoundingSphere() => TryGetGameplayValueAs<BoundingSphere>(out var value) ? value : value;
-    public Texture AsTexture() => TryGetGameplayValueAs<Texture>(out var value) ? value : value;
-    public CubeTexture AsCubeTexture() => TryGetGameplayValueAs<CubeTexture>(out var value) ? value : value;
+    public float AsFloat() => GetOrDefault<float>();
+    public int AsInt() => GetOrDefault<int>();
+    public bool AsBool() => GetOrDefault<bool>();
+    public Vector2 AsVector2() => GetOrDefault<Vector2>();
+    public Vector3 AsVector3() => GetOrDefault<Vector3>();
+    public Vector4 AsVector4() => GetOrDefault<Vector4>();
+    public string AsString() => GetOrDefault<string>();
+    public Color AsColor() => GetOrDefault<Color>();
+    public Quaternion AsQuaternion() => GetOrDefault<Quaternion>();
+    public Transform AsTransform() => GetOrDefault<Transform>();
+    public BoundingBox AsBoundingBox() => GetOrDefault<BoundingBox>();
+    public BoundingSphere AsBoundingSphere() => GetOrDefault<BoundingSphere>();
+    public Texture AsTexture() => GetOrDefault<Texture>();
+    public CubeTexture AsCubeTexture() => GetOrDefault<CubeTexture>();
 
 }
 public enum ValueType
