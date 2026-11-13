@@ -209,11 +209,10 @@ public struct GameplayValue
     /// </summary>
     public bool TryGetGameplayValueAs<T>(out T value)
     {
-        bool matched = true;
+        bool matched = Value is not null;
 
         // A value that holds the right type but no object (a null string or texture) still counts as a match, and reads as the default.
         value = Value is T t ? t : GetDefaultForType<T>();
-        matched = value is not null;
         return matched;
     }
 
